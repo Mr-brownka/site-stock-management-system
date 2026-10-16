@@ -6,6 +6,7 @@ export function Login({ onIn }: { onIn: () => void }) {
   const [password, setPassword] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
   const demo = api.mode === 'demo';
 
   const submit = async (e: FormEvent) => {
@@ -13,6 +14,14 @@ export function Login({ onIn }: { onIn: () => void }) {
     setBusy(true); setErr('');
     try { await api.signIn(email.trim(), password); onIn(); }
     catch (x) { setErr((x as Error).message === 'Invalid login credentials' ? 'Email or password is wrong.' : (x as Error).message); }
+    finally { setBusy(false); }
+  };
+
+  const forgot = async () => {
+    if (!email.trim()) { setErr('Type your email first, then tap “Forgot password?”.'); return; }
+    setBusy(true); setErr('');
+    try { await api.sendPasswordReset(email.trim()); setSent(true); }
+    catch (x) { setErr((x as Error).message); }
     finally { setBusy(false); }
   };
 
@@ -39,6 +48,8 @@ export function Login({ onIn }: { onIn: () => void }) {
             </label>
             {err && <div className="note err" role="alert">{err}</div>}
             <button className="btn accent" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
+            <button type="button" className="btn link" style={{ alignSelf: 'center' }} disabled={busy} onClick={forgot}>Forgot password?</button>
+            {sent && <div className="note ok" role="status">Check your email for a link to set a new password. It can take a minute; check spam too.</div>}
             <div className="small muted">Accounts are created by the system admin. Ask them if you can’t sign in.</div>
           </form>
         )}

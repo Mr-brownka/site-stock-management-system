@@ -38,7 +38,10 @@ function toLine(r: Record<string, unknown>): Line {
 }
 
 export function supabaseBackend(url: string, key: string): Backend {
-  const sb: SupabaseClient = createClient(url, key, { auth: { persistSession: true, autoRefreshToken: true } });
+  // Read before the client consumes the link: a reset-password email opens the app with type=recovery.
+  let recovery = typeof location !== 'undefined' && /type=recovery/.test(location.hash + location.search);
+  const sb: SupabaseClient = createClient(url, key, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
+  sb.auth.onAuthStateChange((event) => { if (event === 'PASSWORD_RECOVERY') recovery = true; });
 
   return {
     mode: 'live',
@@ -58,6 +61,22 @@ export function supabaseBackend(url: string, key: string): Backend {
 
     async signOut() {
       await sb.auth.signOut();
+    },
+
+    async sendPasswordReset(email) {
+      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}/` });
+      if (error) fail(error);
+    },
+
+    isRecovery() {
+      return recovery;
+    },
+
+    async setPassword(password) {
+      const { error } = await sb.auth.updateUser({ password });
+      if (error) fail(error);
+      recovery = false;
+      history.replaceState(null, '', location.pathname);
     },
 
     async siteName() {

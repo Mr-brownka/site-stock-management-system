@@ -9,6 +9,7 @@ import { Issued } from './screens/Issued';
 import { Login } from './screens/Login';
 import { Opening } from './screens/Opening';
 import { Returns } from './screens/Returns';
+import { SetPassword } from './screens/SetPassword';
 import { Submitted } from './screens/Submitted';
 import { Transfers } from './screens/Transfers';
 
@@ -25,6 +26,7 @@ const fromHash = (): Screen => {
 export function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [screen, setScreen] = useState<Screen>(fromHash);
+  const [recovering, setRecovering] = useState(() => api.isRecovery());
 
   const loadUser = useCallback(() => api.currentUser().then(setUser).catch(() => setUser(null)), []);
   useEffect(() => { loadUser(); }, [loadUser]);
@@ -37,7 +39,10 @@ export function App() {
   const go = useCallback((s: Screen) => { location.hash = `/${s}`; }, []);
   const signOut = useCallback(async () => { await api.signOut(); setUser(null); location.hash = ''; }, []);
 
+  useEffect(() => { const t = setInterval(() => { if (api.isRecovery()) setRecovering(true); }, 500); return () => clearInterval(t); }, []);
+
   if (user === undefined) return <div className="spinner">Loading…</div>;
+  if (recovering) return <SetPassword onDone={() => { setRecovering(false); location.hash = ''; loadUser(); }} />;
   if (!user) return <Login onIn={loadUser} />;
   const View = SCREENS[screen];
   return (

@@ -84,6 +84,9 @@ export function demoBackend(): Backend {
     async currentUser() { return s.signedIn ? { email: 'storekeeper@demo', name: 'Storekeeper' } : null; },
     async signIn() { s.signedIn = true; save(); },
     async signOut() { s.signedIn = false; save(); },
+    async sendPasswordReset() { /* demo: nothing to send */ },
+    isRecovery() { return false; },
+    async setPassword() { /* demo */ },
     async siteName() { return 'Demo site'; },
     async items() { return wait(allItems().slice().sort((a, b) => a.name.localeCompare(b.name))); },
     async addItem(name, unit) {

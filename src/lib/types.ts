@@ -76,6 +76,11 @@ export interface Backend {
   currentUser(): Promise<User | null>;
   signIn(email: string, password: string): Promise<void>;
   signOut(): Promise<void>;
+  /** Email a link for setting a new password. */
+  sendPasswordReset(email: string): Promise<void>;
+  /** True when the page was opened from a password-reset email. */
+  isRecovery(): boolean;
+  setPassword(password: string): Promise<void>;
   siteName(): Promise<string>;
   items(): Promise<Item[]>;
   addItem(name: string, unit: string): Promise<Item>;
