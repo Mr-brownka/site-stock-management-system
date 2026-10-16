@@ -116,7 +116,7 @@ create index movements_site_item on public.movements (site_id, item_id);
 create index movements_return_of on public.movements (return_of);
 
 create or replace function public.movement_from_document()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql set search_path = public as $$
 begin
   select d.site_id, d.kind, d.doc_date into new.site_id, new.kind, new.move_date
   from public.documents d where d.id = new.document_id;
@@ -155,7 +155,7 @@ create table public.day_submissions (
 
 -- Once a day is submitted, only corrections can be added for it.
 create or replace function public.block_locked_day()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql set search_path = public as $$
 begin
   if new.kind <> 'correction' and exists (
     select 1 from public.day_submissions s where s.site_id = new.site_id and s.day = new.doc_date

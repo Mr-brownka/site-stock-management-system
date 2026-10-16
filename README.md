@@ -47,7 +47,7 @@ Without Supabase keys, the app runs as a **demo** with example data stored only 
 ### 1. Supabase
 
 1. Create a project at [supabase.com](https://supabase.com).
-2. Open **SQL Editor**, paste all of [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) and click **Run**. This creates the tables, balance view and access rules.
+2. Open **SQL Editor**, paste all of [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) and click **Run**, then do the same with [`0002_lock_down_helpers.sql`](supabase/migrations/0002_lock_down_helpers.sql). This creates the tables, balance view and access rules.
 3. Paste all of [`supabase/seed.sql`](supabase/seed.sql) and click **Run**. This loads the 1,298 items.
 4. In **Table Editor → sites**, rename `Main site` to the real site name.
 5. In **Authentication → Providers → Email**, turn **off** "Allow new users to sign up". Only people you add can sign in.
