@@ -1,0 +1,9 @@
+{
+  "name": "Site Stock Management System",
+  "short_name": "Site Stock",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#E9EBE8",
+  "theme_color": "#1B2120",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
