@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { api } from '../lib/api';
 
-export function Login({ onIn }: { onIn: () => void }) {
+export function Login({ onIn, onCreate, notice }: { onIn: () => void; onCreate: () => void; notice?: string }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [err, setErr] = useState('');
@@ -50,8 +50,14 @@ export function Login({ onIn }: { onIn: () => void }) {
             <button className="btn accent" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
             <button type="button" className="btn link" style={{ alignSelf: 'center' }} disabled={busy} onClick={forgot}>Forgot password?</button>
             {sent && <div className="note ok" role="status">Check your email for a link to set a new password. It can take a minute; check spam too.</div>}
-            <div className="small muted">Accounts are created by the system admin. Ask them if you can’t sign in.</div>
           </form>
+        )}
+        {notice && <div className="note ok enter" role="status">{notice}</div>}
+        {!demo && (
+          <div className="card pad stack center enter" style={{ textAlign: 'center' }}>
+            <b>New to the store team?</b>
+            <button className="btn ghost" onClick={onCreate}>Create an account</button>
+          </div>
         )}
       </main>
     </div>

@@ -6,7 +6,7 @@ import { resetDemo } from '../lib/demoBackend';
 import { STEPS, useData } from '../lib/store';
 
 export function Home() {
-  const { day, user, balances, docsToday, stepState, submission, refresh, go, signOut } = useData();
+  const { day, user, balances, docsToday, stepState, submission, refresh, go, signOut, openAdmin } = useData();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const states = STEPS.map((s) => stepState(s.key));
@@ -74,6 +74,10 @@ export function Home() {
           <button className="btn accent pulse" onClick={() => go(firstTodo!.screen)}>{states.some((s) => s !== 'todo') ? 'Continue check-in' : 'Start check-in'}</button>
         )}
         <button className="btn ghost" onClick={() => go('dashboard')}>Store dashboard</button>
+        <div className="row">
+          <button className="btn ghost" style={{ flex: 1 }} onClick={() => go('corrections')}>Fix a mistake</button>
+          {user.role === 'admin' && <button className="btn ghost" style={{ flex: 1 }} onClick={openAdmin}>Admin page</button>}
+        </div>
 
         <div className="small muted" style={{ lineHeight: 1.5 }}>
           Withdrawal cards can also be entered during the day. They will already be listed when you reach step 2 tonight.

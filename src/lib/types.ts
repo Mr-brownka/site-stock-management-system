@@ -28,6 +28,8 @@ export interface LineInput {
 }
 
 export interface Line {
+  /** For correction lines: the kind of line it fixes (issue, return, …) or 'recount'. */
+  corrects_kind?: string | null;
   id: number;
   document_id: string;
   kind: Kind;
@@ -45,6 +47,7 @@ export interface Doc extends DocInput {
 }
 
 export interface Balance {
+  site_id?: string;
   item_id: number;
   name: string;
   unit: string;
@@ -66,9 +69,84 @@ export interface Submission {
   steps: Partial<Record<StepKey, StepState>>;
 }
 
+export type Role = 'store' | 'assistant' | 'admin';
+export type Status = 'pending' | 'approved' | 'declined' | 'removed';
+
 export interface User {
   email: string;
   name: string;
+  role: Role;
+  status: Status;
+  siteId: string | null;
+}
+
+export interface SiteInfo {
+  id: string;
+  name: string;
+  company: string;
+}
+
+export interface Profile {
+  id: string;
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  role: Role;
+  status: Status;
+  site_id: string | null;
+  created_at: string;
+  decided_at: string | null;
+}
+
+export interface SignUpInput {
+  email: string;
+  password: string;
+  full_name: string;
+  phone: string;
+  site_id: string;
+  role: 'store' | 'assistant';
+}
+
+export interface CorrectionInput {
+  kind: 'fix' | 'recount';
+  movement_id?: number | null;
+  item_id: number;
+  from_qty: number;
+  to_qty: number;
+  reason: string;
+  note?: string | null;
+}
+
+export interface CorrectionRequest extends CorrectionInput {
+  id: string;
+  site_id: string;
+  status: 'pending' | 'approved' | 'rejected';
+  decision_note: string | null;
+  created_by: string;
+  created_at: string;
+  decided_at: string | null;
+}
+
+export interface SiteDoc extends Doc {
+  site_id: string;
+  created_by: string;
+}
+
+/** Admin-only reads and actions across all sites. */
+export interface AdminApi {
+  profiles(): Promise<Profile[]>;
+  setProfile(id: string, patch: Partial<Pick<Profile, 'status' | 'role' | 'site_id'>>): Promise<void>;
+  sites(): Promise<SiteInfo[]>;
+  addSite(name: string): Promise<void>;
+  renameSite(id: string, name: string): Promise<void>;
+  corrections(): Promise<CorrectionRequest[]>;
+  decide(id: string, approve: boolean, note?: string): Promise<void>;
+  balances(): Promise<Balance[]>;
+  submissions(day: string): Promise<{ site_id: string; day: string; submitted_at: string }[]>;
+  documents(from: string, to: string): Promise<SiteDoc[]>;
+  updateItem(id: number, name: string, unit: string): Promise<void>;
+  mergeItems(keepId: number, dropId: number): Promise<void>;
+  setReorder(siteId: string, itemId: number, level: number | null): Promise<void>;
 }
 
 export interface Backend {
@@ -81,6 +159,11 @@ export interface Backend {
   /** True when the page was opened from a password-reset email. */
   isRecovery(): boolean;
   setPassword(password: string): Promise<void>;
+  signUp(input: SignUpInput): Promise<void>;
+  signupSites(): Promise<SiteInfo[]>;
+  requestCorrection(input: CorrectionInput): Promise<void>;
+  myCorrections(): Promise<CorrectionRequest[]>;
+  admin: AdminApi;
   /** The signed-in person's company and site, e.g. Comex Builders / Reveal. */
   siteName(): Promise<{ company: string; site: string }>;
   items(): Promise<Item[]>;

@@ -15,6 +15,15 @@ function usage(lines: Line[]): Map<number, Use> {
   const get = (id: number) => m.get(id) ?? (m.set(id, { issued: 0, returned: 0, used: 0, bySub: new Map() }), m.get(id)!);
   const issueSub = new Map(lines.filter((l) => l.kind === 'issue').map((l) => [l.id, l.subphase]));
   for (const l of lines) {
+    // An approved fix to a card or return changes how much was used (stock up = used less).
+    if (l.kind === 'correction' && (l.corrects_kind === 'issue' || l.corrects_kind === 'return')) {
+      const u = get(l.item_id);
+      u.used -= l.qty;
+      const sub = l.subphase ?? NO_SUB;
+      u.bySub.set(sub, (u.bySub.get(sub) ?? 0) - l.qty);
+      if (l.corrects_kind === 'issue') u.issued -= l.qty; else u.returned += l.qty;
+      continue;
+    }
     if (l.kind !== 'issue' && l.kind !== 'return') continue;
     const u = get(l.item_id);
     const sign = l.kind === 'issue' ? 1 : -1;

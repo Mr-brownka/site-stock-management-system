@@ -2,9 +2,11 @@
 // before Supabase is connected. Nothing leaves the phone.
 import ITEMS from '../data/items.json';
 import { addDays, today, weekday } from './dates';
-import { delta, type Backend, type Balance, type Doc, type DocInput, type Field, type Item, type Line, type LineInput, type Submission } from './types';
+import { delta, type Backend, type Balance, type CorrectionRequest, type Doc, type DocInput, type Field, type Item, type Line, type LineInput, type Profile, type SiteDoc, type SiteInfo, type Submission } from './types';
 
-const KEY = 'ssms-demo-v1';
+const KEY = 'ssms-demo-v2';
+const SITE = 'site-reveal';
+const ME = 'demo-admin';
 
 interface Store {
   docs: Doc[];
@@ -13,6 +15,9 @@ interface Store {
   reorder: Record<number, number | null>;
   extraItems: Item[];
   signedIn: boolean;
+  sites: SiteInfo[];
+  profiles: Profile[];
+  corrections: CorrectionRequest[];
 }
 
 const BASE_ITEMS: Item[] = (ITEMS as [string, string][]).map(([name, unit], i) => ({ id: i + 1, name, unit }));
@@ -23,7 +28,15 @@ function uid() {
 }
 
 function seed(): Store {
-  const s: Store = { docs: [], nextLine: 1, submissions: {}, reorder: {}, extraItems: [], signedIn: false };
+  const now = new Date().toISOString();
+  const s: Store = { docs: [], nextLine: 1, submissions: {}, reorder: {}, extraItems: [], signedIn: false,
+    sites: [['site-reveal', 'Reveal'], ['site-astana', 'Astana'], ['site-nyayo', 'Nyayo View 2'], ['site-balozi', 'Balozi Suites']].map(([id, name]) => ({ id, name, company: 'Comex Builders' })),
+    profiles: [
+      { id: ME, full_name: 'Abdirahman', email: 'admin@demo', phone: null, role: 'admin', status: 'approved', site_id: SITE, created_at: now, decided_at: now },
+      { id: 'demo-peter', full_name: 'Peter Otieno', email: 'peter.o@example.com', phone: '0712 345 678', role: 'store', status: 'pending', site_id: SITE, created_at: now, decided_at: null },
+      { id: 'demo-jane', full_name: 'Jane Wambui', email: 'janew@example.com', phone: '0722 111 222', role: 'assistant', status: 'pending', site_id: 'site-astana', created_at: now, decided_at: null },
+    ],
+    corrections: [] };
   const t = today();
   const add = (d: DocInput, lines: [string, number, string?][], ret?: (issue: Line[]) => [number, number][]) => {
     const id = uid();
@@ -79,9 +92,43 @@ export function demoBackend(): Backend {
   const lines = () => s.docs.flatMap((d) => d.lines);
   const wait = <T,>(v: T) => new Promise<T>((r) => setTimeout(() => r(v), 60));
 
-  return {
+  const this_: Backend = {
     mode: 'demo',
-    async currentUser() { return s.signedIn ? { email: 'storekeeper@demo', name: 'Storekeeper' } : null; },
+    async currentUser() { return s.signedIn ? { email: 'admin@demo', name: 'Abdirahman', role: 'admin', status: 'approved', siteId: SITE } : null; },
+    async signUp() { /* demo: sign-up is shown, not stored */ },
+    async signupSites() { return s.sites; },
+    async requestCorrection(input) {
+      s.corrections.unshift({ ...input, movement_id: input.movement_id ?? null, note: input.note ?? null, id: uid(), site_id: SITE, status: 'pending', decision_note: null, created_by: ME, created_at: new Date().toISOString(), decided_at: null });
+      save();
+    },
+    async myCorrections() { return s.corrections; },
+    admin: {
+      async profiles() { return s.profiles; },
+      async setProfile(id, patch) { s.profiles = s.profiles.map((p) => (p.id === id ? { ...p, ...patch, decided_at: new Date().toISOString() } : p)); save(); },
+      async sites() { return s.sites; },
+      async addSite(name) { s.sites.push({ id: uid(), name, company: 'Comex Builders' }); save(); },
+      async renameSite(id, name) { s.sites = s.sites.map((x) => (x.id === id ? { ...x, name } : x)); save(); },
+      async corrections() { return s.corrections; },
+      async decide(id, approve, note) {
+        const r = s.corrections.find((c) => c.id === id);
+        if (!r || r.status !== 'pending') throw new Error('Already decided');
+        if (approve) {
+          const line = r.movement_id ? s.docs.flatMap((d) => d.lines).find((l) => l.id === r.movement_id) : undefined;
+          const change = r.kind === 'fix' && line ? (line.kind === 'issue' || line.kind === 'transfer_out' ? r.from_qty - r.to_qty : r.to_qty - r.from_qty) : r.to_qty - r.from_qty;
+          const did = uid(), date = line?.move_date ?? today();
+          s.docs.push({ kind: 'correction', doc_date: date, reason: r.reason, id: did, created_at: new Date().toISOString(),
+            lines: [{ id: s.nextLine++, document_id: did, kind: 'correction', move_date: date, item_id: r.item_id, qty: change, subphase: line?.subphase ?? null, return_of: null, corrects_kind: line?.kind ?? 'recount' }] });
+        }
+        r.status = approve ? 'approved' : 'rejected'; r.decision_note = note ?? null; r.decided_at = new Date().toISOString();
+        save();
+      },
+      async balances() { return (await this_.balances()).map((b) => ({ ...b, site_id: SITE })); },
+      async submissions(day) { return s.submissions[day] ? [{ site_id: SITE, day, submitted_at: s.submissions[day].submitted_at }] : []; },
+      async documents(from, to) { return s.docs.filter((d) => d.doc_date >= from && d.doc_date <= to).map((d): SiteDoc => ({ ...d, site_id: SITE, created_by: ME })).reverse(); },
+      async updateItem(id, name, unit) { s.extraItems = s.extraItems.map((i) => (i.id === id ? { ...i, name, unit } : i)); save(); },
+      async mergeItems() { /* demo */ },
+      async setReorder(_site, itemId, level) { s.reorder[itemId] = level; save(); },
+    },
     async signIn() { s.signedIn = true; save(); },
     async signOut() { s.signedIn = false; save(); },
     async sendPasswordReset() { /* demo: nothing to send */ },
@@ -136,6 +183,7 @@ export function demoBackend(): Backend {
     async submitDay(day, steps) { s.submissions[day] = { day, steps, submitted_at: new Date().toISOString() }; save(); },
     async setReorder(itemId, level) { s.reorder[itemId] = level; save(); },
   };
+  return this_;
 }
 
 /** Start the demo again with fresh example data. */

@@ -10,7 +10,7 @@ export const STEPS: { key: StepKey; n: number; label: string; desc: string; kind
   { key: 'transfers', n: 4, label: 'Site transfers', desc: 'Stock sent to or received from other sites', kinds: ['transfer_in', 'transfer_out'], screen: 'transfers' },
 ];
 
-export type Screen = 'home' | 'deliveries' | 'issued' | 'returns' | 'transfers' | 'submitted' | 'dashboard' | 'opening';
+export type Screen = 'home' | 'deliveries' | 'issued' | 'returns' | 'transfers' | 'submitted' | 'dashboard' | 'opening' | 'corrections';
 
 interface Data {
   user: User;
@@ -31,6 +31,7 @@ interface Data {
   addItem: (name: string, unit: string) => Promise<Item>;
   go: (s: Screen) => void;
   signOut: () => void;
+  openAdmin: () => void;
 }
 
 const Ctx = createContext<Data | null>(null);
@@ -46,7 +47,7 @@ function readMarks(day: string): Partial<Record<StepKey, StepState>> {
   try { return JSON.parse(localStorage.getItem(markKey(day)) || '{}'); } catch { return {}; }
 }
 
-export function DataProvider({ user, go, signOut, children }: { user: User; go: (s: Screen) => void; signOut: () => void; children: ReactNode }) {
+export function DataProvider({ user, go, signOut, openAdmin, children }: { user: User; go: (s: Screen) => void; signOut: () => void; openAdmin: () => void; children: ReactNode }) {
   const day = today();
   const [site, setSite] = useState('');
   const [company, setCompany] = useState('');
@@ -97,7 +98,7 @@ export function DataProvider({ user, go, signOut, children }: { user: User; go: 
 
   const value: Data = {
     user, site, company, siteLabel: [company, site].filter(Boolean).join(' · ').toUpperCase(), day, items, itemById, balances, balanceOf: (id) => balMap.get(id) ?? 0, docsToday, submission,
-    stepState, markStep, refresh, addItem, go, signOut,
+    stepState, markStep, refresh, addItem, go, signOut, openAdmin,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

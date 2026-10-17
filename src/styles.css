@@ -180,3 +180,38 @@ h1, h2, h3 { margin: 0; }
 .bigTick { width: 76px; height: 76px; animation: pop .5s ease-out both; }
 .center { text-align: center; align-items: center; }
 .spinner { padding: 40px; text-align: center; color: var(--muted); }
+
+/* ───────── Admin (/admin) ───────── */
+.adm { min-height: 100vh; display: flex; background: #F2F3F1; }
+.admNav { width: 240px; flex: none; background: var(--ink); color: #E4E7E5; display: flex; flex-direction: column; padding: 18px 12px; gap: 4px; position: sticky; top: 0; height: 100vh; box-sizing: border-box; }
+.admBrand { padding: 4px 10px 16px; }
+.admTitle { font-family: var(--display); font-weight: 700; font-size: 26px; color: #fff; line-height: 1.05; }
+.admLink { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border: none; border-radius: 10px; background: transparent; color: #E4E7E5; font-size: 15px; font-weight: 600; text-align: left; width: 100%; }
+.admLink[aria-current="page"] { background: #F2F3F1; color: var(--ink); }
+.admLink:hover:not([aria-current="page"]) { background: #2C3432; }
+.admIcon { width: 20px; text-align: center; }
+.admBadge { background: var(--accent); color: #fff; border-radius: 99px; font-size: 12px; font-weight: 700; padding: 1px 8px; }
+.admFoot { margin-top: auto; padding: 10px 0 0; border-top: 1px solid #3A4240; font-size: 13px; color: #B9C0BC; display: flex; flex-direction: column; gap: 2px; }
+.admFoot > div { padding: 0 12px 6px; }
+.admMain { flex: 1; min-width: 0; padding: 24px 28px 60px; display: flex; flex-direction: column; gap: 18px; }
+.admH1 { font-family: var(--display); font-weight: 700; font-size: 34px; line-height: 1.05; }
+.admCards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.admStat { text-align: left; display: flex; flex-direction: column; gap: 2px; }
+.admBig { font-family: var(--mono); font-size: 30px; font-weight: 600; }
+.admSites { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.admRow { display: flex; align-items: center; gap: 10px; padding: 8px 14px; min-height: 50px; border-bottom: 1px solid var(--line-2); background: #fff; flex-wrap: wrap; }
+.admHead { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); min-height: 38px; background: #F6F7F5; }
+.admPerson { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
+.admAvatar { width: 44px; height: 44px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-dark); font-weight: 700; display: flex; align-items: center; justify-content: center; align-self: center; }
+.btn.admSm { width: auto; min-height: 42px; font-size: 16px; border-radius: 10px; padding: 0 16px; }
+.pill.err { background: var(--error-soft); color: var(--error); }
+.pill.acc { background: var(--accent-soft); color: var(--accent-dark); }
+@media (max-width: 900px) {
+  .adm { flex-direction: column; }
+  .admNav { width: auto; height: auto; position: static; flex-direction: row; overflow-x: auto; padding: 10px; gap: 6px; }
+  .admBrand { display: none; }
+  .admLink { width: auto; white-space: nowrap; flex: none; }
+  .admFoot { margin: 0; border: none; flex-direction: row; padding: 0; }
+  .admFoot > div { display: none; }
+  .admMain { padding: 16px; }
+}
