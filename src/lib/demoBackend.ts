@@ -4,7 +4,7 @@ import ITEMS from '../data/items.json';
 import { addDays, today, weekday } from './dates';
 import { delta, type Backend, type Balance, type CorrectionRequest, type Doc, type DocInput, type Field, type Item, type Line, type LineInput, type Profile, type SiteDoc, type SiteInfo, type Submission } from './types';
 
-const KEY = 'ssms-demo-v2';
+const KEY = 'ssms-demo-v3';
 const SITE = 'site-reveal';
 const ME = 'demo-admin';
 
@@ -55,7 +55,7 @@ function seed(): Store {
     ['Cement', 240], ['Ballast', 18], ['River Sand', 60], ['200mm thick Machine Cut Stones', 1900], ['Hoop Iron', 13], ['Binding Wire 16g X 25Kgs', 9],
     ['BRC Mesh A142', 7], ['Concrete Steel Nails 4"', 12], ['PPR pipe 25mm', 70], ['Tile Adhesive', 20], ['Hardcore Filling', 30], ['Gyprock Gypsum Filler 25kg', 40],
   ]);
-  const reorder: [string, number][] = [['Cement', 60], ['Ballast', 10], ['River Sand', 8], ['Hoop Iron', 4], ['BRC Mesh A142', 2], ['Concrete Steel Nails 4"', 4], ['200mm thick Machine Cut Stones', 400]];
+  const reorder: [string, number][] = [['Cement', 60], ['Ballast', 10], ['River Sand', 8], ['Hoop Iron', 4], ['BRC Mesh A142', 6], ['Binding Wire 16g X 25Kgs', 8], ['Concrete Steel Nails 4"', 4], ['200mm thick Machine Cut Stones', 400]];
   reorder.forEach(([n, r]) => (s.reorder[byName(n)] = r));
   let card = 5120;
   for (let k = 7; k >= 1; k--) {

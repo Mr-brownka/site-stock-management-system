@@ -27,7 +27,7 @@ export function Login({ onIn, onCreate, notice }: { onIn: () => void; onCreate: 
   };
 
   return (
-    <div className="phone">
+    <div className="phone login">
       <header className="top" style={{ padding: '40px 20px 28px' }}>
         <div className="kicker"><span>SITE STOCK MANAGEMENT SYSTEM</span>{demo && <span className="badge">DEMO</span>}</div>
         <div style={{ margin: '10px 0 4px' }}><Wordmark size={56} /></div>

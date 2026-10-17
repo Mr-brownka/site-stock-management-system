@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Loader } from './components/Brand';
+import { AppShell } from './components/Shell';
 import { api } from './lib/api';
 import { DataProvider, type Screen } from './lib/store';
 import type { User } from './lib/types';
@@ -83,7 +84,7 @@ export function App() {
   const View = SCREENS[screen];
   return (
     <DataProvider user={user} go={go} signOut={signOut} openAdmin={openAdmin}>
-      <View key={screen} />
+      <AppShell screen={screen}><View /></AppShell>
     </DataProvider>
   );
 }

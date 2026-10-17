@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Loader } from '../components/Brand';
 import { api } from './api';
-import { today } from './dates';
+import { addDays, today, weekday } from './dates';
 import type { Balance, Doc, Item, StepKey, StepState, Submission, User } from './types';
 
 export const STEPS: { key: StepKey; n: number; label: string; desc: string; kinds: Doc['kind'][]; screen: Screen }[] = [
@@ -33,6 +33,14 @@ interface Data {
   go: (s: Screen) => void;
   signOut: () => void;
   openAdmin: () => void;
+  /** Entries from the last 4 weeks (for trends and average use). */
+  recent: Doc[];
+  /** Average daily use over the last 14 days, not counting Sundays. */
+  avgUse: Map<number, number>;
+  isLow: (b: Balance) => boolean;
+  /** About how many days the stock lasts at the current rate (null = no recent use). */
+  daysLeft: (b: Balance) => number | null;
+  lowItems: Balance[];
 }
 
 const Ctx = createContext<Data | null>(null);
@@ -55,13 +63,14 @@ export function DataProvider({ user, go, signOut, openAdmin, children }: { user:
   const [items, setItems] = useState<Item[] | null>(null);
   const [balances, setBalances] = useState<Balance[]>([]);
   const [docsToday, setDocs] = useState<Doc[]>([]);
+  const [recent, setRecent] = useState<Doc[]>([]);
   const [submission, setSubmission] = useState<Submission | null>(null);
   const [marks, setMarks] = useState(() => readMarks(day));
   const [error, setError] = useState('');
 
   const refresh = useCallback(async () => {
-    const [b, d, s] = await Promise.all([api.balances(), api.documents(day, day), api.submission(day)]);
-    setBalances(b); setDocs(d); setSubmission(s);
+    const [b, r, s] = await Promise.all([api.balances(), api.documents(addDays(day, -27), day), api.submission(day)]);
+    setBalances(b); setRecent(r); setDocs(r.filter((x) => x.doc_date === day)); setSubmission(s);
   }, [day]);
 
   useEffect(() => {
@@ -69,6 +78,35 @@ export function DataProvider({ user, go, signOut, openAdmin, children }: { user:
       .then(([s, it]) => { setSite(s.site); setCompany(s.company); setItems(it); })
       .catch((e) => setError(e.message || String(e)));
   }, [refresh]);
+
+  const avgUse = useMemo(() => {
+    const from = addDays(day, -13);
+    const used = new Map<number, number>();
+    for (const d of recent) {
+      if (d.doc_date < from) continue;
+      for (const l of d.lines) {
+        let v = 0;
+        if (l.kind === 'issue') v = l.qty;
+        else if (l.kind === 'return') v = -l.qty;
+        else if (l.kind === 'correction' && (l.corrects_kind === 'issue' || l.corrects_kind === 'return')) v = -l.qty;
+        if (v) used.set(l.item_id, (used.get(l.item_id) ?? 0) + v);
+      }
+    }
+    let workdays = 0;
+    for (let i = 0; i < 14; i++) if (weekday(addDays(day, -i)) !== 'Sun') workdays++;
+    return new Map([...used].map(([id, v]) => [id, Math.max(0, v) / workdays]));
+  }, [recent, day]);
+  const isLow = useCallback((b: Balance) => {
+    if (b.balance <= 0) return true;
+    if (b.reorder_level != null && b.balance <= b.reorder_level) return true;
+    const a = avgUse.get(b.item_id) ?? 0;
+    return a > 0 && b.balance / a <= 5;
+  }, [avgUse]);
+  const daysLeft = useCallback((b: Balance) => {
+    const a = avgUse.get(b.item_id) ?? 0;
+    return a > 0 ? Math.max(0, Math.round(b.balance / a)) : null;
+  }, [avgUse]);
+  const lowItems = useMemo(() => balances.filter(isLow), [balances, isLow]);
 
   const itemById = useMemo(() => new Map((items ?? []).map((i) => [i.id, i])), [items]);
   const balMap = useMemo(() => new Map(balances.map((b) => [b.item_id, b.balance])), [balances]);
@@ -99,7 +137,7 @@ export function DataProvider({ user, go, signOut, openAdmin, children }: { user:
 
   const value: Data = {
     user, site, company, siteLabel: [company, site].filter(Boolean).join(' · ').toUpperCase(), day, items, itemById, balances, balanceOf: (id) => balMap.get(id) ?? 0, docsToday, submission,
-    stepState, markStep, refresh, addItem, go, signOut, openAdmin,
+    stepState, markStep, refresh, addItem, go, signOut, openAdmin, recent, avgUse, isLow, daysLeft, lowItems,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

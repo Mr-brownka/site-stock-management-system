@@ -1,25 +1,32 @@
-import { SiteLogo } from '../components/Brand';
 import { useState } from 'react';
-import { Top } from '../components/ui';
+import { SiteLogo } from '../components/Brand';
+import { Icon, Num, PulseDot, Ring, greeting, useMinutesToClose } from '../components/fx';
+import { closeLabel } from '../components/Shell';
 import { api } from '../lib/api';
 import { longDate } from '../lib/dates';
 import { resetDemo } from '../lib/demoBackend';
 import { STEPS, useData } from '../lib/store';
 
+const STEP_ICON: Record<string, string> = { deliveries: 'truck', issued: 'card', returns: 'back', transfers: 'swap' };
+
 export function Home() {
-  const { day, user, site, balances, docsToday, stepState, submission, refresh, go, signOut, openAdmin } = useData();
+  const { day, user, site, siteLabel, balances, docsToday, stepState, submission, refresh, go, signOut, lowItems } = useData();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const min = useMinutesToClose();
   const states = STEPS.map((s) => stepState(s.key));
   const firstTodo = STEPS.find((s) => stepState(s.key) === 'todo');
   const answered = states.every((s) => s !== 'todo');
+  const done = states.filter((s) => s !== 'todo').length;
+  const entries = docsToday.filter((d) => d.kind !== 'opening').length;
+  const first = user.name.split(' ')[0];
 
   const status = (i: number) => {
     const s = STEPS[i];
     const n = docsToday.filter((d) => s.kinds.includes(d.kind)).length;
     if (states[i] === 'done') return { text: n ? `${n} entered` : 'Done', done: true };
     if (states[i] === 'none') return { text: 'Nothing today', done: true };
-    return { text: 'Not started', done: false };
+    return { text: 'To do', done: false };
   };
 
   const submit = async () => {
@@ -31,12 +38,31 @@ export function Home() {
       go('submitted');
     } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   };
+  const openLow = () => { try { sessionStorage.setItem('ssms-dash', 'low'); } catch { /* ignore */ } go('dashboard'); };
 
   return (
-    <div className="phone">
-      <Top title="Evening stock check-in" sub={`${longDate(day)} · ${user.name}`} right={api.mode === 'demo' ? <span className="badge">DEMO</span> : undefined} />
+    <div className="phone home">
+      <header className="hero">
+        <div className="heroRow">
+          <div className="heroText">
+            <div className="kicker"><span>{siteLabel}</span>{api.mode === 'demo' && <span className="badge">DEMO</span>}</div>
+            <h1>{greeting()}, {first}</h1>
+            <div className="sub">{longDate(day)} · Evening stock check-in</div>
+          </div>
+          <Ring done={submission ? 4 : done} total={4} size={72} />
+        </div>
+        {submission ? (
+          <div className="clockChip ok"><Icon name="checkin" size={16} />Submitted at {new Date(submission.submitted_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' })} · balances are up to date</div>
+        ) : (
+          <div className={`clockChip ${min <= 0 ? 'late' : min < 60 ? 'soon' : ''}`}>
+            {min <= 0 ? <PulseDot /> : <Icon name="clock" size={16} />}{closeLabel(min)} · four quick steps
+          </div>
+        )}
+      </header>
+
       <main className="body">
-        {site && <div className="siteLogo card enter" style={{ height: 76 }}><SiteLogo name={site} height={56} /></div>}
+        {site && <div className="siteLogo card homeLogo enter"><SiteLogo name={site} height={52} /></div>}
+
         {!balances.length && (
           <div className="note stack enter">
             <b>Start here: enter the opening count.</b>
@@ -45,23 +71,37 @@ export function Home() {
           </div>
         )}
 
-        {submission ? (
-          <div className="note ok enter"><b>✓ Today was submitted</b> at {new Date(submission.submitted_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' })}. Balances are up to date.</div>
-        ) : (
-          <div className="note enter" style={{ display: 'flex', gap: 10 }}>
-            <span aria-hidden>🔔</span>
-            <span><b>Register closes at 6:00 pm.</b> Four quick steps. Each asks a Yes/No question first, so nothing is missed.</span>
+        <div className="statRow">
+          <button className="statTile enter" onClick={() => go('dashboard')}>
+            <span className="label">Items in store</span>
+            <Num value={balances.filter((b) => b.balance > 0).length} className="statBig" />
+            <span className="small muted">Open the dashboard <Icon name="arrow" size={14} /></span>
+          </button>
+          <button className={`statTile enter ${lowItems.length ? 'alert' : ''}`} style={{ animationDelay: '.05s' }} onClick={openLow}>
+            <span className="label">{lowItems.length ? <><PulseDot /> Low stock</> : 'Low stock'}</span>
+            <Num value={lowItems.length} className="statBig" />
+            <span className="small muted">{lowItems.length ? lowItems.slice(0, 2).map((b) => b.name).join(', ') + (lowItems.length > 2 ? '…' : '') : 'All good'}</span>
+          </button>
+          <div className="statTile enter" style={{ animationDelay: '.1s' }}>
+            <span className="label">Entries today</span>
+            <Num value={entries} className="statBig" />
+            <span className="small muted">Cards, notes and transfers</span>
           </div>
-        )}
+        </div>
 
-        <div className="card steps">
+        <div className="stepGrid">
           {STEPS.map((s, i) => {
             const st = status(i);
+            const next = !submission && firstTodo?.key === s.key;
             return (
-              <button key={s.key} className="step enter" style={{ animationDelay: `${i * 0.06}s` }} onClick={() => go(s.screen)}>
-                <span className={`dot ${st.done ? 'done' : ''}`}>{st.done ? '✓' : s.n}</span>
-                <span style={{ flex: 1, minWidth: 0 }}><b style={{ display: 'block' }}>{s.label}</b><span className="small muted">{s.desc}</span></span>
-                <span className={`pill ${st.done ? 'done' : ''}`}>{st.text}</span>
+              <button key={s.key} className={`stepCard enter ${st.done ? 'done' : ''} ${next ? 'next' : ''}`} style={{ animationDelay: `${0.08 + i * 0.06}s` }} onClick={() => go(s.screen)}>
+                <span className="stepIcon"><Icon name={STEP_ICON[s.key]} size={22} /></span>
+                <span className="stepText">
+                  <span className="stepN">Step {s.n}</span>
+                  <b>{s.label}</b>
+                  <span className="small muted">{s.desc}</span>
+                </span>
+                <span className={`pill ${st.done ? 'done' : ''}`}>{st.done ? '✓ ' : ''}{st.text}</span>
               </button>
             );
           })}
@@ -73,18 +113,13 @@ export function Home() {
         ) : answered ? (
           <button className="btn accent pulse" disabled={busy} onClick={submit}>{busy ? 'Submitting…' : 'Submit the day'}</button>
         ) : (
-          <button className="btn accent pulse" onClick={() => go(firstTodo!.screen)}>{states.some((s) => s !== 'todo') ? 'Continue check-in' : 'Start check-in'}</button>
+          <button className="btn accent pulse" onClick={() => go(firstTodo!.screen)}>{done ? 'Continue check-in' : 'Start check-in'}<Icon name="arrow" /></button>
         )}
-        <button className="btn ghost" onClick={() => go('dashboard')}>Store dashboard</button>
-        <div className="row">
-          <button className="btn ghost" style={{ flex: 1 }} onClick={() => go('corrections')}>Fix a mistake</button>
-          {user.role === 'admin' && <button className="btn ghost" style={{ flex: 1 }} onClick={openAdmin}>Admin page</button>}
-        </div>
 
         <div className="small muted" style={{ lineHeight: 1.5 }}>
           Withdrawal cards can also be entered during the day. They will already be listed when you reach step 2 tonight.
         </div>
-        <div className="between small" style={{ marginTop: 10 }}>
+        <div className="between small homeFoot">
           <span className="muted">Signed in as {user.name}</span>
           <span className="row">
             {balances.length > 0 && <button className="btn link" onClick={() => go('opening')}>Opening count</button>}
