@@ -3,6 +3,7 @@ import { api } from '../lib/api';
 import { STEPS, useData, type Screen } from '../lib/store';
 import type { Doc, StepKey } from '../lib/types';
 import { fmt, Top, YesNo } from './ui';
+import { ask, toast } from './feedback';
 
 type Stage = 'ask' | 'form' | 'another' | 'summary';
 
@@ -25,12 +26,12 @@ export function StepShell({ step, question, hint, another, formTitle, tone, rend
   const [busy, setBusy] = useState('');
   const docs = docsToday.filter((d) => meta.kinds.includes(d.kind));
 
-  const saved = async () => { await refresh(); markStep(step, 'done'); setStage('another'); };
+  const saved = async () => { await refresh(); markStep(step, 'done'); setStage('another'); toast(`Saved to ${meta.label.toLowerCase()}`); };
   const finish = () => go((next?.screen ?? 'home') as Screen);
   const remove = async (d: Doc) => {
-    if (!confirm('Remove this entry? Use this only for a mistake made today.')) return;
+    if (!(await ask({ title: 'Remove this entry?', body: <p>{docTitle(d)}. Use this only for a mistake made today.</p>, yes: 'Remove', tone: 'danger' }))) return;
     setBusy(d.id);
-    try { await api.removeDocument(d.id); await refresh(); } catch (e) { alert((e as Error).message); } finally { setBusy(''); }
+    try { await api.removeDocument(d.id); await refresh(); toast('Entry removed'); } catch (e) { toast((e as Error).message, 'warn'); } finally { setBusy(''); }
   };
 
   return (
@@ -38,7 +39,7 @@ export function StepShell({ step, question, hint, another, formTitle, tone, rend
       <Top onBack={() => go('home')} kicker={`STEP ${meta.n} OF 4 · ${day}`} title={stage === 'form' && formTitle ? formTitle : meta.label} sub={meta.desc} tone={tone} />
       <main className="body">
         {stage === 'ask' && (
-          <YesNo question={question} hint={hint} onYes={() => setStage('form')} onNo={() => { markStep(step, 'none'); setStage('summary'); }} />
+          <YesNo question={question} hint={hint} onYes={() => setStage('form')} onNo={() => { markStep(step, 'none'); setStage('summary'); toast(`${meta.label}: nothing today`); }} />
         )}
 
         {stage === 'form' && renderForm(saved)}

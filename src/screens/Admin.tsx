@@ -4,6 +4,7 @@ import { fmt } from '../components/ui';
 import { api } from '../lib/api';
 import { addDays, niceDate, today } from '../lib/dates';
 import type { Balance, CorrectionRequest, Item, Profile, Role, SiteDoc, SiteInfo, User } from '../lib/types';
+import { ask } from '../components/feedback';
 
 type Sec = 'overview' | 'people' | 'corr' | 'sites' | 'items' | 'reorder' | 'log';
 const ROLE_LABEL: Record<Role, string> = { store: 'Storekeeper', assistant: 'Assistant', admin: 'Admin' };
@@ -195,7 +196,7 @@ function People({ d, me, siteName, busy, act }: { d: Data; me: User; siteName: M
             <b style={{ flex: 1 }}>{p.full_name}<div className="small muted" style={{ fontWeight: 400 }}>{p.email}</div></b>
             <span style={{ width: 140 }}>{p.role === 'admin' ? 'All sites' : siteName.get(p.site_id ?? '') ?? '–'}</span>
             <span style={{ width: 120 }}><span className={`pill ${p.role === 'admin' ? '' : 'done'}`}>{ROLE_LABEL[p.role]}</span></span>
-            <span style={{ width: 130, textAlign: 'right' }}>{p.email !== me.email && <button className="btn link" disabled={!!busy} onClick={() => { if (confirm(`Remove ${p.full_name}'s access?`)) act(p.id, () => api.admin.setProfile(p.id, { status: 'removed' })); }}>Remove access</button>}</span>
+            <span style={{ width: 130, textAlign: 'right' }}>{p.email !== me.email && <button className="btn link" disabled={!!busy} onClick={async () => { if (await ask({ title: `Remove ${p.full_name}’s access?`, body: <p>They will no longer be able to sign in to Site Stock. You can give access back later.</p>, yes: 'Remove access', tone: 'danger' })) act(p.id, () => api.admin.setProfile(p.id, { status: 'removed' })); }}>Remove access</button>}</span>
           </div>
         ))}
       </div>
@@ -312,7 +313,7 @@ function Items({ d, busy, act }: { d: Data; busy: string; act: Act }) {
           <span style={{ flex: 1, minWidth: 220 }}>{g.map((i) => `“${i.name}” (${i.unit})`).join(' and ')}</span>
           {g.slice(0, 2).map((keep, k) => {
             const drop = g[1 - k];
-            return <button key={keep.id} className="btn ghost admSm" disabled={!!busy} onClick={() => { if (confirm(`Keep “${keep.name}” and merge “${drop.name}” into it?`)) act(`m${keep.id}`, () => api.admin.mergeItems(keep.id, drop.id)); }}>Keep “{keep.name}”</button>;
+            return <button key={keep.id} className="btn ghost admSm" disabled={!!busy} onClick={async () => { if (await ask({ title: `Merge into “${keep.name}”?`, body: <p>All history of “{drop.name}” moves to “{keep.name}”, and “{drop.name}” disappears from the list.</p>, yes: 'Merge' })) act(`m${keep.id}`, () => api.admin.mergeItems(keep.id, drop.id)); }}>Keep “{keep.name}”</button>;
           })}
         </div>
       ))}

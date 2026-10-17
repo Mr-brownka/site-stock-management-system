@@ -1,15 +1,15 @@
-import { Confetti } from '../components/fx';
-import { fmt } from '../components/ui';
+import { Confetti, Icon, PulseDot } from '../components/fx';
 import { longDate } from '../lib/dates';
 import { STEPS, useData } from '../lib/store';
 import { delta } from '../lib/types';
 
 export function Submitted() {
-  const { day, docsToday, balances, submission, stepState, go, itemById } = useData();
+  const { day, docsToday, balances, submission, stepState, go, isLow } = useData();
   const todayDelta = new Map<number, number>();
   docsToday.forEach((d) => d.lines.forEach((l) => todayDelta.set(l.item_id, (todayDelta.get(l.item_id) ?? 0) + delta(l.kind, l.qty))));
   const rows = balances.filter((b) => todayDelta.has(b.item_id)).map((b) => ({ ...b, from: b.balance - (todayDelta.get(b.item_id) ?? 0) }));
-  const low = rows.filter((r) => r.reorder_level != null && r.balance <= r.reorder_level);
+  const low = rows.filter((r) => isLow(r));
+  const openBalances = () => { try { sessionStorage.setItem('ssms-dash', 'bal'); } catch { /* ignore */ } go('dashboard'); };
 
   const detail = (i: number) => {
     const s = STEPS[i];
@@ -37,24 +37,14 @@ export function Submitted() {
             </div>
           ))}
         </div>
-        {rows.length > 0 && (
-          <div className="stack enter" style={{ animationDelay: '.5s' }}>
-            <div className="label">Balances after today</div>
-            <div className="card" style={{ overflow: 'hidden' }}>
-              {rows.map((r) => {
-                const isLow = r.balance <= 0 || (r.reorder_level != null && r.balance <= r.reorder_level);
-                return (
-                  <div key={r.item_id} className="between" style={{ padding: '10px 14px', borderBottom: '1px solid var(--line-2)' }}>
-                    <b style={{ fontSize: 14 }}>{itemById.get(r.item_id)?.name ?? r.name}</b>
-                    <span className="mono" style={{ whiteSpace: 'nowrap', fontSize: 14 }}>{fmt(r.from)} → <b className={isLow ? 'low' : ''}>{fmt(r.balance)}</b> {r.unit}</span>
-                  </div>
-                );
-              })}
-            </div>
-            {low.length > 0 && <div className="small" style={{ color: 'var(--red)', fontWeight: 600 }}>{low.map((l) => l.name).join(', ')} {low.length === 1 ? 'is' : 'are'} at or below the reorder level. Tell the site manager.</div>}
-          </div>
-        )}
-        <button className="btn" onClick={() => go('dashboard')}>Open the store dashboard</button>
+        <button className="balBtn enter" style={{ animationDelay: '.45s' }} onClick={openBalances}>
+          <span className="balIcon"><Icon name="chart" size={26} /></span>
+          <span className="balText">
+            <b>Balances after today</b>
+            <span>{rows.length ? `${rows.length} item${rows.length === 1 ? '' : 's'} changed today` : 'No stock moved today'}{low.length ? <> · <span className="balLow"><PulseDot />{low.length} low</span></> : ''}</span>
+          </span>
+          <span className="balGo"><Icon name="arrow" size={22} /></span>
+        </button>
         <button className="btn ghost" onClick={() => go('home')}>Back to start</button>
       </main>
     </div>

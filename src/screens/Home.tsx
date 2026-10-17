@@ -6,6 +6,7 @@ import { api } from '../lib/api';
 import { longDate } from '../lib/dates';
 import { resetDemo } from '../lib/demoBackend';
 import { STEPS, useData } from '../lib/store';
+import { ask } from '../components/feedback';
 
 const STEP_ICON: Record<string, string> = { deliveries: 'truck', issued: 'card', returns: 'back', transfers: 'swap' };
 
@@ -30,7 +31,16 @@ export function Home() {
   };
 
   const submit = async () => {
-    if (!confirm('Submit today? After this, today’s entries are locked and balances are final.')) return;
+    const lines = docsToday.reduce((a, d) => a + d.lines.length, 0);
+    const ok = await ask({
+      title: `Submit ${new Date(day + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'long', timeZone: 'UTC' })}’s register?`,
+      body: <>
+        <div className="askList">{STEPS.map((s) => { const n = docsToday.filter((d) => s.kinds.includes(d.kind)).length; return <div key={s.key}><span>{s.label}</span><b>{n ? `${n} entr${n === 1 ? 'y' : 'ies'}` : 'Nothing'}</b></div>; })}</div>
+        <p>{lines} item line{lines === 1 ? '' : 's'} in total. After submitting, today is locked and balances are final. Mistakes are fixed with a correction.</p>
+      </>,
+      yes: 'Submit the day', no: 'Not yet', tone: 'go',
+    });
+    if (!ok) return;
     setBusy(true); setErr('');
     try {
       await api.submitDay(day, Object.fromEntries(STEPS.map((s) => [s.key, stepState(s.key)])));

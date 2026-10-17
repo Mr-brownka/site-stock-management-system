@@ -1,3 +1,4 @@
+import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { categoryOf } from '../lib/categories';
 import { addDays, niceDate } from '../lib/dates';
@@ -41,6 +42,22 @@ export function ItemSheet({ b, mode, use, rangeLabel, onClose, onSaveReorder }: 
 }) {
   const { day, recent, isLow, daysLeft } = useData();
   const closeRef = useRef<HTMLButtonElement>(null);
+  const sheetRef = useRef<HTMLElement>(null);
+  // Phones: drag the handle or header down to close.
+  const drag = useRef<{ y: number; dy: number } | null>(null);
+  const onStart = (e: React.TouchEvent) => { if ((sheetRef.current?.scrollTop ?? 0) > 0) return; drag.current = { y: e.touches[0].clientY, dy: 0 }; sheetRef.current?.classList.add('dragging'); };
+  const onMove = (e: React.TouchEvent) => {
+    if (!drag.current || !sheetRef.current) return;
+    drag.current.dy = Math.max(0, e.touches[0].clientY - drag.current.y);
+    sheetRef.current.style.transform = `translateY(${drag.current.dy}px)`;
+  };
+  const onEnd = () => {
+    const el = sheetRef.current, d = drag.current; drag.current = null;
+    if (!el || !d) return;
+    el.classList.remove('dragging'); el.classList.add('closing');
+    if (d.dy > 110) { el.style.transform = 'translateY(100%)'; setTimeout(onClose, 180); }
+    else { el.style.transform = ''; setTimeout(() => el.classList.remove('closing'), 200); }
+  };
   const [draft, setDraft] = useState(b.reorder_level == null ? '' : String(b.reorder_level));
   const [saved, setSaved] = useState(false);
   useEffect(() => { setDraft(b.reorder_level == null ? '' : String(b.reorder_level)); }, [b.item_id, b.reorder_level]);
@@ -70,7 +87,7 @@ export function ItemSheet({ b, mode, use, rangeLabel, onClose, onSaveReorder }: 
 
   return (
     <div className="sheetBack" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <section className="sheet" data-status={status.c} role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+      <section ref={sheetRef} className="sheet" data-status={status.c} role="dialog" aria-modal="true" aria-labelledby="sheetTitle" onTouchStart={onStart} onTouchMove={onMove} onTouchEnd={onEnd}>
         <div className="sheetHandle" aria-hidden />
         <header className="sheetHead">
           <div>

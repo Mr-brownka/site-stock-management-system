@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon, Num, PulseDot } from '../components/fx';
 import { ItemSheet, type Use } from '../components/ItemSheet';
+import { PeriodPicker } from '../components/PeriodPicker';
 import { fmt } from '../components/ui';
 import { api } from '../lib/api';
 import { periodRange, type Period } from '../lib/dates';
@@ -8,6 +9,7 @@ import { useData } from '../lib/store';
 import { SUBPHASES, type Balance, type Line } from '../lib/types';
 
 type Tab = 'cons' | 'bal';
+type Filter = 'all' | 'low' | 'today';
 const NO_SUB = 'No subphase';
 
 
@@ -37,12 +39,22 @@ function usage(lines: Line[]): Map<number, Use> {
 }
 
 export function Dashboard() {
-  const { day, balances, refresh, go, siteLabel, isLow, lowItems } = useData();
-  const [tab, setTab] = useState<Tab>(() => { try { return sessionStorage.getItem('ssms-dash') === 'low' ? 'bal' : 'cons'; } catch { return 'cons'; } });
-  const [filter, setFilter] = useState<'all' | 'low'>(() => { try { const v = sessionStorage.getItem('ssms-dash'); sessionStorage.removeItem('ssms-dash'); return v === 'low' ? 'low' : 'all'; } catch { return 'all'; } });
-  const [period, setPeriod] = useState<Period>('day');
+  const { day, balances, refresh, go, siteLabel, isLow, lowItems, docsToday, recent } = useData();
+  // Remember the last view; a link from another screen (low stock, balances after today) wins.
+  const [prefs] = useState(() => {
+    let p: { tab?: Tab; period?: Period; group?: 'none' | 'sub' } = {};
+    let jump = '';
+    try { p = JSON.parse(localStorage.getItem('ssms-dash-prefs') || '{}'); jump = sessionStorage.getItem('ssms-dash') || ''; sessionStorage.removeItem('ssms-dash'); } catch { /* ignore */ }
+    return { tab: (jump ? 'bal' : p.tab ?? 'cons') as Tab, filter: (jump === 'low' ? 'low' : jump === 'bal' ? 'today' : 'all') as Filter, period: p.period ?? 'day', group: p.group ?? 'none' };
+  });
+  const [tab, setTab] = useState<Tab>(prefs.tab);
+  const [filter, setFilter] = useState<Filter>(prefs.filter);
+  const [period, setPeriod] = useState<Period>(prefs.period);
   const [date, setDate] = useState(day);
-  const [group, setGroup] = useState<'none' | 'sub'>('none');
+  const [group, setGroup] = useState<'none' | 'sub'>(prefs.group);
+  useEffect(() => { try { localStorage.setItem('ssms-dash-prefs', JSON.stringify({ tab, period, group })); } catch { /* ignore */ } }, [tab, period, group]);
+  const movedToday = useMemo(() => new Set(docsToday.flatMap((d) => d.lines.map((l) => l.item_id))), [docsToday]);
+  const activeDays = useMemo(() => new Set(recent.filter((d) => d.kind === 'issue').map((d) => d.doc_date)), [recent]);
   const [q, setQ] = useState('');
   const [sel, setSel] = useState<number | null>(null);
   const [lines, setLines] = useState<Line[] | null>(null);
@@ -68,7 +80,7 @@ export function Dashboard() {
   const outCount = balances.filter((b) => b.balance <= 0).length;
   const shown = balances
     .filter((b) => !search || b.name.toLowerCase().includes(search))
-    .filter((b) => tab !== 'bal' || filter === 'all' || isLow(b))
+    .filter((b) => tab !== 'bal' || filter === 'all' || (filter === 'low' ? isLow(b) : movedToday.has(b.item_id)))
     .sort(byName);
 
   const top = useMemo(() => {
@@ -100,13 +112,18 @@ export function Dashboard() {
     return (
       <button key={b.item_id} className={`listRow ${low ? 'isLow' : ''}`} style={i < 24 ? { animationDelay: `${i * 0.015}s` } : undefined} aria-pressed={sel === b.item_id} onClick={() => setSel(b.item_id)}>
         {low ? <PulseDot label="Low stock" /> : <span className="dotSpace" />}
-        <span className="nm">{b.name}</span>
+        <span className="nm">{hl(b.name)}</span>
         {out ? <span className="tag out">Out</span> : low && <span className="tag low">Low</span>}
         <span className={`q ${low ? 'low' : ''}`} style={value ? undefined : { color: '#A9B1AD' }}>{value ? fmt(value) : '–'}</span>
         <span className="u">{b.unit}</span>
         <span className="chev"><Icon name="arrow" size={16} /></span>
       </button>
     );
+  };
+  const hl = (name: string) => {
+    if (!search) return name;
+    const i = name.toLowerCase().indexOf(search);
+    return i < 0 ? name : <>{name.slice(0, i)}<mark>{name.slice(i, i + search.length)}</mark>{name.slice(i + search.length)}</>;
   };
   const skeleton = Array.from({ length: 6 }, (_, i) => <div key={i} className="skelRow"><i className="skel" style={{ width: `${40 + ((i * 17) % 40)}%` }} /><i className="skel" style={{ width: 60 }} /></div>);
 
@@ -138,21 +155,9 @@ export function Dashboard() {
           <section className="stack">
             <div className="controls">
               <h2>{tab === 'cons' ? 'Most issued' : 'Most ordered'}</h2>
-              {tab === 'cons' && (
-                <>
-                  <div className="seg" role="group" aria-label="Period">
-                    {([['day', 'Daily'], ['week', 'Weekly'], ['month', 'Monthly']] as [Period, string][]).map(([p, l]) => (
-                      <button key={p} aria-pressed={period === p} onClick={() => setPeriod(p)}>{l}</button>
-                    ))}
-                  </div>
-                  <label className="row small" style={{ fontWeight: 600 }}>{period === 'day' ? 'Day' : period === 'week' ? 'Any day in the week' : 'Any day in the month'}
-                    <input className="dateBox" type="date" value={date} max={day} onChange={(e) => setDate(e.target.value || day)} />
-                  </label>
-                  {date !== day && <button className="btn link" onClick={() => setDate(day)}>Back to today</button>}
-                </>
-              )}
             </div>
-            <div className="small muted">{tab === 'cons' ? `The most used item in each unit · ${range.label}` : 'The items delivered most often since the project started'}</div>
+            {tab === 'cons' && <PeriodPicker period={period} date={date} today={day} onPeriod={(p) => { setPeriod(p); setDate(day); }} onDate={setDate} activeDays={activeDays} />}
+            <div className="small muted">{tab === 'cons' ? 'The most used item in each unit (bags, pieces, tonnes…). Tap one for details.' : 'The items delivered most often since the project started'}</div>
             {tab === 'cons' && lines === null ? <div className="topGrid">{[0, 1, 2].map((i) => <div key={i} className="topCard"><i className="skel" style={{ width: '70%' }} /><i className="skel big" /></div>)}</div> : top.length ? (
               <div className="topGrid">
                 {top.map((b, i) => {
@@ -184,6 +189,7 @@ export function Dashboard() {
               ) : (
                 <span className="seg" role="group" aria-label="Show">
                   <button aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>All</button>
+                  <button aria-pressed={filter === 'today'} onClick={() => setFilter('today')}>Changed today ({movedToday.size})</button>
                   <button aria-pressed={filter === 'low'} onClick={() => setFilter('low')}>{lowItems.length > 0 && <PulseDot />}Low only ({lowItems.length})</button>
                 </span>
               )}
@@ -205,7 +211,7 @@ export function Dashboard() {
                     </div>
                   ))}
                   {tab === 'cons' && group === 'sub' && !groups.length && <div className="pad muted">Nothing was issued in this period.</div>}
-                  {!shown.length && <div className="pad muted">{search ? `No items match “${q}”.` : filter === 'low' && tab === 'bal' ? 'Nothing is low. All good.' : 'No items yet. Enter the opening count first.'}</div>}
+                  {!shown.length && <div className="pad muted">{search ? `No items match “${q}”.` : filter === 'low' && tab === 'bal' ? 'Nothing is low. All good.' : filter === 'today' && tab === 'bal' ? 'No stock moved today.' : 'No items yet. Enter the opening count first.'}</div>}
                 </>
               )}
             </div>

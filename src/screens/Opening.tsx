@@ -5,6 +5,7 @@ import { CATEGORY_ORDER, categoryOf } from '../lib/categories';
 import { matchRows, readPasted, readSheet, type MatchRow } from '../lib/importSheet';
 import { useData } from '../lib/store';
 import type { Item } from '../lib/types';
+import { ask, toast } from '../components/feedback';
 
 type Mode = 'upload' | 'checklist' | 'search';
 
@@ -16,10 +17,11 @@ function useSaveOpening() {
     pairs.filter(([, q]) => q > 0).forEach(([it, q]) => sum.set(it.id, { it, q: (sum.get(it.id)?.q ?? 0) + q }));
     if (!sum.size) throw new Error('Nothing to save yet.');
     const already = balances.filter((b) => sum.has(b.item_id));
-    if (already.length && !confirm(`${already.length} of these items already have a balance (e.g. ${already[0].name}). Saving adds to them. Continue?`)) return false;
+    if (already.length && !(await ask({ title: 'Add to existing balances?', body: <p>{already.length} of these items already have a balance (e.g. {already[0].name}). Saving adds to them.</p>, yes: 'Yes, add them' }))) return false;
     await api.saveDocument({ kind: 'opening', doc_date: day, reason: first ? 'Opening count' : 'Added to opening count' },
       [...sum.values()].map(({ it, q }) => ({ item_id: it.id, qty: q })));
     await refresh();
+    toast(`Opening count saved · ${sum.size} item${sum.size === 1 ? '' : 's'}`);
     go('home');
     return true;
   };

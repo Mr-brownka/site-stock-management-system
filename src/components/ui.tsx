@@ -32,6 +32,15 @@ export function Top({ kicker, title, sub, tone, onBack, right }: { kicker?: stri
 }
 
 export function YesNo({ question, hint, onYes, onNo }: { question: string; hint?: string; onYes: () => void; onNo: () => void }) {
+  // Laptops: press Y or N.
+  useEffect(() => {
+    const k = (e: globalThis.KeyboardEvent) => {
+      if (/input|textarea|select/i.test((e.target as HTMLElement).tagName) || e.metaKey || e.ctrlKey) return;
+      if (e.key === 'y' || e.key === 'Y') onYes(); else if (e.key === 'n' || e.key === 'N') onNo();
+    };
+    document.addEventListener('keydown', k);
+    return () => document.removeEventListener('keydown', k);
+  }, [onYes, onNo]);
   return (
     <div className="card pad stack enter">
       <h2 style={{ fontFamily: 'var(--display)', fontSize: 28, lineHeight: 1.1 }}>{question}</h2>
@@ -40,6 +49,7 @@ export function YesNo({ question, hint, onYes, onNo }: { question: string; hint?
         <button className="yes" onClick={onYes} autoFocus>Yes</button>
         <button onClick={onNo}>No</button>
       </div>
+      <div className="keyHint">Tip: press <kbd>Y</kbd> or <kbd>N</kbd></div>
     </div>
   );
 }
