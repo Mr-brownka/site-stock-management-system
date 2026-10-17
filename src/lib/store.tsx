@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Loader } from '../components/Brand';
 import { api } from './api';
 import { today } from './dates';
 import type { Balance, Doc, Item, StepKey, StepState, Submission, User } from './types';
@@ -94,7 +95,7 @@ export function DataProvider({ user, go, signOut, openAdmin, children }: { user:
   }, []);
 
   if (error) return <div className="phone"><div className="body"><div className="note err">Could not load: {error}</div><button className="btn" onClick={() => location.reload()}>Try again</button></div></div>;
-  if (!items) return <div className="spinner">Loading the store…</div>;
+  if (!items) return <Loader intro={false} message="Loading the store…" />;
 
   const value: Data = {
     user, site, company, siteLabel: [company, site].filter(Boolean).join(' · ').toUpperCase(), day, items, itemById, balances, balanceOf: (id) => balMap.get(id) ?? 0, docsToday, submission,

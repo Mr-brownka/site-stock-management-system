@@ -1,3 +1,4 @@
+import { SiteLogo, Wordmark } from '../components/Brand';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fmt } from '../components/ui';
 import { api } from '../lib/api';
@@ -54,7 +55,7 @@ export function Admin({ user, onExit, onSignOut }: { user: User; onExit: () => v
   return (
     <div className="adm">
       <nav className="admNav" aria-label="Admin sections">
-        <div className="admBrand"><div className="mono small" style={{ color: '#B9C0BC', letterSpacing: '.08em' }}>{company.toUpperCase()}</div><div className="admTitle">Site Stock · Admin</div></div>
+        <div className="admBrand"><Wordmark company={company || 'Comex Builders'} size={40} /><div className="mono small" style={{ color: '#B9C0BC', letterSpacing: '.08em', marginTop: 8 }}>ADMIN</div></div>
         {NAV.map(([k, icon, label, badge]) => (
           <button key={k} className="admLink" aria-current={sec === k ? 'page' : undefined} onClick={() => setSec(k)}>
             <span aria-hidden className="admIcon">{icon}</span><span style={{ flex: 1 }}>{label}</span>
@@ -144,6 +145,7 @@ function Overview({ d, day, siteName, person, itemById, pendingPeople, pendingCo
           const sub = submitted(s.id), t = team(s.id), active = t > 0 || d.balances.some((b) => b.site_id === s.id), low = lowCount(d.balances, s.id);
           return (
             <div key={s.id} className="card pad stack" style={{ gap: 8 }}>
+              <div className="siteLogo" style={{ background: '#F6F5F1', height: 64 }}><SiteLogo name={s.name} height={48} /></div>
               <div className="between"><b style={{ fontSize: 18 }}>{s.name}</b>
                 <span className={`pill ${sub ? 'done' : active ? '' : 'grey'}`}>{sub ? `Submitted ${time(sub.submitted_at)}` : active ? 'Not submitted' : 'Not set up'}</span></div>
               <div className="between small"><span>Low stock</span><b className={`mono ${low ? 'low' : ''}`}>{low}</b></div>

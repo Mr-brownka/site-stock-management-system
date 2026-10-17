@@ -1,3 +1,4 @@
+import { SiteLogo } from '../components/Brand';
 import { useState } from 'react';
 import { Top } from '../components/ui';
 import { api } from '../lib/api';
@@ -6,7 +7,7 @@ import { resetDemo } from '../lib/demoBackend';
 import { STEPS, useData } from '../lib/store';
 
 export function Home() {
-  const { day, user, balances, docsToday, stepState, submission, refresh, go, signOut, openAdmin } = useData();
+  const { day, user, site, balances, docsToday, stepState, submission, refresh, go, signOut, openAdmin } = useData();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const states = STEPS.map((s) => stepState(s.key));
@@ -35,6 +36,7 @@ export function Home() {
     <div className="phone">
       <Top title="Evening stock check-in" sub={`${longDate(day)} · ${user.name}`} right={api.mode === 'demo' ? <span className="badge">DEMO</span> : undefined} />
       <main className="body">
+        {site && <div className="siteLogo card enter" style={{ height: 76 }}><SiteLogo name={site} height={56} /></div>}
         {!balances.length && (
           <div className="note stack enter">
             <b>Start here: enter the opening count.</b>

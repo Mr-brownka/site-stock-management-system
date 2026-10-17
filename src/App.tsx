@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Loader } from './components/Brand';
 import { api } from './lib/api';
 import { DataProvider, type Screen } from './lib/store';
 import type { User } from './lib/types';
@@ -31,6 +32,8 @@ const isAdminPath = () => location.pathname.replace(/\/+$/, '') === '/admin';
 export function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [screen, setScreen] = useState<Screen>(fromHash);
+  const [introDone, setIntroDone] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setIntroDone(true), 1800); return () => clearTimeout(t); }, []);
   const [recovering, setRecovering] = useState(() => api.isRecovery());
   const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState('');
@@ -53,7 +56,7 @@ export function App() {
   const openAdmin = useCallback(() => { history.pushState(null, '', '/admin'); setAdminPath(true); window.scrollTo(0, 0); }, []);
   const signOut = useCallback(async () => { await api.signOut(); setUser(null); history.replaceState(null, '', '/'); setAdminPath(false); }, []);
 
-  if (user === undefined) return <div className="spinner">Loading…</div>;
+  if (user === undefined || !introDone) return <Loader />;
   if (recovering) return <SetPassword onDone={() => { setRecovering(false); location.hash = ''; loadUser(); }} />;
   if (!user) {
     if (creating) {

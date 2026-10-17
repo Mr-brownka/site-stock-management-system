@@ -82,7 +82,7 @@ export function Returns() {
             {cards.map((c) => {
               const isNext = nextCard?.id === c.id;
               return (
-                <div key={c.id} className="paperCard" style={isNext ? { borderColor: 'var(--accent)', boxShadow: '0 0 0 4px rgba(194,80,10,.15)' } : undefined}>
+                <div key={c.id} className="paperCard" style={isNext ? { borderColor: 'var(--accent)', boxShadow: '0 0 0 4px rgba(252,167,45,.15)' } : undefined}>
                   <div className="between">
                     <b className="mono" style={{ color: 'var(--error)', fontSize: 18 }}>Card {c.ref_no}</b>
                     {checked[c.id] ? <span className="pill done">✓ Checked</span> : <span className="pill">To check</span>}

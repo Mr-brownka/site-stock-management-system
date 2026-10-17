@@ -1,3 +1,4 @@
+import { Wordmark } from '../components/Brand';
 import { useState, type FormEvent } from 'react';
 import { api } from '../lib/api';
 
@@ -29,7 +30,7 @@ export function Login({ onIn, onCreate, notice }: { onIn: () => void; onCreate: 
     <div className="phone">
       <header className="top" style={{ padding: '40px 20px 28px' }}>
         <div className="kicker"><span>SITE STOCK MANAGEMENT SYSTEM</span>{demo && <span className="badge">DEMO</span>}</div>
-        <h1 style={{ fontSize: 40 }}>Site Stock</h1>
+        <div style={{ margin: '10px 0 4px' }}><Wordmark size={56} /></div>
         <div className="sub">Live stock balances for the site store</div>
       </header>
       <main className="body">
