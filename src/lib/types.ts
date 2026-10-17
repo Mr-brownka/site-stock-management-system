@@ -150,7 +150,7 @@ export interface AdminApi {
 }
 
 export interface Backend {
-  mode: 'live' | 'demo';
+  mode: 'live' | 'demo' | 'training';
   currentUser(): Promise<User | null>;
   signIn(email: string, password: string): Promise<void>;
   signOut(): Promise<void>;

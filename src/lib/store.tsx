@@ -11,7 +11,7 @@ export const STEPS: { key: StepKey; n: number; label: string; desc: string; kind
   { key: 'transfers', n: 4, label: 'Site transfers', desc: 'Stock sent to or received from other sites', kinds: ['transfer_in', 'transfer_out'], screen: 'transfers' },
 ];
 
-export type Screen = 'home' | 'deliveries' | 'issued' | 'returns' | 'transfers' | 'submitted' | 'dashboard' | 'opening' | 'corrections';
+export type Screen = 'home' | 'deliveries' | 'issued' | 'returns' | 'transfers' | 'submitted' | 'dashboard' | 'opening' | 'corrections' | 'reports';
 
 interface Data {
   user: User;

@@ -8,7 +8,10 @@ const KEY = 'ssms-demo-v3';
 const SITE = 'site-reveal';
 const ME = 'demo-admin';
 
-interface Store {
+export interface Store {
+  /** Training mode: the real site's item list, company, site and person. */
+  items?: Item[];
+  meta?: { company: string; site: string; user: { email: string; name: string; role: 'store' | 'assistant' | 'admin' } };
   docs: Doc[];
   nextLine: number;
   submissions: Record<string, Submission>;
@@ -77,24 +80,29 @@ function seed(): Store {
   return s;
 }
 
-function load(): Store {
+function load(key: string, make: () => Store): Store {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(key);
     if (raw) return JSON.parse(raw);
   } catch { /* storage unavailable */ }
-  return seed();
+  return make();
 }
 
-export function demoBackend(): Backend {
-  let s = load();
-  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* ignore */ } };
-  const allItems = () => [...BASE_ITEMS, ...s.extraItems];
+export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'demo' | 'training' } = {}): Backend {
+  const key = opts.key ?? KEY;
+  // eslint-disable-next-line prefer-const
+  let s = load(key, opts.seed ?? seed);
+  const save = () => { try { localStorage.setItem(key, JSON.stringify(s)); } catch { /* ignore */ } };
+  const allItems = () => [...(s.items ?? BASE_ITEMS), ...s.extraItems];
   const lines = () => s.docs.flatMap((d) => d.lines);
   const wait = <T,>(v: T) => new Promise<T>((r) => setTimeout(() => r(v), 60));
 
   const this_: Backend = {
-    mode: 'demo',
-    async currentUser() { return s.signedIn ? { email: 'admin@demo', name: 'Abdirahman', role: 'admin', status: 'approved', siteId: SITE } : null; },
+    mode: opts.mode ?? 'demo',
+    async currentUser() {
+      if (s.meta) return { ...s.meta.user, status: 'approved', siteId: SITE };
+      return s.signedIn ? { email: 'admin@demo', name: 'Abdirahman', role: 'admin', status: 'approved', siteId: SITE } : null;
+    },
     async signUp() { /* demo: sign-up is shown, not stored */ },
     async signupSites() { return s.sites; },
     async requestCorrection(input) {
@@ -134,10 +142,10 @@ export function demoBackend(): Backend {
     async sendPasswordReset() { /* demo: nothing to send */ },
     isRecovery() { return false; },
     async setPassword() { /* demo */ },
-    async siteName() { return { company: 'Demo Builders', site: 'Demo site' }; },
+    async siteName() { return s.meta ? { company: s.meta.company, site: s.meta.site } : { company: 'Demo Builders', site: 'Demo site' }; },
     async items() { return wait(allItems().slice().sort((a, b) => a.name.localeCompare(b.name))); },
     async addItem(name, unit) {
-      const it = { id: 100000 + s.extraItems.length, name, unit };
+      const it = { id: 900000 + s.extraItems.length, name, unit };
       s.extraItems.push(it); save(); return it;
     },
     async remembered(field: Field) {
@@ -152,7 +160,6 @@ export function demoBackend(): Backend {
       return [...new Set(s.docs.map(pick[field]).filter(Boolean) as string[])].sort();
     },
     async saveDocument(doc: DocInput, ls: LineInput[]) {
-      if (doc.kind !== 'correction' && s.submissions[doc.doc_date]) throw new Error('This day has already been submitted. Use a correction instead.');
       const id = uid();
       s.docs.push({ ...doc, id, created_at: new Date().toISOString(),
         lines: ls.map((l) => ({ id: s.nextLine++, document_id: id, kind: doc.kind, move_date: doc.doc_date, item_id: l.item_id, qty: l.qty, subphase: l.subphase ?? null, return_of: l.return_of ?? null })) });
@@ -189,4 +196,36 @@ export function demoBackend(): Backend {
 /** Start the demo again with fresh example data. */
 export function resetDemo() {
   try { localStorage.removeItem(KEY); } catch { /* ignore */ }
+}
+
+/** Build a practice copy of a real site: stock as it was 4 weeks ago, then every real entry since. */
+export function buildTrainingStore(input: {
+  items: Item[]; balances: Balance[]; docs: Doc[]; company: string; site: string;
+  user: { email: string; name: string; role: 'store' | 'assistant' | 'admin' }; today: string;
+}): Store {
+  const start = addDays(input.today, -28);
+  const recent = input.docs.filter((d) => d.doc_date > start);
+  const before = new Map(input.balances.map((b) => [b.item_id, b.balance]));
+  recent.forEach((d) => d.lines.forEach((l) => before.set(l.item_id, (before.get(l.item_id) ?? 0) - delta(l.kind, l.qty))));
+  let nextLine = 1;
+  const lineId = new Map<number, number>();
+  const docs: Doc[] = [];
+  const openId = uid();
+  const openLines = [...before].filter(([, q]) => q > 0).map(([item_id, qty]) => ({ id: nextLine++, document_id: openId, kind: 'opening' as const, move_date: start, item_id, qty, subphase: null, return_of: null }));
+  if (openLines.length) docs.push({ kind: 'opening', doc_date: start, reason: 'Stock 4 weeks ago (training copy)', id: openId, created_at: `${start}T06:00:00Z`, lines: openLines });
+  recent.slice().sort((a, b) => a.doc_date.localeCompare(b.doc_date) || a.created_at.localeCompare(b.created_at)).forEach((d) => {
+    const id = uid();
+    docs.push({ ...d, id, lines: d.lines.map((l) => { const n = nextLine++; lineId.set(l.id, n); return { ...l, id: n, document_id: id, return_of: l.return_of ? lineId.get(l.return_of) ?? null : null }; }) });
+  });
+  const reorder: Record<number, number | null> = {};
+  input.balances.forEach((b) => { if (b.reorder_level != null) reorder[b.item_id] = b.reorder_level; });
+  const now = new Date().toISOString();
+  return {
+    items: input.items, meta: { company: input.company, site: input.site, user: input.user },
+    docs, nextLine, submissions: {}, reorder, extraItems: [], signedIn: true,
+    sites: [{ id: SITE, name: input.site, company: input.company }],
+    profiles: [{ id: ME, full_name: input.user.name, email: input.user.email, phone: null, role: input.user.role, status: 'approved', site_id: SITE, created_at: now, decided_at: now },
+      { id: 'demo-trainee', full_name: 'New storekeeper (practice)', email: 'trainee@practice', phone: null, role: 'store', status: 'pending', site_id: SITE, created_at: now, decided_at: null }],
+    corrections: [],
+  };
 }

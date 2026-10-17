@@ -5,6 +5,7 @@ import { api } from '../lib/api';
 import { addDays, niceDate, today } from '../lib/dates';
 import type { Balance, CorrectionRequest, Item, Profile, Role, SiteDoc, SiteInfo, User } from '../lib/types';
 import { ask } from '../components/feedback';
+import { StartTraining } from '../components/Training';
 
 type Sec = 'overview' | 'people' | 'corr' | 'sites' | 'items' | 'reorder' | 'log';
 const ROLE_LABEL: Record<Role, string> = { store: 'Storekeeper', assistant: 'Assistant', admin: 'Admin' };
@@ -72,7 +73,7 @@ export function Admin({ user, onExit, onSignOut }: { user: User; onExit: () => v
       <main className="admMain">
         <div className="between" style={{ alignItems: 'flex-end' }}>
           <div><div className="label">{sec === 'overview' ? `${company} · all sites` : 'Admin'}</div><h1 className="admH1">{TITLE[sec]}</h1></div>
-          <button className="btn link" onClick={load}>Refresh</button>
+          <span className="row"><StartTraining user={user} className="btn ghost admSm trainStart" label="Training mode" /><button className="btn link" onClick={load}>Refresh</button></span>
         </div>
         {err && <div className="note err" role="alert">{err}</div>}
         {!d ? <div className="muted">Loading…</div> : (
@@ -102,7 +103,9 @@ function events(d: Data, siteName: Map<string, string>, person: Map<string, Prof
   const ev: Event[] = [];
   d.docs.forEach((doc) => {
     const lines = doc.lines.slice(0, 2).map((l) => `${itemById.get(l.item_id)?.name ?? 'Item'} ${fmt(l.qty)} ${itemById.get(l.item_id)?.unit ?? ''}`).join(', ');
-    ev.push({ at: doc.created_at, site: siteName.get(doc.site_id) ?? '', kind: KIND_LABEL[doc.kind] ?? doc.kind, cls: doc.kind === 'correction' ? 'acc' : '',
+    const sub = doc.doc_date === dayOf(new Date().toISOString()) ? d.subs.find((x) => x.site_id === doc.site_id) : undefined;
+    const late = !!sub && doc.kind !== 'correction' && doc.created_at > sub.submitted_at;
+    ev.push({ at: doc.created_at, site: siteName.get(doc.site_id) ?? '', kind: (KIND_LABEL[doc.kind] ?? doc.kind) + (late ? ' · late' : ''), cls: doc.kind === 'correction' ? 'acc' : late ? 'late' : '',
       text: `${doc.ref_no ? doc.ref_no + ' · ' : ''}${doc.party ? doc.party + ' · ' : ''}${lines}${doc.lines.length > 2 ? '…' : ''}`, who: person.get(doc.created_by)?.full_name ?? '' });
   });
   d.corr.forEach((c) => {

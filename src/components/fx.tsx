@@ -50,6 +50,7 @@ export function Ring({ done, total, size = 64 }: { done: number; total: number; 
 const P = { fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
 const ICONS: Record<string, ReactNode> = {
   checkin: <><rect x="4" y="3" width="16" height="18" rx="2" {...P} /><path d="M8 8h8M8 12h5" {...P} /><path d="M9 16.5l2 2 4-4" {...P} /></>,
+  report: <><path d="M6 3h9l4 4v14H6z" {...P} /><path d="M14 3v5h5M9 13h7M9 17h5" {...P} /></>,
   chart: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" {...P} /></>,
   fix: <><path d="M4 20l4-1 11-11-3-3L5 16l-1 4z" {...P} /><path d="M14 6l3 3" {...P} /></>,
   box: <><path d="M3 7.5L12 3l9 4.5v9L12 21l-9-4.5v-9z" {...P} /><path d="M3 7.5L12 12l9-4.5M12 12v9" {...P} /></>,

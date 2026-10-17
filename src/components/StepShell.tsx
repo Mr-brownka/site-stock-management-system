@@ -26,8 +26,10 @@ export function StepShell({ step, question, hint, another, formTitle, tone, rend
   const [busy, setBusy] = useState('');
   const docs = docsToday.filter((d) => meta.kinds.includes(d.kind));
 
-  const saved = async () => { await refresh(); markStep(step, 'done'); setStage('another'); toast(`Saved to ${meta.label.toLowerCase()}`); };
-  const finish = () => go((next?.screen ?? 'home') as Screen);
+  const saved = async () => { await refresh(); markStep(step, 'done'); setStage('another'); toast(locked ? `Late entry saved to ${meta.label.toLowerCase()}` : `Saved to ${meta.label.toLowerCase()}`); };
+  const finish = () => go((locked ? 'home' : next?.screen ?? 'home') as Screen);
+  const isLate = (d: Doc) => !!submission && d.created_at > submission.submitted_at;
+  const at = submission ? new Date(submission.submitted_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' }) : '';
   const remove = async (d: Doc) => {
     if (!(await ask({ title: 'Remove this entry?', body: <p>{docTitle(d)}. Use this only for a mistake made today.</p>, yes: 'Remove', tone: 'danger' }))) return;
     setBusy(d.id);
@@ -53,19 +55,26 @@ export function StepShell({ step, question, hint, another, formTitle, tone, rend
 
         {stage === 'summary' && (
           <>
-            {locked && <div className="note info">Today has been submitted, so entries can no longer change. Mistakes are fixed with a correction (coming next).</div>}
+            {locked && (
+              <div className="lateNote enter">
+                <b>Today was submitted at {at}.</b>
+                <span>Something arrived or went out after that? Add it as a late entry. It counts in today’s balances and is marked <span className="pill late">Late</span> for the admin. To change an entry that is already saved, use <button className="btn link inline" onClick={() => go('corrections')}>Fix a mistake</button>.</span>
+              </div>
+            )}
             {!docs.length && stepState(step) === 'none' && <div className="note info enter">Nothing recorded for this step today.</div>}
             {docs.map((d, i) => (
               <div key={d.id} className={`sumCard ${docTone?.(d) ?? ''}`} style={{ animationDelay: `${i * 0.06}s` }}>
-                <div className="between"><b>{docTitle(d)}</b>{!locked && <button className="btn link" disabled={busy === d.id} onClick={() => remove(d)}>Remove</button>}</div>
+                <div className="between"><b>{docTitle(d)}{isLate(d) && <span className="pill late">Late</span>}</b>{!locked && <button className="btn link" disabled={busy === d.id} onClick={() => remove(d)}>Remove</button>}</div>
                 {d.lines.map((l) => {
                   const it = itemById.get(l.item_id);
                   return <div className="ln" key={l.id}><span>{it?.name ?? 'Item'}{l.subphase ? <span className="muted"> · {l.subphase}</span> : null}</span><span className="mono">{fmt(l.qty)} {it?.unit}</span></div>;
                 })}
               </div>
             ))}
-            {!locked && <button className="btn ghost" onClick={() => setStage('form')}>{docs.length || stepState(step) === 'none' ? '+ Add one' : 'Start'}</button>}
-            <button className="btn accent" onClick={finish}>{next ? `Done · Next: ${next.label}` : 'Done · Back to start'}</button>
+            {locked
+              ? <button className="btn ghost addLate" onClick={() => setStage('form')}>+ Add a late entry</button>
+              : <button className="btn ghost" onClick={() => setStage('form')}>{docs.length || stepState(step) === 'none' ? '+ Add one' : 'Start'}</button>}
+            <button className="btn accent" onClick={finish}>{locked ? 'Done · Back to start' : next ? `Done · Next: ${next.label}` : 'Done · Back to start'}</button>
           </>
         )}
       </main>

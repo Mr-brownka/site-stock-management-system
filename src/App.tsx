@@ -12,15 +12,17 @@ import { Home } from './screens/Home';
 import { Issued } from './screens/Issued';
 import { Login } from './screens/Login';
 import { Opening } from './screens/Opening';
+import { Reports } from './screens/Reports';
 import { Returns } from './screens/Returns';
 import { SetPassword } from './screens/SetPassword';
 import { SignUp, Waiting } from './screens/SignUp';
 import { Submitted } from './screens/Submitted';
 import { Transfers } from './screens/Transfers';
+import { exitTraining } from './lib/training';
 
 const SCREENS: Record<Screen, () => JSX.Element> = {
   home: Home, deliveries: Deliveries, issued: Issued, returns: Returns, transfers: Transfers,
-  submitted: Submitted, dashboard: Dashboard, opening: Opening, corrections: Corrections,
+  submitted: Submitted, dashboard: Dashboard, opening: Opening, corrections: Corrections, reports: Reports,
 };
 
 const fromHash = (): Screen => {
@@ -55,7 +57,7 @@ export function App() {
     location.hash = `/${s}`;
   }, []);
   const openAdmin = useCallback(() => { history.pushState(null, '', '/admin'); setAdminPath(true); window.scrollTo(0, 0); }, []);
-  const signOut = useCallback(async () => { await api.signOut(); setUser(null); history.replaceState(null, '', '/'); setAdminPath(false); }, []);
+  const signOut = useCallback(async () => { if (api.mode === 'training') { exitTraining(); return; } await api.signOut(); setUser(null); history.replaceState(null, '', '/'); setAdminPath(false); }, []);
 
   if (user === undefined || !introDone) return <Loader />;
   if (recovering) return <SetPassword onDone={() => { setRecovering(false); location.hash = ''; loadUser(); }} />;

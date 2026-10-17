@@ -3,15 +3,17 @@ import { api } from '../lib/api';
 import { STEPS, useData, type Screen } from '../lib/store';
 import { SiteLogo, Wordmark } from './Brand';
 import { Icon, PulseDot, Ring, useMinutesToClose } from './fx';
+import { StartTraining } from './Training';
 
 const NAV: { screen: Screen; label: string; icon: string; match: Screen[] }[] = [
   { screen: 'home', label: 'Check-in', icon: 'checkin', match: ['home', 'deliveries', 'issued', 'returns', 'transfers', 'submitted'] },
   { screen: 'dashboard', label: 'Dashboard', icon: 'chart', match: ['dashboard'] },
+  { screen: 'reports', label: 'Reports', icon: 'report', match: ['reports'] },
   { screen: 'corrections', label: 'Fix a mistake', icon: 'fix', match: ['corrections'] },
   { screen: 'opening', label: 'Opening count', icon: 'box', match: ['opening'] },
 ];
 // Screens that show the phone tab bar (not the step-by-step forms).
-const TABBAR: Screen[] = ['home', 'dashboard', 'corrections', 'submitted'];
+const TABBAR: Screen[] = ['home', 'dashboard', 'corrections', 'submitted', 'reports'];
 
 export function closeLabel(min: number): string {
   if (min <= 0) return 'Register closed at 6:00 pm';
@@ -38,6 +40,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
             </button>
           ))}
           {user.role === 'admin' && <button className="railLink" onClick={openAdmin}><Icon name="shield" />Admin page</button>}
+          {user.role === 'admin' && <StartTraining user={user} />}
         </nav>
         <div className={`railToday ${urgent ? 'urgent' : ''}`}>
           <Ring done={submission ? 4 : done} total={4} size={56} />

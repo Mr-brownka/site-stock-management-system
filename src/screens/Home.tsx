@@ -118,6 +118,14 @@ export function Home() {
         </div>
 
         {err && <div className="note err" role="alert">{err}</div>}
+        {submission && (
+          <div className="lateCard enter">
+            <div><b>Came in after you submitted?</b><span className="small muted">Add it as a late entry. It counts in today’s balances.</span></div>
+            <div className="lateBtns">
+              {STEPS.map((st) => <button key={st.key} className="lateBtn" onClick={() => go(st.screen)}><Icon name={STEP_ICON[st.key]} size={18} />+ {st.key === 'issued' ? 'Card' : st.key === 'deliveries' ? 'Delivery' : st.key === 'returns' ? 'Return' : 'Transfer'}</button>)}
+            </div>
+          </div>
+        )}
         {submission ? (
           <button className="btn ok" onClick={() => go('submitted')}>See today’s summary</button>
         ) : answered ? (

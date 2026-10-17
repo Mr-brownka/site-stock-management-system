@@ -3,10 +3,12 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { FeedbackHost } from './components/feedback';
 import './styles.css';
+import { TrainingBar } from './components/Training';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
     <FeedbackHost />
+    <TrainingBar />
   </StrictMode>,
 );
