@@ -87,7 +87,7 @@ export function demoBackend(): Backend {
     async sendPasswordReset() { /* demo: nothing to send */ },
     isRecovery() { return false; },
     async setPassword() { /* demo */ },
-    async siteName() { return 'Demo site'; },
+    async siteName() { return { company: 'Demo Builders', site: 'Demo site' }; },
     async items() { return wait(allItems().slice().sort((a, b) => a.name.localeCompare(b.name))); },
     async addItem(name, unit) {
       const it = { id: 100000 + s.extraItems.length, name, unit };

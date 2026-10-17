@@ -27,7 +27,7 @@ function usage(lines: Line[]): Map<number, Use> {
 }
 
 export function Dashboard() {
-  const { day, balances, refresh, go, site } = useData();
+  const { day, balances, refresh, go, siteLabel } = useData();
   const [tab, setTab] = useState<Tab>('cons');
   const [period, setPeriod] = useState<Period>('day');
   const [date, setDate] = useState(day);
@@ -115,7 +115,7 @@ export function Dashboard() {
         <div className="between" style={{ alignItems: 'flex-end' }}>
           <div>
             <button className="back" onClick={() => go('home')}>← Back to check-in</button>
-            <div className="mono" style={{ fontSize: 11, letterSpacing: '.08em', color: '#B9C0BC' }}>SITE STORE · {site.toUpperCase()}{api.mode === 'demo' ? ' · DEMO' : ''}</div>
+            <div className="mono" style={{ fontSize: 11, letterSpacing: '.08em', color: '#B9C0BC' }}>{siteLabel}{api.mode === 'demo' ? ' · DEMO' : ''}</div>
             <h1>Store dashboard</h1>
           </div>
         </div>

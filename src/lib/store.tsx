@@ -15,6 +15,9 @@ export type Screen = 'home' | 'deliveries' | 'issued' | 'returns' | 'transfers' 
 interface Data {
   user: User;
   site: string;
+  company: string;
+  /** "COMEX BUILDERS · REVEAL" */
+  siteLabel: string;
   day: string;
   items: Item[];
   itemById: Map<number, Item>;
@@ -46,6 +49,7 @@ function readMarks(day: string): Partial<Record<StepKey, StepState>> {
 export function DataProvider({ user, go, signOut, children }: { user: User; go: (s: Screen) => void; signOut: () => void; children: ReactNode }) {
   const day = today();
   const [site, setSite] = useState('');
+  const [company, setCompany] = useState('');
   const [items, setItems] = useState<Item[] | null>(null);
   const [balances, setBalances] = useState<Balance[]>([]);
   const [docsToday, setDocs] = useState<Doc[]>([]);
@@ -60,7 +64,7 @@ export function DataProvider({ user, go, signOut, children }: { user: User; go: 
 
   useEffect(() => {
     Promise.all([api.siteName(), api.items(), refresh()])
-      .then(([s, it]) => { setSite(s); setItems(it); })
+      .then(([s, it]) => { setSite(s.site); setCompany(s.company); setItems(it); })
       .catch((e) => setError(e.message || String(e)));
   }, [refresh]);
 
@@ -92,7 +96,7 @@ export function DataProvider({ user, go, signOut, children }: { user: User; go: 
   if (!items) return <div className="spinner">Loading the store…</div>;
 
   const value: Data = {
-    user, site, day, items, itemById, balances, balanceOf: (id) => balMap.get(id) ?? 0, docsToday, submission,
+    user, site, company, siteLabel: [company, site].filter(Boolean).join(' · ').toUpperCase(), day, items, itemById, balances, balanceOf: (id) => balMap.get(id) ?? 0, docsToday, submission,
     stepState, markStep, refresh, addItem, go, signOut,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

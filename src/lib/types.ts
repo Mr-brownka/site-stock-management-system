@@ -81,7 +81,8 @@ export interface Backend {
   /** True when the page was opened from a password-reset email. */
   isRecovery(): boolean;
   setPassword(password: string): Promise<void>;
-  siteName(): Promise<string>;
+  /** The signed-in person's company and site, e.g. Comex Builders / Reveal. */
+  siteName(): Promise<{ company: string; site: string }>;
   items(): Promise<Item[]>;
   addItem(name: string, unit: string): Promise<Item>;
   remembered(field: Field): Promise<string[]>;

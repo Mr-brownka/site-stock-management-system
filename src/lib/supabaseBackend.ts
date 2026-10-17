@@ -80,8 +80,10 @@ export function supabaseBackend(url: string, key: string): Backend {
     },
 
     async siteName() {
-      const { data } = await sb.from('sites').select('name').limit(1).maybeSingle();
-      return data?.name ?? 'Site store';
+      const { data } = await sb.from('sites').select('name, companies(name)').limit(1).maybeSingle();
+      const c = (data as { companies?: { name?: string } | { name?: string }[] } | null)?.companies;
+      const company = Array.isArray(c) ? c[0]?.name : c?.name;
+      return { company: company ?? '', site: data?.name ?? 'Site store' };
     },
 
     async items() {
