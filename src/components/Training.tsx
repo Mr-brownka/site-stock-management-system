@@ -11,7 +11,7 @@ export function TrainingBar() {
   return (
     <div className="trainBar" role="status">
       <span className="trainTag">TRAINING</span>
-      <span className="trainText"><span className="long">Practice copy of the real store. Nothing here changes real stock.</span><span className="short">Practice copy · real stock is safe</span></span>
+      <span className="trainText"><span className="long">Practice store with example data. Nothing here changes real stock.</span><span className="short">Practice store · real stock is safe</span></span>
       <span className="trainBtns">
         <button onClick={async () => { if (await ask({ title: 'Start the practice again?', body: <p>Everything entered in training is cleared and the copy goes back to how it started.</p>, yes: 'Reset practice' })) resetTraining(); }}>Reset</button>
         <button className="exit" onClick={exitTraining}>Exit training</button>
@@ -29,8 +29,8 @@ export function StartTraining({ user, className = 'railLink', label = 'Training 
     const ok = await ask({
       title: 'Open training mode?',
       body: <>
-        <p>Site Stock makes a practice copy of your site on this device: the item list, stock and the last 4 weeks of entries.</p>
-        <p>New storekeepers can then do the whole evening check-in, fix mistakes and open reports. <b>Nothing they do changes the real store.</b></p>
+        <p>Opens a practice store, <b>Comex Builders · Astana</b>, with two months of example entries: deliveries, withdrawal cards, returns, transfers, corrections, sign-ups and reports.</p>
+        <p>Use it to train storekeepers or to show management. <b>Nothing done here changes the real store.</b></p>
         <p>A purple strip shows while training is on. Tap <b>Exit training</b> to go back.</p>
       </>,
       yes: 'Start training', tone: 'go',

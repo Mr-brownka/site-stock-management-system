@@ -1,6 +1,6 @@
 // Training mode: practise on a copy of the real site's data. Nothing reaches the real store.
-import { buildTrainingStore } from './demoBackend';
-import { addDays, today } from './dates';
+import { today } from './dates';
+import { buildAstanaTraining } from './trainingData';
 import type { Backend, User } from './types';
 
 const FLAG = 'ssms-training';
@@ -10,11 +10,10 @@ export function isTraining(): boolean {
   try { return sessionStorage.getItem(FLAG) === '1' && !!localStorage.getItem(TRAINING_KEY); } catch { return false; }
 }
 
-/** Copy the real site's items, stock and last 4 weeks of entries, then reload into training. */
-export async function startTraining(live: Backend, user: User) {
-  const day = today();
-  const [items, balances, docs, names] = await Promise.all([live.items(), live.balances(), live.documents(addDays(day, -28), day), live.siteName()]);
-  const store = buildTrainingStore({ items, balances, docs, company: names.company, site: names.site, user: { email: user.email, name: user.name, role: user.role }, today: day });
+/** Build the Astana practice store (realistic 60 days) and reload into training. */
+export async function startTraining(source: Backend, user: User) {
+  const items = await source.items();
+  const store = buildAstanaTraining(items, { email: user.email, name: user.name }, today());
   localStorage.setItem(TRAINING_KEY, JSON.stringify(store));
   localStorage.setItem(`${TRAINING_KEY}-backup`, JSON.stringify(store));
   sessionStorage.setItem(FLAG, '1');

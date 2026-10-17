@@ -132,7 +132,7 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
       },
       async balances() { return (await this_.balances()).map((b) => ({ ...b, site_id: SITE })); },
       async submissions(day) { return s.submissions[day] ? [{ site_id: SITE, day, submitted_at: s.submissions[day].submitted_at }] : []; },
-      async documents(from, to) { return s.docs.filter((d) => d.doc_date >= from && d.doc_date <= to).map((d): SiteDoc => ({ ...d, site_id: SITE, created_by: ME })).reverse(); },
+      async documents(from, to) { return s.docs.filter((d) => d.doc_date >= from && d.doc_date <= to).map((d): SiteDoc => ({ ...d, site_id: SITE, created_by: (d as Partial<SiteDoc>).created_by ?? ME })).reverse(); },
       async updateItem(id, name, unit) { s.extraItems = s.extraItems.map((i) => (i.id === id ? { ...i, name, unit } : i)); save(); },
       async mergeItems() { /* demo */ },
       async setReorder(_site, itemId, level) { s.reorder[itemId] = level; save(); },
@@ -198,34 +198,3 @@ export function resetDemo() {
   try { localStorage.removeItem(KEY); } catch { /* ignore */ }
 }
 
-/** Build a practice copy of a real site: stock as it was 4 weeks ago, then every real entry since. */
-export function buildTrainingStore(input: {
-  items: Item[]; balances: Balance[]; docs: Doc[]; company: string; site: string;
-  user: { email: string; name: string; role: 'store' | 'assistant' | 'admin' }; today: string;
-}): Store {
-  const start = addDays(input.today, -28);
-  const recent = input.docs.filter((d) => d.doc_date > start);
-  const before = new Map(input.balances.map((b) => [b.item_id, b.balance]));
-  recent.forEach((d) => d.lines.forEach((l) => before.set(l.item_id, (before.get(l.item_id) ?? 0) - delta(l.kind, l.qty))));
-  let nextLine = 1;
-  const lineId = new Map<number, number>();
-  const docs: Doc[] = [];
-  const openId = uid();
-  const openLines = [...before].filter(([, q]) => q > 0).map(([item_id, qty]) => ({ id: nextLine++, document_id: openId, kind: 'opening' as const, move_date: start, item_id, qty, subphase: null, return_of: null }));
-  if (openLines.length) docs.push({ kind: 'opening', doc_date: start, reason: 'Stock 4 weeks ago (training copy)', id: openId, created_at: `${start}T06:00:00Z`, lines: openLines });
-  recent.slice().sort((a, b) => a.doc_date.localeCompare(b.doc_date) || a.created_at.localeCompare(b.created_at)).forEach((d) => {
-    const id = uid();
-    docs.push({ ...d, id, lines: d.lines.map((l) => { const n = nextLine++; lineId.set(l.id, n); return { ...l, id: n, document_id: id, return_of: l.return_of ? lineId.get(l.return_of) ?? null : null }; }) });
-  });
-  const reorder: Record<number, number | null> = {};
-  input.balances.forEach((b) => { if (b.reorder_level != null) reorder[b.item_id] = b.reorder_level; });
-  const now = new Date().toISOString();
-  return {
-    items: input.items, meta: { company: input.company, site: input.site, user: input.user },
-    docs, nextLine, submissions: {}, reorder, extraItems: [], signedIn: true,
-    sites: [{ id: SITE, name: input.site, company: input.company }],
-    profiles: [{ id: ME, full_name: input.user.name, email: input.user.email, phone: null, role: input.user.role, status: 'approved', site_id: SITE, created_at: now, decided_at: now },
-      { id: 'demo-trainee', full_name: 'New storekeeper (practice)', email: 'trainee@practice', phone: null, role: 'store', status: 'pending', site_id: SITE, created_at: now, decided_at: null }],
-    corrections: [],
-  };
-}

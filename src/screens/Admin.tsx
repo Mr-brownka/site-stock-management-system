@@ -2,7 +2,7 @@ import { SiteLogo, Wordmark } from '../components/Brand';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fmt } from '../components/ui';
 import { api } from '../lib/api';
-import { addDays, niceDate, today } from '../lib/dates';
+import { addDays, niceDate, today, weekday } from '../lib/dates';
 import type { Balance, CorrectionRequest, Item, Profile, Role, SiteDoc, SiteInfo, User } from '../lib/types';
 import { ask } from '../components/feedback';
 import { StartTraining } from '../components/Training';
@@ -94,8 +94,25 @@ export function Admin({ user, onExit, onSignOut }: { user: User; onExit: () => v
 
 type Act = (key: string, fn: () => Promise<unknown>) => Promise<void>;
 
-function lowCount(bs: Balance[], site: string) {
-  return bs.filter((b) => b.site_id === site && b.reorder_level != null && b.balance <= b.reorder_level).length;
+/** Same rule as the store dashboard: out, at/below the reorder level, or about 5 days left at the last 2 weeks' rate. */
+function lowCount(bs: Balance[], site: string, docs: SiteDoc[], day: string) {
+  const from = addDays(day, -13);
+  const used = new Map<number, number>();
+  for (const d of docs) {
+    if (d.site_id !== site || d.doc_date < from) continue;
+    for (const l of d.lines) {
+      const v = l.kind === 'issue' ? l.qty : l.kind === 'return' ? -l.qty : l.kind === 'correction' && (l.corrects_kind === 'issue' || l.corrects_kind === 'return') ? -l.qty : 0;
+      if (v) used.set(l.item_id, (used.get(l.item_id) ?? 0) + v);
+    }
+  }
+  let workdays = 0;
+  for (let i = 0; i < 14; i++) if (weekday(addDays(day, -i)) !== 'Sun') workdays++;
+  return bs.filter((b) => {
+    if (b.site_id !== site) return false;
+    if (b.balance <= 0 || (b.reorder_level != null && b.balance <= b.reorder_level)) return true;
+    const a = Math.max(0, used.get(b.item_id) ?? 0) / workdays;
+    return a > 0 && b.balance / a <= 5;
+  }).length;
 }
 
 interface Event { at: string; site: string; kind: string; cls: string; text: string; who: string }
@@ -146,14 +163,14 @@ function Overview({ d, day, siteName, person, itemById, pendingPeople, pendingCo
       <div className="label">Sites today</div>
       <div className="admSites">
         {d.sites.map((s) => {
-          const sub = submitted(s.id), t = team(s.id), active = t > 0 || d.balances.some((b) => b.site_id === s.id), low = lowCount(d.balances, s.id);
+          const sub = submitted(s.id), t = team(s.id), active = t > 0 || d.balances.some((b) => b.site_id === s.id), low = lowCount(d.balances, s.id, d.docs, day);
           return (
             <div key={s.id} className="card pad stack" style={{ gap: 8 }}>
               <div className="siteLogo" style={{ background: '#F6F5F1', height: 64 }}><SiteLogo name={s.name} height={48} /></div>
               <div className="between"><b style={{ fontSize: 18 }}>{s.name}</b>
                 <span className={`pill ${sub ? 'done' : active ? '' : 'grey'}`}>{sub ? `Submitted ${time(sub.submitted_at)}` : active ? 'Not submitted' : 'Not set up'}</span></div>
               <div className="between small"><span>Low stock</span><b className={`mono ${low ? 'low' : ''}`}>{low}</b></div>
-              <div className="between small"><span>Items in store</span><b className="mono">{d.balances.filter((b) => b.site_id === s.id).length}</b></div>
+              <div className="between small"><span>Items in store</span><b className="mono">{d.balances.filter((b) => b.site_id === s.id && b.balance > 0).length}</b></div>
               <div className="between small"><span>Store team</span><b className="mono">{t}</b></div>
             </div>
           );
