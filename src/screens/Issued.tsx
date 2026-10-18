@@ -1,26 +1,31 @@
 import { useEffect, useState } from 'react';
 import { StepShell } from '../components/StepShell';
-import { checkLines, enterNext, LineEditor, newLine, Suggest, TimeBoxes, type LineDraft } from '../components/ui';
+import { checkLines, enterNext, fmt, ItemPicker, newLine, Suggest, TimeBoxes, type LineDraft } from '../components/ui';
 import { api } from '../lib/api';
 import { addDays } from '../lib/dates';
 import { useData } from '../lib/store';
 import { SUBPHASES } from '../lib/types';
 
-function CardForm({ done }: { done: () => void }) {
-  const { day, user, balanceOf, docsToday, projectWeek } = useData();
+const ROWS = 7; // the paper card has seven item rows
+const blank = () => Array.from({ length: ROWS }, () => newLine());
+
+/** The Material Withdrawal Card, laid out box for box like the paper one (Ref: FM-5/CB/IMS/SOP/PMD). */
+function CardForm({ done, again }: { done: () => void; again: () => Promise<void> }) {
+  const { day, user, balanceOf, docsToday, projectWeek, company } = useData();
   const [known, setKnown] = useState<Map<string, string>>(new Map());
   const [acts, setActs] = useState<string[]>([]);
   const [people, setPeople] = useState<string[]>([]);
   const [sups, setSups] = useState<string[]>([]);
+  const [code, setCode] = useState('');
   const [cardNo, setCardNo] = useState('');
   const [time, setTime] = useState('');
   const [activity, setActivity] = useState('');
   const [gemba, setGemba] = useState('');
   const [to, setTo] = useState('');
   const [sup, setSup] = useState('');
-  const [lines, setLines] = useState<LineDraft[]>([newLine()]);
+  const [lines, setLines] = useState<LineDraft[]>(blank);
   const [err, setErr] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState('');
   const [stamped, setStamped] = useState(false);
 
   useEffect(() => {
@@ -30,57 +35,118 @@ function CardForm({ done }: { done: () => void }) {
     api.documents(addDays(day, -180), day).then((ds) => setKnown(new Map(ds.filter((d) => d.kind === 'issue' && d.ref_no).map((d) => [d.ref_no!.trim(), d.doc_date]))));
   }, [day, docsToday.length]);
 
-  const dupe = cardNo.trim() ? known.get(cardNo.trim()) : undefined;
-  const setCardGemba = (g: string) => {
-    setLines(lines.map((l) => (!l.subphase || l.subphase === gemba ? { ...l, subphase: g } : l)));
-    setGemba(g);
+  const dupe = code.trim() ? known.get(code.trim()) : undefined;
+  const patch = (k: number, p: Partial<LineDraft>) => setLines(lines.map((l) => (l.key === k ? { ...l, ...p } : l)));
+  const used = lines.filter((l) => l.item || l.qty);
+  const firstEmpty = lines.findIndex((l) => !l.item);
+  const headDone = !!code && !dupe && time.length === 5 && !!activity.trim() && !!gemba && !!to.trim();
+  const dateText = new Date(day + 'T00:00:00Z').toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'UTC' }).replace(/\//g, '.');
+
+  const save = async (stay: boolean) => {
+    const withGemba = lines.map((l) => ({ ...l, subphase: gemba }));
+    const problem = !code.trim() ? 'Enter the code (the red number on the card).' : dupe ? `Card ${code} was already entered on ${dupe}.`
+      : !activity.trim() ? 'Enter the activity.' : time.length !== 5 ? 'Enter the time written on the card (hour, then minute).'
+      : !gemba ? 'Choose the gemba (floor).' : !to.trim() ? 'Enter who it was issued to.'
+      : checkLines(withGemba, { stock: balanceOf }) ?? (!sup.trim() ? 'Enter the SM / supervisor.' : null);
+    if (problem) { setErr(problem); return; }
+    setBusy(stay ? 'again' : 'save'); setErr('');
+    try {
+      await api.saveDocument({ kind: 'issue', doc_date: day, doc_time: time, ref_no: code.trim(), card_no: cardNo.trim() || null, party: to.trim(), activity: activity.trim(), gemba, supervisor: sup.trim() },
+        used.map((l) => ({ item_id: l.item!.id, qty: Number(l.qty), subphase: gemba })));
+      setStamped(true);
+      if (stay) {
+        await again();
+        setTimeout(() => { setStamped(false); setCode(''); setCardNo(''); setTime(''); setActivity(''); setGemba(''); setTo(''); setSup(''); setLines(blank()); setBusy(''); window.scrollTo({ top: 0, behavior: 'smooth' }); }, 700);
+      } else setTimeout(done, 900);
+    } catch (e) { setErr((e as Error).message); setBusy(''); }
   };
 
-  const save = async () => {
-    const problem = !cardNo.trim() ? 'Enter the card number (red number on the card).' : dupe ? `Card ${cardNo} was already entered on ${dupe}.`
-      : time.length !== 5 ? 'Enter the time written on the card (hour, then minute).'
-      : !activity.trim() ? 'Enter the activity.' : !gemba ? 'Choose the gemba (floor).' : !to.trim() ? 'Enter who it was issued to.'
-      : checkLines(lines, { subphase: true, stock: balanceOf }) ?? (!sup.trim() ? 'Enter the SM / supervisor.' : null);
-    if (problem) { setErr(problem); return; }
-    setBusy(true); setErr('');
-    try {
-      await api.saveDocument({ kind: 'issue', doc_date: day, doc_time: time || null, ref_no: cardNo.trim(), party: to.trim(), activity: activity.trim(), gemba, supervisor: sup.trim() },
-        lines.filter((l) => l.item).map((l) => ({ item_id: l.item!.id, qty: Number(l.qty), subphase: l.subphase || gemba })));
-      setStamped(true);
-      setTimeout(done, 900);
-    } catch (e) { setErr((e as Error).message); setBusy(false); }
-  };
+  // The right-hand column of the item rows on the paper: Time, Gemba, Issued to, Date.
+  const side: { label?: string; node?: JSX.Element }[] = [
+    { node: <TimeBoxes value={time} onChange={setTime} glow={!!activity.trim() && time.length < 5} /> },
+    { label: 'Gemba' },
+    { node: (
+      <label className="field bare"><span className="sr">Gemba</span>
+        <select data-nav className={`select input mwcIn ${activity && time.length === 5 && !gemba ? 'next' : ''}`} value={gemba} onChange={(e) => setGemba(e.target.value)} onKeyDown={enterNext}>
+          <option value="">Choose…</option>{SUBPHASES.map((s) => <option key={s}>{s}</option>)}
+        </select>
+      </label>) },
+    { label: 'Issued to' },
+    { node: <Suggest bare label="Issued to" value={to} onChange={setTo} options={people} placeholder="Name" glow={!!gemba && !to} inputClass="mwcIn" /> },
+    { label: 'Date' },
+    { node: <div className="mwcDate mono">{dateText}</div> },
+  ];
 
   return (
     <div className="stack enter">
-      <div className="paperCard">
-        <div className="cardTitle">Material Withdrawal Card</div>
+      <div className="mwc" role="group" aria-label="Material withdrawal card">
         {stamped && <div className="stampMark">ENTERED</div>}
-        <div className="row" style={{ alignItems: 'flex-end' }}>
-          <label className="field" style={{ flex: 1 }}><span>Card no.</span>
-            <input data-nav className={`input cardNo ${!cardNo ? 'next' : ''} ${dupe ? 'bad' : ''}`} inputMode="numeric" value={cardNo} autoFocus
-              onChange={(e) => setCardNo(e.target.value.replace(/[^0-9A-Za-z-]/g, ''))} onKeyDown={enterNext} style={{ color: 'var(--error)', fontFamily: 'var(--mono)', fontSize: 22 }} />
-          </label>
-          <div className="field" style={{ width: 70 }}><span>Week</span><div className="mono" title="Project week" style={{ minHeight: 50, display: 'flex', alignItems: 'center', fontSize: 20 }}>{projectWeek ?? '–'}</div></div>
-          <TimeBoxes value={time} onChange={setTime} glow={!!cardNo && !dupe && time.length < 5} />
+        <div className="mwcRef"><span>Effective Date: April 2025</span><span>Ref: FM-5/CB/IMS/SOP/PMD</span></div>
+
+        <div className="mwcHead">
+          <div className="mwcLogo"><span className="mwcArc" aria-hidden="true" /><b>{(company || 'Comex Builders').toUpperCase()}</b><small>LTD</small></div>
+          <div className="mwcTitle">MATERIAL WITHDRAWAL CARD</div>
+          <div className="mwcWeek"><span>Week no.</span><b className="mono" title="Project week">{projectWeek ?? '–'}</b></div>
         </div>
-        {dupe && <div className="hint bad">Card {cardNo} was already entered on {dupe}. Check the number.</div>}
-        <Suggest label="Activity" value={activity} onChange={setActivity} options={acts} placeholder="e.g. Plaster" glow={!!cardNo && time.length === 5 && !activity} />
-        <label className="field"><span>Gemba (floor)</span>
-          <select data-nav className={`select input ${activity && !gemba ? 'next' : ''}`} value={gemba} onChange={(e) => setCardGemba(e.target.value)} onKeyDown={enterNext}>
-            <option value="">Choose…</option>{SUBPHASES.map((s) => <option key={s}>{s}</option>)}
-          </select>
-        </label>
-        <Suggest label="Issued to" value={to} onChange={setTo} options={people} placeholder="Name on the card" glow={!!gemba && !to} />
+
+        <div className="mwcHead lbl"><div>Code</div><div>Activity</div><div>Card No</div></div>
+        <div className="mwcHead vals">
+          <div>
+            <label className="field bare"><span className="sr">Code (red number)</span>
+              <input data-nav className={`input mwcIn mwcCode mono ${!code ? 'next' : ''} ${dupe ? 'bad' : ''}`} inputMode="numeric" value={code} autoFocus placeholder="5154"
+                onChange={(e) => setCode(e.target.value.replace(/[^0-9A-Za-z-]/g, ''))} onKeyDown={enterNext} />
+            </label>
+          </div>
+          <div><Suggest bare label="Activity" value={activity} onChange={setActivity} options={acts} placeholder="e.g. Plaster" glow={!!code && !dupe && !activity} inputClass="mwcIn" /></div>
+          <div>
+            <label className="field bare"><span className="sr">Card No</span>
+              <input data-nav className="input mwcIn mono" value={cardNo} onChange={(e) => setCardNo(e.target.value)} onKeyDown={enterNext} placeholder="(optional)" />
+            </label>
+          </div>
+        </div>
+        {dupe && <div className="mwcWarn">Card {code} was already entered on {dupe}. Check the number.</div>}
+
+        <div className="mwcGrid">
+          <div className="mwcTh mwcN">#</div><div className="mwcTh mwcItemH" aria-hidden="true" /><div className="mwcTh">Qty</div><div className="mwcTh">Unit</div><div className="mwcTh mwcSideH">Time</div>
+          {/* The side column comes first so Enter goes Time → Gemba → Issued to before the items. */}
+          {side.map((s, i) => <div key={`s${i}`} className={`mwcTd mwcSide ${s.label ? 'mwcSideL' : ''}`} style={{ gridRow: i + 2 }}>{s.label ?? s.node}</div>)}
+          {lines.map((l, i) => {
+            const q = Number(l.qty) || 0;
+            const have = l.item ? balanceOf(l.item.id) : 0;
+            const over = !!l.item && q > have;
+            return [
+              <div key={`n${l.key}`} className="mwcTd mwcN mono" style={{ gridRow: i + 2 }}>{i + 1}</div>,
+              <div key={`i${l.key}`} className="mwcTd mwcItem" style={{ gridRow: i + 2 }}>
+                <ItemPicker bare label={`Item ${i + 1}`} item={l.item} onPick={(it) => patch(l.key, { item: it })} inputClass="mwcIn" placeholder={i === firstEmpty ? 'Item…' : ''} glow={headDone && i === firstEmpty} />
+                {l.item && <span className={`mwcHave ${over ? 'bad' : ''}`}>{over ? `Only ${fmt(have)} in store` : `${fmt(have)} in store`}</span>}
+              </div>,
+              <div key={`q${l.key}`} className="mwcTd" style={{ gridRow: i + 2 }}>
+                <label className="field bare"><span className="sr">Qty for item {i + 1}</span>
+                  <input data-nav className={`input mwcIn num ${over ? 'bad' : l.item && !l.qty ? 'next' : ''}`} inputMode="decimal" value={l.qty} onKeyDown={enterNext}
+                    onChange={(e) => patch(l.key, { qty: e.target.value.replace(/[^0-9.]/g, '') })} aria-invalid={over} />
+                </label>
+              </div>,
+              <div key={`u${l.key}`} className="mwcTd mwcUnit" style={{ gridRow: i + 2 }}>{l.item?.unit ?? ''}</div>,
+              i >= side.length ? <div key={`e${l.key}`} className="mwcTd mwcSide mwcSideX" style={{ gridRow: i + 2 }} /> : null,
+            ];
+          })}
+        </div>
+        {used.length >= ROWS - 1 && <button type="button" className="mwcMore" onClick={() => setLines([...lines, newLine()])}>+ Add a row (card continues)</button>}
+
+        <div className="mwcAppr">Approval</div>
+        <div className="mwcFoot">
+          <div><span>SM/Supervisor :</span><Suggest bare label="SM / Supervisor" value={sup} onChange={setSup} options={sups} placeholder="Name" glow={used.some((l) => l.item && l.qty) && !sup} inputClass="mwcIn" /></div>
+          <div><span>Store keeper :</span><b>{user.name}</b></div>
+        </div>
       </div>
-      <div className="label">Items on the card</div>
-      <LineEditor lines={lines} setLines={setLines} withSubphase stockCheck subphaseLabel="Gemba for this item" />
-      <div className="paperCard">
-        <Suggest label="SM / Supervisor" value={sup} onChange={setSup} options={sups} glow={!!lines[0]?.qty && !sup} />
-        <div className="field"><span>Store keeper</span><div style={{ minHeight: 40, display: 'flex', alignItems: 'center', fontWeight: 600 }}>{user.name}</div></div>
-      </div>
+
       {err && <div className="note err" role="alert">{err}</div>}
-      <button data-nav className="btn accent" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save card'}</button>
+      <div className="actionBar">
+        <span className="small muted">Copy the card exactly as written. Units come with the item.</span>
+        <span className="abGrow" />
+        <button data-nav className="btn ghost sm" disabled={!!busy} onClick={() => save(true)}>{busy === 'again' ? 'Saving…' : 'Save & next card'}</button>
+        <button className="btn accent sm" disabled={!!busy} onClick={() => save(false)}>{busy === 'save' ? 'Saving…' : 'Save card'}</button>
+      </div>
     </div>
   );
 }
@@ -89,7 +155,7 @@ export function Issued() {
   return (
     <StepShell step="issued" question="Were materials issued to production today?" hint="One entry per Material Withdrawal Card. Cards can also be entered during the day."
       another="Was there another card?" formTitle="New withdrawal card" docTone={() => 'out'}
-      renderForm={(done) => <CardForm done={done} />}
+      renderForm={(done, again) => <CardForm done={done} again={again} />}
       docTitle={(d) => `Card ${d.ref_no} · ${d.activity}, ${d.gemba} · ${d.party}`} />
   );
 }

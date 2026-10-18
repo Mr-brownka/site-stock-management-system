@@ -17,6 +17,7 @@ export interface DocInput {
   supervisor?: string | null;
   authorised_by?: string | null;
   vehicle?: string | null;
+  card_no?: string | null;
   reason?: string | null;
 }
 

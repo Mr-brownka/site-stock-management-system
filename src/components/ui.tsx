@@ -55,8 +55,8 @@ export function YesNo({ question, hint, onYes, onNo }: { question: string; hint?
 }
 
 /** Text box that suggests names typed before, and remembers new ones once saved. */
-export function Suggest({ label, value, onChange, options, placeholder, autoFocus, glow }: {
-  label: string; value: string; onChange: (v: string) => void; options: string[]; placeholder?: string; autoFocus?: boolean; glow?: boolean;
+export function Suggest({ label, value, onChange, options, placeholder, autoFocus, glow, bare, inputClass = '' }: {
+  label: string; value: string; onChange: (v: string) => void; options: string[]; placeholder?: string; autoFocus?: boolean; glow?: boolean; bare?: boolean; inputClass?: string;
 }) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -76,9 +76,9 @@ export function Suggest({ label, value, onChange, options, placeholder, autoFocu
     }
   };
   return (
-    <label className="field" htmlFor={id}>
-      <span>{label}</span>
-      <input id={id} data-nav className={`input ${glow ? 'next' : ''}`} value={value} placeholder={placeholder} autoComplete="off" autoFocus={autoFocus}
+    <label className={`field ${bare ? 'bare' : ''}`} htmlFor={id}>
+      <span className={bare ? 'sr' : undefined}>{label}</span>
+      <input id={id} data-nav className={`input ${inputClass} ${glow ? 'next' : ''}`} value={value} placeholder={placeholder} autoComplete="off" autoFocus={autoFocus}
         onChange={(e) => { onChange(e.target.value); setOpen(true); setActive(-1); }} onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)} onKeyDown={onKey}
         role="combobox" aria-expanded={open && matches.length > 0} aria-autocomplete="list" />
       {open && matches.length > 0 && (
@@ -86,7 +86,7 @@ export function Suggest({ label, value, onChange, options, placeholder, autoFocu
           {matches.map((m, i) => <button type="button" key={m} role="option" aria-selected={i === active} onMouseDown={(e) => e.preventDefault()} onClick={() => choose(m)}>{m}</button>)}
         </div>
       )}
-      {q && !known && <span className="hint new">New name. It will be remembered for next time.</span>}
+      {q && !known && !bare && <span className="hint new">New name. It will be remembered for next time.</span>}
     </label>
   );
 }
@@ -106,7 +106,7 @@ function rank(items: Item[], q: string): Item[] {
 }
 
 /** Search the project item list. The unit comes with the item and cannot be changed. */
-export function ItemPicker({ item, onPick, autoFocus, glow }: { item: Item | null; onPick: (it: Item | null) => void; autoFocus?: boolean; glow?: boolean }) {
+export function ItemPicker({ item, onPick, autoFocus, glow, bare, label = 'Item', inputClass = '', placeholder = 'Search the item list' }: { item: Item | null; onPick: (it: Item | null) => void; autoFocus?: boolean; glow?: boolean; bare?: boolean; label?: string; inputClass?: string; placeholder?: string }) {
   const { items, addItem } = useData();
   const id = useId();
   const [q, setQ] = useState(item?.name ?? '');
@@ -135,9 +135,9 @@ export function ItemPicker({ item, onPick, autoFocus, glow }: { item: Item | nul
     try { const it = await addItem(q.trim(), unit); setAdding(false); choose(it); } finally { setBusy(false); }
   };
   return (
-    <div className="field">
-      <label htmlFor={id}><span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-2)' }}>Item</span></label>
-      <input id={id} ref={ref} data-nav className={`input ${glow && !item ? 'next' : ''}`} value={q} placeholder="Search the item list" autoComplete="off" autoFocus={autoFocus}
+    <div className={`field ${bare ? 'bare' : ''}`}>
+      <label htmlFor={id} className={bare ? 'sr' : undefined}><span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-2)' }}>{label}</span></label>
+      <input id={id} ref={ref} data-nav className={`input ${inputClass} ${glow && !item ? 'next' : ''}`} value={q} placeholder={placeholder} autoComplete="off" autoFocus={autoFocus}
         onChange={(e) => { setQ(e.target.value); setOpen(true); setActive(0); if (item) onPick(null); }} onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)} onKeyDown={onKey}
         role="combobox" aria-expanded={open && (matches.length > 0 || !!q)} aria-autocomplete="list" />
       {open && q.trim() && !item && (

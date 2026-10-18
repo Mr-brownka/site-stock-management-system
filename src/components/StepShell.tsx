@@ -14,7 +14,7 @@ export function StepShell({ step, question, hint, another, formTitle, tone, rend
   another: string;
   formTitle?: string;
   tone?: 'out' | 'in';
-  renderForm: (done: () => void) => ReactNode;
+  renderForm: (done: () => void, again: () => Promise<void>) => ReactNode;
   docTone?: (d: Doc) => '' | 'out' | 'in';
   docTitle: (d: Doc) => string;
 }) {
@@ -27,6 +27,8 @@ export function StepShell({ step, question, hint, another, formTitle, tone, rend
   const docs = docsToday.filter((d) => meta.kinds.includes(d.kind));
 
   const saved = async () => { await refresh(); markStep(step, 'done'); setStage('another'); toast(locked ? `Late entry saved to ${meta.label.toLowerCase()}` : `Saved to ${meta.label.toLowerCase()}`); };
+  // Saved, and staying on the form for the next one.
+  const again = async () => { await refresh(); markStep(step, 'done'); toast(locked ? `Late entry saved to ${meta.label.toLowerCase()}` : `Saved · ready for the next one`); };
   const finish = () => go((locked ? 'home' : next?.screen ?? 'home') as Screen);
   const isLate = (d: Doc) => !!submission && d.created_at > submission.submitted_at;
   const at = submission ? new Date(submission.submitted_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' }) : '';
@@ -44,7 +46,7 @@ export function StepShell({ step, question, hint, another, formTitle, tone, rend
           <YesNo question={question} hint={hint} onYes={() => setStage('form')} onNo={() => { markStep(step, 'none'); setStage('summary'); toast(`${meta.label}: nothing today`); }} />
         )}
 
-        {stage === 'form' && renderForm(saved)}
+        {stage === 'form' && renderForm(saved, again)}
 
         {stage === 'another' && (
           <>
