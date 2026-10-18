@@ -201,7 +201,7 @@ function ReportView({ def, onBack }: { def: Def; onBack: () => void }) {
                   lastGroup = g;
                   return [
                     head ? <tr key={`g${i}`} className="repGroupRow"><td colSpan={report.cols.length}>{g}</td></tr> : null,
-                    <tr key={i} className={r.status === 'Low' || r.status === 'Out' || r.status === 'Missed' ? 'flag' : ''}>
+                    <tr key={i} className={r.status === 'Low' || r.status === 'Finished' || r.status === 'Missed' ? 'flag' : ''}>
                       {report.cols.map((c) => <td key={c.key} className={c.num ? 'num' : ''}>{c.num ? (r[c.key] == null ? '' : fmt(Number(r[c.key]))) : String(r[c.key] ?? '')}</td>)}
                     </tr>,
                   ];

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Icon, Num, PulseDot } from '../components/fx';
+import { Icon, PulseDot } from '../components/fx';
 import { ItemSheet, type Use } from '../components/ItemSheet';
 import { PeriodPicker } from '../components/PeriodPicker';
 import { fmt } from '../components/ui';
@@ -86,7 +86,6 @@ export function Dashboard({ embedded = false }: { embedded?: boolean }) {
   const usedOf = (id: number) => use.get(id)?.used ?? 0;
   const byName = (a: Balance, b: Balance) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' });
   const search = q.trim().toLowerCase();
-  const outCount = balances.filter((b) => b.balance <= 0).length;
   const shown = balances
     .filter((b) => !search || b.name.toLowerCase().includes(search))
     .filter((b) => tab !== 'bal' || filter === 'all' || (filter === 'low' ? isLow(b) : movedToday.has(b.item_id)))
@@ -95,11 +94,6 @@ export function Dashboard({ embedded = false }: { embedded?: boolean }) {
       return sort.k === 'name' ? sort.dir * byName(a, b) : sort.dir * (v(a) - v(b)) || byName(a, b);
     });
 
-  const top = useMemo(() => {
-    if (tab === 'bal') return balances.filter((b) => b.deliveries > 0).sort((a, b) => b.deliveries - a.deliveries || byName(a, b)).slice(0, 5);
-    const units = [...new Set(balances.map((b) => b.unit))].sort();
-    return units.map((u) => balances.filter((b) => b.unit === u && usedOf(b.item_id) > 0).sort((a, b) => usedOf(b.item_id) - usedOf(a.item_id))[0]).filter(Boolean) as Balance[];
-  }, [tab, balances, use]);
 
   const selected = balances.find((b) => b.item_id === sel) ?? null;
   const close = useCallback(() => setSel(null), []);
@@ -137,7 +131,7 @@ export function Dashboard({ embedded = false }: { embedded?: boolean }) {
           <td className={`num strong ${low ? 'low' : ''}`}>{fmt(b.balance)}</td>
           <td className="num hideS muted">{b.reorder_level != null ? fmt(b.reorder_level) : '–'}</td>
           <td className="num hideS">{dl == null ? <span className="muted">–</span> : dl < 1 ? '< 1' : fmt(Math.round(dl))}</td>
-          <td><span className={`stPill ${out ? 'out' : low ? 'low' : 'ok'}`}>{out ? 'Out of stock' : low ? 'Running low' : 'Healthy'}</span></td>
+          <td><span className={`stPill ${out ? 'out' : low ? 'low' : 'ok'}`}>{out ? 'Finished' : low ? 'Running low' : 'Healthy'}</span></td>
         </> : <>
           <td className="num hideS">{u?.issued ? fmt(u.issued) : '–'}</td>
           <td className="num hideS">{u?.returned ? fmt(u.returned) : '–'}</td>
@@ -150,7 +144,7 @@ export function Dashboard({ embedded = false }: { embedded?: boolean }) {
     const esc = (x: string | number) => /[",\n]/.test(String(x)) ? `"${String(x).replace(/"/g, '""')}"` : String(x);
     const head = tab === 'bal' ? ['Item', 'Unit', 'Balance', 'Reorder at', 'Days left', 'Status'] : ['Item', 'Unit', 'Issued', 'Returned', 'Used'];
     const rows = shown.map((b) => {
-      if (tab === 'bal') { const dl = daysLeft(b); return [b.name, b.unit, b.balance, b.reorder_level ?? '', dl == null ? '' : Math.round(dl), b.balance <= 0 ? 'Out of stock' : isLow(b) ? 'Running low' : 'Healthy']; }
+      if (tab === 'bal') { const dl = daysLeft(b); return [b.name, b.unit, b.balance, b.reorder_level ?? '', dl == null ? '' : Math.round(dl), b.balance <= 0 ? 'Finished' : isLow(b) ? 'Running low' : 'Healthy']; }
       const u = use.get(b.item_id); return [b.name, b.unit, u?.issued ?? 0, u?.returned ?? 0, u?.used ?? 0];
     });
     const csv = [head, ...rows].map((r) => r.map(esc).join(',')).join('\n');
@@ -178,37 +172,7 @@ export function Dashboard({ embedded = false }: { embedded?: boolean }) {
 
       <div className="dashBody">
         <main className="dashMain" key={tab}>
-          {tab === 'bal' && (
-            <div className="healthStrip enter">
-              <div><span className="label">Items</span><Num value={balances.length} className="hsNum" /></div>
-              <div className={lowItems.length ? 'hsAlert' : ''}><span className="label">{lowItems.length > 0 && <PulseDot />} Low</span><Num value={lowItems.length} className="hsNum" /></div>
-              <div><span className="label">Out</span><Num value={outCount} className="hsNum" /></div>
-              <div className="hsHint small muted">Low = at or below the reorder level, or about 5 days left at the current rate.</div>
-            </div>
-          )}
-          <section className="stack">
-            <div className="controls">
-              <h2>{tab === 'cons' ? 'Most issued' : 'Most ordered'}</h2>
-            </div>
-            {tab === 'cons' && <PeriodPicker period={period} date={date} today={day} onPeriod={(p) => { setPeriod(p); setDate(day); }} onDate={setDate} activeDays={activeDays} />}
-            <div className="small muted">{tab === 'cons' ? 'The most used item in each unit (bags, pieces, tonnes…). Tap one for details.' : 'The items delivered most often since the project started'}</div>
-            {tab === 'cons' && lines === null ? <div className="topGrid">{[0, 1, 2].map((i) => <div key={i} className="topCard"><i className="skel" style={{ width: '70%' }} /><i className="skel big" /></div>)}</div> : top.length ? (
-              <div className="topGrid">
-                {top.map((b, i) => {
-                  const low = tab === 'bal' && isLow(b);
-                  return (
-                    <button key={b.item_id} className={`topCard enter ${low ? 'isLow' : ''}`} style={{ animationDelay: `${i * 0.05}s` }} aria-pressed={sel === b.item_id} onClick={() => setSel(b.item_id)}>
-                      <span className="nm">{low && <PulseDot />}{b.name}</span>
-                      <Num value={tab === 'cons' ? usedOf(b.item_id) : b.balance} className={`big ${low ? 'low' : ''}`} />
-                      <span className="small muted">{b.unit} {tab === 'cons' ? 'used' : `in store${low ? ' · low' : ''}`}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="card pad muted empty"><Icon name="chart" size={28} />{tab === 'cons' ? `Nothing was issued in this period (${range.label}).` : 'No deliveries recorded yet.'}</div>
-            )}
-          </section>
+          {tab === 'cons' && <PeriodPicker period={period} date={date} today={day} onPeriod={(p) => { setPeriod(p); setDate(day); }} onDate={setDate} activeDays={activeDays} />}
 
           <section className="stack">
             <div className="between" style={{ alignItems: 'center', flexWrap: 'wrap' }}>

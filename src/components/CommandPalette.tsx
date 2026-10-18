@@ -87,7 +87,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
                 <button role="option" aria-selected={i === at} className="cmdRow" onMouseMove={() => setAt(i)} onClick={() => run(c)}>
                   <span className="cmdIc"><Icon name={c.icon} size={16} /></span>
                   <span className="cmdLabel">{c.label}</span>
-                  {c.tone && <span className={`tag ${c.tone}`}>{c.tone === 'out' ? 'Out' : 'Low'}</span>}
+                  {c.tone && <span className={`tag ${c.tone}`}>{c.tone === 'out' ? 'Finished' : 'Low'}</span>}
                   {c.hint && <span className="cmdHint">{c.hint}</span>}
                 </button>
               </div>

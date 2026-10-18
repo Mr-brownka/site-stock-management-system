@@ -4,8 +4,10 @@ import { STEPS, useData, type Screen } from '../lib/store';
 import type { Doc, StepKey } from '../lib/types';
 import { fmt, Top, YesNo } from './ui';
 import { ask, toast } from './feedback';
+import { useSignal } from '../lib/signals';
 
 type Stage = 'ask' | 'form' | 'another' | 'summary';
+export const ADD_NOUN: Record<StepKey, string> = { deliveries: 'a delivery', issued: 'a card', returns: 'a return', transfers: 'a transfer' };
 
 export function StepShell({ step, question, hint, another, formTitle, tone, renderForm, docTone, docTitle }: {
   step: StepKey;
@@ -24,11 +26,12 @@ export function StepShell({ step, question, hint, another, formTitle, tone, rend
   const locked = !!submission;
   const [stage, setStage] = useState<Stage>(stepState(step) === 'todo' && !locked ? 'ask' : 'summary');
   const [busy, setBusy] = useState('');
+  useSignal<StepKey>('step-form', (k) => { if (k === step) setStage('form'); });
   const docs = docsToday.filter((d) => meta.kinds.includes(d.kind));
 
-  const saved = async () => { await refresh(); markStep(step, 'done'); setStage('another'); toast(locked ? `Late entry saved to ${meta.label.toLowerCase()}` : `Saved to ${meta.label.toLowerCase()}`); };
+  const saved = async () => { await refresh(); markStep(step, 'done'); setStage('another'); toast(`Saved to ${meta.label.toLowerCase()}`); };
   // Saved, and staying on the form for the next one.
-  const again = async () => { await refresh(); markStep(step, 'done'); toast(locked ? `Late entry saved to ${meta.label.toLowerCase()}` : `Saved · ready for the next one`); };
+  const again = async () => { await refresh(); markStep(step, 'done'); toast('Saved · ready for the next one'); };
   const finish = () => go((locked ? 'home' : next?.screen ?? 'home') as Screen);
   const isLate = (d: Doc) => !!submission && d.created_at > submission.submitted_at;
   const at = submission ? new Date(submission.submitted_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' }) : '';
@@ -60,13 +63,13 @@ export function StepShell({ step, question, hint, another, formTitle, tone, rend
             {locked && (
               <div className="lateNote enter">
                 <b>Today was submitted at {at}.</b>
-                <span>Something arrived or went out after that? Add it as a late entry. It counts in today’s balances and is marked <span className="pill late">Late</span> for the admin. To change an entry that is already saved, use <button className="btn link inline" onClick={() => go('corrections')}>Fix a mistake</button>.</span>
+                <span>Anything you add now counts in today’s balances and is marked <span className="pill late">Added</span>. To change an entry that is already saved, use <button className="btn link inline" onClick={() => go('corrections')}>Fix a mistake</button>.</span>
               </div>
             )}
             {!docs.length && stepState(step) === 'none' && <div className="note info enter">Nothing recorded for this step today.</div>}
             {docs.map((d, i) => (
               <div key={d.id} className={`sumCard ${docTone?.(d) ?? ''}`} style={{ animationDelay: `${i * 0.06}s` }}>
-                <div className="between"><b>{docTitle(d)}{isLate(d) && <span className="pill late">Late</span>}</b>{!locked && <button className="btn link" disabled={busy === d.id} onClick={() => remove(d)}>Remove</button>}</div>
+                <div className="between"><b>{docTitle(d)}{isLate(d) && <span className="pill late">Added</span>}</b>{!locked && <button className="btn link" disabled={busy === d.id} onClick={() => remove(d)}>Remove</button>}</div>
                 {d.lines.map((l) => {
                   const it = itemById.get(l.item_id);
                   return <div className="ln" key={l.id}><span>{it?.name ?? 'Item'}{l.subphase ? <span className="muted"> · {l.subphase}</span> : null}</span><span className="mono">{fmt(l.qty)} {it?.unit}</span></div>;
@@ -74,7 +77,7 @@ export function StepShell({ step, question, hint, another, formTitle, tone, rend
               </div>
             ))}
             {locked
-              ? <button className="btn ghost addLate" onClick={() => setStage('form')}>+ Add a late entry</button>
+              ? <button className="btn ghost addLate" onClick={() => setStage('form')}>+ Add {ADD_NOUN[step]}</button>
               : <button className="btn ghost" onClick={() => setStage('form')}>{docs.length || stepState(step) === 'none' ? '+ Add one' : 'Start'}</button>}
             <button className="btn accent" onClick={finish}>{locked ? 'Done · Back to start' : next ? `Done · Next: ${next.label}` : 'Done · Back to start'}</button>
           </>

@@ -9,11 +9,13 @@ import { longDate } from '../lib/dates';
 import { resetDemo } from '../lib/demoBackend';
 import { STEPS, useData } from '../lib/store';
 import { ask } from '../components/feedback';
+import { ADD_NOUN } from '../components/StepShell';
+import type { StepKey } from '../lib/types';
 
 const STEP_ICON: Record<string, string> = { deliveries: 'truck', issued: 'card', returns: 'back', transfers: 'swap' };
 
 export function Home() {
-  const { day, user, balances, docsToday, stepState, submission, refresh, go, signOut, lowItems, daysLeft } = useData();
+  const { day, user, balances, docsToday, stepState, submission, refresh, go, signOut, lowItems, daysLeft, itemById } = useData();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [lastTake, setLastTake] = useState<string | null | undefined>(undefined);
@@ -25,6 +27,23 @@ export function Home() {
   const entries = docsToday.filter((d) => d.kind !== 'opening').length;
   const first = user.name.split(' ')[0];
   const [showEntries, setShowEntries] = useState(false);
+  const [plusOpen, setPlusOpen] = useState(false);
+  // After submitting: ask, show what was already entered today for that step, then open its form.
+  const addTo = async (key: StepKey) => {
+    const st = STEPS.find((x) => x.key === key)!;
+    const ds = docsToday.filter((d) => st.kinds.includes(d.kind));
+    const ok = await ask({
+      title: `Add ${ADD_NOUN[key]}?`,
+      body: ds.length ? <>
+        <p>Already entered today for {st.label.toLowerCase()}:</p>
+        <div className="askList">{ds.map((d) => <div key={d.id}><span>{[KIND_LABEL[d.kind], d.ref_no, d.party].filter(Boolean).join(' · ')}</span><b>{d.lines.map((l) => `${itemById.get(l.item_id)?.name ?? 'Item'} ${fmt(l.qty)}`).join(', ')}</b></div>)}</div>
+      </> : <p>Nothing was entered for {st.label.toLowerCase()} today yet.</p>,
+      yes: `Add ${ADD_NOUN[key]}`, no: 'Cancel', tone: 'go',
+    });
+    if (!ok) return;
+    signal('step-form', key);
+    go(st.screen);
+  };
   useSignal('entries', () => setShowEntries(true));
   useEffect(() => { api.stockTakes().then((t) => setLastTake(t.map((x) => x.count_date).sort().pop() ?? null)).catch(() => setLastTake(null)); }, []);
 
@@ -94,7 +113,7 @@ export function Home() {
         <button className={`kpi enter ${lowItems.length ? 'alert' : ''}`} style={{ animationDelay: '.04s' }} onClick={() => toDash({ tab: 'bal', filter: 'low' })}>
           <span className="kpiLabel">{lowItems.length > 0 && <PulseDot />}Low stock</span>
           <Num value={lowItems.length} className="kpiNum" />
-          <span className="kpiFoot">{lowItems.length ? `${outCount} out of stock` : 'All good'}</span>
+          <span className="kpiFoot">{lowItems.length ? `${outCount} finished` : 'All good'}</span>
         </button>
         <button className="kpi enter" style={{ animationDelay: '.08s' }} onClick={() => setShowEntries(true)}>
           <span className="kpiLabel">Entries today</span>
@@ -110,33 +129,40 @@ export function Home() {
 
       <div className="homeGrid">
         <section className="panel process enter" aria-label="Today’s process">
-          <header className="panelHead"><b>Today’s process</b><span className="muted small">{submission ? 'Submitted' : `${done} of 4 done`}</span></header>
+          <header className="panelHead">
+            <span className="phTitle"><b>Today’s process</b><span className="muted small">{submission ? 'Submitted' : `${done} of 4 done`}</span></span>
+            {submission ? (
+              <span className="plusWrap">
+                <button className="plusBtn" aria-label="Add" aria-expanded={plusOpen} aria-haspopup="menu" onClick={() => setPlusOpen((v) => !v)}><Icon name="plus" size={22} /></button>
+                {plusOpen && (
+                  <span className="plusMenu" role="menu" onMouseLeave={() => setPlusOpen(false)}>
+                    {STEPS.map((st) => <button key={st.key} role="menuitem" onClick={() => { setPlusOpen(false); addTo(st.key); }}><Icon name={STEP_ICON[st.key]} size={18} />Add {ADD_NOUN[st.key]}</button>)}
+                  </span>
+                )}
+              </span>
+            ) : (
+              <button className="btn sm startBtn" disabled={busy} onClick={() => (firstTodo ? go(firstTodo.screen) : submit())}>Start<Icon name="arrow" size={16} /></button>
+            )}
+          </header>
           <div className="procBar" aria-hidden="true"><i style={{ width: `${((submission ? 4 : done) / 4) * 100}%` }} /></div>
           {STEPS.map((s, i) => {
             const st = status(i);
             return (
-              <button key={s.key} className={`procRow ${st.cls}`} onClick={() => go(s.screen)}>
+              <button key={s.key} className={`procRow ${st.cls}`} onClick={() => (submission ? addTo(s.key) : go(s.screen))}>
                 <span className="procDot">{st.cls === 'done' ? <Icon name="check" size={16} /> : s.n}</span>
                 <span className="procIc"><Icon name={STEP_ICON[s.key]} size={18} /></span>
                 <span className="procText"><b>{s.label}</b><span>{st.detail}</span></span>
                 <span className={`stPill ${st.cls === 'done' ? 'ok' : st.cls === 'next' ? 'warn' : 'idle'}`}>{st.text}</span>
-                <span className="procGo">{st.cls === 'done' ? 'Review' : 'Open'}<Icon name="arrow" size={14} /></span>
+                <span className="procGo">{submission ? 'Add' : st.cls === 'done' ? 'Review' : 'Open'}<Icon name={submission ? 'plus' : 'arrow'} size={14} /></span>
               </button>
             );
           })}
-          <footer className="panelFoot">
-            {submission ? (
-              <>
-                <span className="small muted">Something came in after submitting? Add it as a late entry.</span>
-                <span className="lateBtns">{STEPS.map((st) => <button key={st.key} className="lateBtn" onClick={() => go(st.screen)}>+ {st.key === 'issued' ? 'Card' : st.key === 'deliveries' ? 'Delivery' : st.key === 'returns' ? 'Return' : 'Transfer'}</button>)}</span>
-              </>
-            ) : (
-              <>
-                <span className="small muted">Submitting locks today. Cards can be entered during the day too.</span>
-                <button className="btn accent sm" disabled={!answered || busy} onClick={submit}>{busy ? 'Submitting…' : 'Submit the day'}</button>
-              </>
-            )}
-          </footer>
+          {!submission && (
+            <footer className="panelFoot">
+              <span className="small muted">Submitting locks today. Cards can be entered during the day too.</span>
+              <button className="btn accent sm" disabled={!answered || busy} onClick={submit}>{busy ? 'Submitting…' : 'Submit the day'}</button>
+            </footer>
+          )}
           {err && <div className="note err" role="alert" style={{ margin: 12 }}>{err}</div>}
         </section>
 
@@ -149,15 +175,10 @@ export function Home() {
               return (
                 <button key={b.item_id} className="attRow" onClick={() => toDash({ tab: 'bal', item: b.item_id })}>
                   <span className="attName">{b.name}</span>
-                  <span className={`attVal ${b.balance <= 0 ? 'out' : ''}`}>{b.balance <= 0 ? 'Out' : dl != null && dl < 30 ? `${Math.max(0, Math.round(dl))} day${Math.round(dl) === 1 ? '' : 's'} left` : `${fmt(b.balance)} ${b.unit}`}</span>
+                  <span className={`attVal ${b.balance <= 0 ? 'out' : ''}`}>{b.balance <= 0 ? 'Finished' : dl != null && dl < 30 ? `${Math.max(0, Math.round(dl))} day${Math.round(dl) === 1 ? '' : 's'} left` : `${fmt(b.balance)} ${b.unit}`}</span>
                 </button>
               );
             })}
-          </section>
-          <section className="panel dark enter" style={{ animationDelay: '.1s' }}>
-            <b>Stock take</b>
-            <span>{lastTake ? `Last count ${nice(lastTake)}.` : 'No count recorded yet.'} Print the orange sheet, count, then enter the numbers.</span>
-            <button className="btn link" onClick={() => go('stocktake')}><Icon name="print" size={16} />Open stock take</button>
           </section>
           <section className="panel tip enter" style={{ animationDelay: '.14s' }}>
             <span><kbd>Ctrl</kbd> <kbd>K</kbd> finds any item, page or action.</span>
@@ -206,7 +227,7 @@ function EntriesSheet({ onClose }: { onClose: () => void }) {
                 const late = !!submission && d.created_at > submission.submitted_at;
                 return (
                   <div key={d.id} className="entCard">
-                    <div className="between"><b>{KIND_LABEL[d.kind]}{d.ref_no ? ` · ${d.kind === 'issue' ? 'card ' : ''}${d.ref_no}` : ''}{late && <span className="pill late">Late</span>}</b><span className="mono small muted">{d.doc_time ?? new Date(d.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' })}</span></div>
+                    <div className="between"><b>{KIND_LABEL[d.kind]}{d.ref_no ? ` · ${d.kind === 'issue' ? 'card ' : ''}${d.ref_no}` : ''}{late && <span className="pill late">Added</span>}</b><span className="mono small muted">{d.doc_time ?? new Date(d.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' })}</span></div>
                     {(d.party || d.activity) && <div className="small muted">{[d.party, d.activity, d.gemba].filter(Boolean).join(' · ')}</div>}
                     {d.lines.map((l) => <div key={l.id} className="ln"><span>{itemById.get(l.item_id)?.name ?? 'Item'}</span><span className="mono">{fmt(l.qty)} {itemById.get(l.item_id)?.unit}</span></div>)}
                   </div>

@@ -76,7 +76,7 @@ export function ItemSheet({ b, mode, use, rangeLabel, onClose, onSaveReorder }: 
     .sort((x, y) => y.d.doc_date.localeCompare(x.d.doc_date) || y.l.id - x.l.id).slice(0, 8), [recent, b.item_id]);
   const subs = use ? [...use.bySub].filter(([, v]) => v > 0).sort((a, c) => c[1] - a[1]) : [];
   const subMax = Math.max(1, ...subs.map(([, v]) => v));
-  const status = out ? { t: 'Out of stock', c: 'out' } : low ? { t: 'Low stock', c: 'low' } : { t: 'In stock', c: 'ok' };
+  const status = out ? { t: 'Finished', c: 'out' } : low ? { t: 'Low stock', c: 'low' } : { t: 'In stock', c: 'ok' };
   const gauge = days == null ? null : Math.min(1, days / 30);
   const step = (n: number) => setDraft((v) => String(Math.max(0, (Number(v) || 0) + n)));
   const save = async () => {

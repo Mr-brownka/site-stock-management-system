@@ -89,12 +89,12 @@ export const REPORTS: Def[] = [
       const at = balanceAt(c, c.to);
       const rows = c.balances.map((b) => {
         const bal = r2(at.get(b.item_id) ?? 0);
-        const low = bal <= 0 ? 'Out' : b.reorder_level != null && bal <= b.reorder_level ? 'Low' : '';
+        const low = bal <= 0 ? 'Finished' : b.reorder_level != null && bal <= b.reorder_level ? 'Low' : '';
         return { item: b.name, unit: b.unit, bal, reorder: b.reorder_level, status: low };
       }).filter((r) => r.bal !== 0 || r.status).sort((a, b) => a.item.localeCompare(b.item));
       return {
         cols: [{ key: 'item', label: 'Item' }, { key: 'unit', label: 'Unit' }, { key: 'bal', label: 'In store', num: true }, { key: 'reorder', label: 'Reorder level', num: true }, { key: 'status', label: 'Status' }],
-        rows, tiles: [{ label: 'Items in store', value: rows.filter((r) => r.bal > 0).length }, { label: 'Low', value: rows.filter((r) => r.status === 'Low').length, tone: 'red' }, { label: 'Out', value: rows.filter((r) => r.status === 'Out').length }],
+        rows, tiles: [{ label: 'Items in store', value: rows.filter((r) => r.bal > 0).length }, { label: 'Low', value: rows.filter((r) => r.status === 'Low').length, tone: 'red' }, { label: 'Finished', value: rows.filter((r) => r.status === 'Finished').length }],
       };
     },
   },
@@ -283,7 +283,7 @@ export const REPORTS: Def[] = [
   {
     key: 'register', group: 'Discipline', icon: 'checkin', needs: ['range', 'subs'],
     title: 'Check-in register',
-    desc: 'Was each day submitted, at what time, how many entries, and any late entries.',
+    desc: 'Was each day submitted, at what time, how many entries, and anything added after submitting.',
     build(c) {
       const days = eachDay(c.from, c.to < c.today ? c.to : c.today).filter((d) => weekday(d) !== 'Sun');
       const rows = days.map((day) => {
@@ -294,7 +294,7 @@ export const REPORTS: Def[] = [
         return { day: nice(day), status: s ? (t <= '18:00' ? 'On time' : 'After 6 pm') : day === c.today ? 'Not yet' : 'Missed', time: t, entries: ds.length, late };
       });
       const missed = rows.filter((r) => r.status === 'Missed').length;
-      return { cols: [{ key: 'day', label: 'Day' }, { key: 'status', label: 'Submitted' }, { key: 'time', label: 'Time' }, { key: 'entries', label: 'Entries', num: true, total: true }, { key: 'late', label: 'Late entries', num: true, total: true }], rows,
+      return { cols: [{ key: 'day', label: 'Day' }, { key: 'status', label: 'Submitted' }, { key: 'time', label: 'Time' }, { key: 'entries', label: 'Entries', num: true, total: true }, { key: 'late', label: 'Added after submitting', num: true, total: true }], rows,
         tiles: [{ label: 'Working days', value: rows.length }, { label: 'On time', value: rows.filter((r) => r.status === 'On time').length, tone: 'ok' }, { label: 'Missed', value: missed, tone: missed ? 'red' : 'ok' }], note: 'Sundays are left out. The register closes at 6:00 pm.' };
     },
   },

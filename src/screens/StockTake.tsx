@@ -133,11 +133,6 @@ export function StockTake() {
         {/* Step 1: print and count */}
         {tab === 'sheet' && !!list?.length && step === 'print' && (
           <>
-            <div className="stGuide enter">
-              <div><span className="stNum">1</span><b>Print the sheet</b><span>It lists every item in this store. Quantities are left blank.</span></div>
-              <div><span className="stNum">2</span><b>Count and write</b><span>Fill in the date and start time, count each item, write the number, then the end time.</span></div>
-              <div><span className="stNum">3</span><b>Type it in here</b><span>Item names are already filled in. You only type the numbers from the paper.</span></div>
-            </div>
             <div className="row" style={{ flexWrap: 'wrap' }}>
               <button className="btn accent" style={{ flex: '1 1 240px' }} onClick={printSheet}><Icon name="card" />Print the sheet</button>
               <button className="btn" style={{ flex: '1 1 240px' }} onClick={() => setStep('enter')}>I’ve counted · enter the quantities<Icon name="arrow" /></button>

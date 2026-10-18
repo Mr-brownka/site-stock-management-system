@@ -1218,3 +1218,17 @@ body:has(.trainBar) .topbar { top: 50px; }
 }
 @media (max-width: 760px) { .mwcSideH { display: flex !important; grid-column: 1 / -1; grid-row: auto !important; } }
 @media (max-width: 600px) { .actionBar > .btn.ghost:first-child { display: none; } }
+
+/* Today's process header: Start, then a plus to add */
+.phTitle { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.startBtn { min-height: 38px; padding: 0 16px; }
+.plusWrap { position: relative; }
+.plusBtn { width: 44px; height: 44px; border-radius: 50%; border: none; background: var(--accent); color: var(--ink); display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 16px rgba(252,167,45,.45); transition: transform .25s var(--spring), box-shadow .2s; animation: ring 2.2s ease-out 3; }
+.plusBtn:hover { transform: scale(1.08); box-shadow: 0 8px 22px rgba(252,167,45,.55); }
+.plusBtn[aria-expanded="true"] { transform: rotate(45deg); background: var(--ink); color: #fff; box-shadow: none; }
+.plusMenu { position: absolute; right: 0; top: 52px; z-index: 30; min-width: 220px; background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-lg); padding: 6px; display: flex; flex-direction: column; animation: sheetPop .2s var(--spring); }
+.plusMenu button { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border: none; border-radius: 8px; background: transparent; font-weight: 600; font-size: 15px; text-align: left; }
+.plusMenu button:hover { background: #F3F4F2; }
+.plusMenu .ic { color: var(--accent-text); }
+.process { overflow: visible; }
+.process > .panelHead { border-radius: var(--r) var(--r) 0 0; }

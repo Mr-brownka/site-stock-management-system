@@ -124,7 +124,7 @@ function events(d: Data, siteName: Map<string, string>, person: Map<string, Prof
     const lines = doc.lines.slice(0, 2).map((l) => `${itemById.get(l.item_id)?.name ?? 'Item'} ${fmt(l.qty)} ${itemById.get(l.item_id)?.unit ?? ''}`).join(', ');
     const sub = doc.doc_date === dayOf(new Date().toISOString()) ? d.subs.find((x) => x.site_id === doc.site_id) : undefined;
     const late = !!sub && doc.kind !== 'correction' && doc.created_at > sub.submitted_at;
-    ev.push({ at: doc.created_at, site: siteName.get(doc.site_id) ?? '', kind: (KIND_LABEL[doc.kind] ?? doc.kind) + (late ? ' · late' : ''), cls: doc.kind === 'correction' ? 'acc' : late ? 'late' : '',
+    ev.push({ at: doc.created_at, site: siteName.get(doc.site_id) ?? '', kind: (KIND_LABEL[doc.kind] ?? doc.kind) + (late ? ' · added' : ''), cls: doc.kind === 'correction' ? 'acc' : late ? 'late' : '',
       text: `${doc.ref_no ? doc.ref_no + ' · ' : ''}${doc.party ? doc.party + ' · ' : ''}${lines}${doc.lines.length > 2 ? '…' : ''}`, who: person.get(doc.created_by)?.full_name ?? '' });
   });
   d.corr.forEach((c) => {
