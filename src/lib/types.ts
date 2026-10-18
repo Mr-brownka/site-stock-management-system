@@ -79,6 +79,10 @@ export interface User {
   role: Role;
   status: Status;
   siteId: string | null;
+  /** Working days (Mon–Sat) on which a practice evening was submitted. */
+  trainingDays?: string[];
+  /** The admin let this person skip training. */
+  trainingWaived?: boolean;
 }
 
 export interface SiteInfo {
@@ -116,6 +120,8 @@ export interface Profile {
   site_id: string | null;
   created_at: string;
   decided_at: string | null;
+  training_days?: string[];
+  training_waived?: boolean;
 }
 
 export interface SignUpInput {
@@ -155,7 +161,7 @@ export interface SiteDoc extends Doc {
 /** Admin-only reads and actions across all sites. */
 export interface AdminApi {
   profiles(): Promise<Profile[]>;
-  setProfile(id: string, patch: Partial<Pick<Profile, 'status' | 'role' | 'site_id' | 'full_name' | 'phone'>>): Promise<void>;
+  setProfile(id: string, patch: Partial<Pick<Profile, 'status' | 'role' | 'site_id' | 'full_name' | 'phone' | 'training_waived'>>): Promise<void>;
   /** Item ids on a site's stock take list. */
   checklist(siteId: string): Promise<number[]>;
   setChecklist(siteId: string, itemIds: number[]): Promise<void>;
@@ -202,6 +208,8 @@ export interface Backend {
   balances(): Promise<Balance[]>;
   submission(day: string): Promise<Submission | null>;
   submitDay(day: string, steps: Submission['steps']): Promise<void>;
+  /** Counts a training day for the signed-in person (Sundays don't count). Returns days done. */
+  recordTrainingDay(day: string): Promise<number>;
   setReorder(itemId: number, level: number | null): Promise<void>;
   /** The items the admin listed for this store's stock take (no quantities). */
   checklist(): Promise<Item[]>;

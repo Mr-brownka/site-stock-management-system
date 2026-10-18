@@ -20,17 +20,16 @@ export function TrainingBar() {
   );
 }
 
-/** Button that copies the real site into training mode. */
-export function StartTraining({ user, className = 'railLink', label = 'Training mode' }: { user: User; className?: string; label?: string }) {
+/** Opens the practice store after a quick confirmation. */
+export function useStartTraining(user: User) {
   const [busy, setBusy] = useState(false);
-  if (api.mode === 'training') return null;
   const source = live ?? api;
   const go = async () => {
     const ok = await ask({
       title: 'Open training mode?',
       body: <>
         <p>Opens a practice store, <b>Comex Builders · Astana</b>, with two months of example entries: deliveries, withdrawal cards, returns, transfers, corrections, sign-ups and reports.</p>
-        <p>Use it to train storekeepers or to show management. <b>Nothing done here changes the real store.</b></p>
+        <p>Do the four evening steps and tap <b>Submit the day</b>. That counts as one training day (Monday to Saturday). <b>Nothing done here changes the real store.</b></p>
         <p>A purple strip shows while training is on. Tap <b>Exit training</b> to go back.</p>
       </>,
       yes: 'Start training', tone: 'go',
@@ -39,12 +38,12 @@ export function StartTraining({ user, className = 'railLink', label = 'Training 
     setBusy(true);
     try { await startTraining(source, user); } catch (e) { toast((e as Error).message, 'warn'); setBusy(false); }
   };
-  if (className.includes('wBtn')) return (
-    <button className={className} disabled={busy} onClick={go}>
-      <Icon name="shield" size={28} />
-      <span><b>{busy ? 'Opening the practice store…' : label}</b><small>Practise the full evening check-in on example data</small></span>
-      <Icon name="arrow" size={22} />
-    </button>
-  );
+  return { go, busy };
+}
+
+/** Button that copies the real site into training mode. */
+export function StartTraining({ user, className = 'railLink', label = 'Training mode' }: { user: User; className?: string; label?: string }) {
+  const { go, busy } = useStartTraining(user);
+  if (api.mode === 'training') return null;
   return <button className={className} title={label} disabled={busy} onClick={go}><Icon name="shield" /><span className="rlText">{busy ? 'Opening the practice store…' : label}</span></button>;
 }

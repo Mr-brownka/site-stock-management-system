@@ -24,6 +24,7 @@ export interface Store {
   /** Stock take list per site (item ids). */
   checklist?: Record<string, number[]>;
   stockTakes?: StockTake[];
+  trainingDays?: string[];
 }
 
 const BASE_ITEMS: Item[] = (ITEMS as [string, string][]).map(([name, unit], i) => ({ id: i + 1, name, unit }));
@@ -107,7 +108,7 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
     mode: opts.mode ?? 'demo',
     async currentUser() {
       if (s.meta) return { ...s.meta.user, status: 'approved', siteId: SITE };
-      return s.signedIn ? { email: 'admin@demo', name: 'Abdirahman', role: 'admin', status: 'approved', siteId: SITE } : null;
+      return s.signedIn ? { email: 'admin@demo', name: 'Abdirahman', role: 'admin', status: 'approved', siteId: SITE, trainingDays: s.trainingDays ?? [] } : null;
     },
     async signUp() { /* demo: sign-up is shown, not stored */ },
     async signupSites() { return s.sites; },
@@ -196,6 +197,12 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
       return wait([...map.values()].sort((a, b) => a.name.localeCompare(b.name)));
     },
     async submission(day) { return s.submissions[day] ?? null; },
+    async recordTrainingDay(day) {
+      const list = s.trainingDays ?? [];
+      if (weekday(day) !== 'Sun' && !list.includes(day)) s.trainingDays = [...list, day];
+      save();
+      return (s.trainingDays ?? []).length;
+    },
     async submitDay(day, steps) { s.submissions[day] = { day, steps, submitted_at: new Date().toISOString() }; save(); },
     async setReorder(itemId, level) { s.reorder[itemId] = level; save(); },
     async checklist() {

@@ -7,6 +7,7 @@ import { addDays, niceDate, today, weekday } from '../lib/dates';
 import type { Balance, CorrectionRequest, Item, Profile, Role, SiteDoc, SiteInfo, User } from '../lib/types';
 import { ask, toast } from '../components/feedback';
 import { StartTraining } from '../components/Training';
+import { TRAINING_DAYS } from '../lib/trainingPlan';
 
 type Sec = 'overview' | 'people' | 'corr' | 'sites' | 'items' | 'reorder' | 'log';
 const ROLE_LABEL: Record<Role, string> = { store: 'Storekeeper', assistant: 'Assistant', admin: 'Admin' };
@@ -231,6 +232,9 @@ function People({ d, me, siteName, busy, act }: { d: Data; me: User; siteName: M
             <b style={{ flex: 1 }}>{p.full_name}<div className="small muted" style={{ fontWeight: 400 }}>{p.email}{p.phone ? ` · ${p.phone}` : ''}</div></b>
             <span style={{ width: 140 }}>{p.role === 'admin' ? 'All sites' : siteName.get(p.site_id ?? '') ?? '–'}</span>
             <span style={{ width: 120 }}><span className={`pill ${p.role === 'admin' ? '' : 'done'}`}>{ROLE_LABEL[p.role]}</span></span>
+            <span style={{ width: 170 }} className="small">{p.role === 'admin' ? '' : p.training_waived ? <>Training skipped · <button className="btn link small" disabled={!!busy} onClick={() => act(p.id, () => api.admin.setProfile(p.id, { training_waived: false }))}>Undo</button></>
+              : (p.training_days?.length ?? 0) >= TRAINING_DAYS ? <span className="pill done">Trained</span>
+                : <>Training {p.training_days?.length ?? 0}/{TRAINING_DAYS} · <button className="btn link small" disabled={!!busy} onClick={async () => { if (await ask({ title: `Let ${p.full_name} skip training?`, body: <p>Their store opens now (or the first stock take unlocks, if the store has no stock yet).</p>, yes: 'Skip training' })) act(p.id, () => api.admin.setProfile(p.id, { training_waived: true })); }}>Skip</button></>}</span>
             <button className="btn link" onClick={() => setEdit({ id: p.id, full_name: p.full_name, phone: p.phone ?? '', site_id: p.site_id ?? d.sites[0]?.id ?? '', role: p.role })}>Edit</button>
             <span style={{ width: 130, textAlign: 'right' }}>{p.email !== me.email && <button className="btn link" disabled={!!busy} onClick={async () => { if (await ask({ title: `Remove ${p.full_name}’s access?`, body: <p>They will no longer be able to sign in to Site Stock. You can give access back later.</p>, yes: 'Remove access', tone: 'danger' })) act(p.id, () => api.admin.setProfile(p.id, { status: 'removed' })); }}>Remove access</button>}</span>
           </div>

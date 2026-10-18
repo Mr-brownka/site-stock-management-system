@@ -662,26 +662,52 @@ body:has(.trainBar) .rail { top: 50px; height: calc(100vh - 50px); }
 @media (max-width: 640px) { .trainText .long { display: none; } .trainText .short { display: inline; } .trainText { font-size: 12px; } .trainTag { display: none; } }
 .btn.trainStart { color: #4B2BA8; border-color: #C9BEF2; }
 
-/* ════════════════════ Welcome ════════════════════ */
-.welcome { min-height: 100vh; display: grid; grid-template-columns: 1fr; background: #F2F3F1; }
-@media (min-width: 900px) { .welcome { grid-template-columns: 1fr 1fr; } }
-.wBrand { position: relative; overflow: hidden; background: #121315; color: #F2F3F1; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 22px; padding: 48px clamp(24px, 6vw, 80px); min-height: 46vh; }
-.wGlow { position: absolute; width: 640px; height: 640px; border-radius: 50%; right: -220px; top: -200px; background: radial-gradient(circle, rgba(252,167,45,.28), rgba(252,167,45,0) 65%); animation: breathe 4s ease-in-out infinite; }
-.wName { display: flex; flex-direction: column; gap: 6px; position: relative; }
-.wName b { font-family: var(--display); font-weight: 800; font-size: clamp(40px, 6vw, 64px); letter-spacing: .04em; line-height: .95; }
-.wName span { font-family: var(--mono); font-size: 13px; letter-spacing: .16em; color: var(--accent); }
-.wSite { background: #fff; border-radius: 16px; padding: 12px 18px; position: relative; }
-.wBrand p { max-width: 420px; color: #B9C0BC; font-size: 17px; line-height: 1.5; margin: 0; position: relative; }
-.wActions { display: flex; flex-direction: column; justify-content: center; gap: 16px; padding: 40px clamp(20px, 6vw, 80px); max-width: 640px; width: 100%; margin: 0 auto; }
-.wHello h1 { font-family: var(--display); font-weight: 800; font-size: clamp(32px, 4vw, 44px); line-height: 1.05; margin: 6px 0; }
-.wHello p { margin: 0; }
-.wBtn { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px; text-align: left; width: 100%; min-height: 104px; padding: 20px 22px; border-radius: 22px; border: 2px solid transparent; font: inherit; transition: transform .15s, box-shadow .2s; box-shadow: var(--shadow-lg); }
-.wBtn:hover { transform: translateY(-3px); }
-.wBtn b { display: block; font-family: var(--display); font-weight: 800; font-size: 26px; line-height: 1.1; }
-.wBtn small { display: block; font-size: 14px; margin-top: 4px; opacity: .85; }
-.wBtn.train { background: linear-gradient(135deg, #4B2BA8, #6E4BD8); color: #fff; }
-.wBtn.go { background: var(--accent); color: #121315; }
-.wBtn:disabled { opacity: .7; }
+/* ════════════════════ Welcome · White B, 5-day training ════════════════════ */
+.wel { position: relative; min-height: 100vh; overflow: hidden; background: #fff; color: var(--ink); display: flex; flex-direction: column; align-items: center; text-align: center; padding: clamp(28px, 6vh, 56px) 16px 72px; box-sizing: border-box; }
+.welGlow { position: absolute; top: -200px; left: calc(50% - 410px); width: 820px; height: 440px; border-radius: 50%; background: radial-gradient(closest-side, rgba(252,167,45,.24), rgba(252,167,45,0)); animation: glowDrift 9s ease-in-out infinite alternate; pointer-events: none; }
+.welLogo { position: relative; animation: cardIn .5s var(--spring) both; }
+.welSite { position: relative; margin-top: 18px; display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px; border-radius: 99px; border: 1px solid var(--line); background: #fff; font-weight: 600; font-size: 14px; animation: cardIn .5s .08s var(--spring) both; }
+.welSite i { width: 8px; height: 8px; border-radius: 50%; background: #2E9E5B; box-shadow: 0 0 0 4px rgba(46,158,91,.15); }
+.welHi { margin-top: 26px; font-size: 13px; letter-spacing: .14em; font-weight: 700; text-transform: uppercase; color: #9A5B00; }
+.welTitle { margin: 6px 0 6px; font-family: var(--display); font-weight: 700; font-size: clamp(36px, 6vw, 54px); line-height: 1; }
+.welLead { margin: 0; max-width: 560px; color: var(--muted); font-size: 17px; line-height: 1.45; }
+.welDays { list-style: none; margin: 34px 0 0; padding: 0; display: flex; gap: 10px; align-items: flex-end; justify-content: center; flex-wrap: wrap; }
+.welDay { position: relative; width: 82px; height: 92px; border-radius: 14px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fff; color: #9BA6A2; border: 1px dashed #CDD3D0; animation: cardIn .45s var(--spring) both; }
+.welDay .lbl { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; opacity: .75; }
+.welDay b { font-family: var(--display); font-size: 32px; line-height: 1; }
+.welDay .dt { font-size: 12px; opacity: .8; margin-top: 2px; }
+.welDay.done { background: var(--ink); color: #fff; border: 1px solid var(--ink); }
+.welDay.done .tick { position: absolute; top: 6px; right: 6px; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: var(--ink); display: grid; place-items: center; animation: popIn .4s .4s var(--spring) both; }
+.welDay.today { background: #FFF4DE; color: var(--ink); border: 2px solid var(--accent); box-shadow: 0 0 0 6px rgba(252,167,45,.18); animation: cardIn .45s var(--spring) both, welPulse 2.4s 1s ease-in-out infinite; }
+.welDay .now { position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%); font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; background: var(--accent); color: var(--ink); padding: 2px 8px; border-radius: 99px; }
+.welDay.afterSun { margin-left: 22px; }
+.welSun { position: absolute; left: -27px; top: 50%; transform: translateY(-50%) rotate(-90deg); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: #AAB2AF; white-space: nowrap; }
+@keyframes welPulse { 50% { box-shadow: 0 0 0 11px rgba(252,167,45,.08); } }
+@keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
+.welGo { margin-top: 38px; display: inline-flex; align-items: center; gap: 16px; height: 64px; padding: 0 14px 0 28px; border-radius: 16px; border: 0; background: var(--ink); color: #fff; font: inherit; font-size: 19px; font-weight: 700; cursor: pointer; box-shadow: 0 14px 34px rgba(27,33,32,.25); transition: transform .15s, box-shadow .2s; }
+.welGo span { width: 38px; height: 38px; border-radius: 10px; background: var(--accent); color: var(--ink); display: grid; place-items: center; transition: transform .2s var(--spring); }
+.welGo:hover { transform: translateY(-2px); box-shadow: 0 18px 40px rgba(27,33,32,.3); }
+.welGo:hover span { transform: translateX(3px); }
+.welGo:disabled { opacity: .7; }
+.welLock { margin-top: 16px; display: inline-flex; align-items: center; gap: 8px; min-height: 46px; padding: 8px 18px; border-radius: 12px; background: #F4F6F5; color: var(--muted); font-size: 15px; flex-wrap: wrap; justify-content: center; }
+.welLock b { color: var(--ink); white-space: nowrap; }
+.welAgain { margin-top: 10px; }
+.welFoot { position: absolute; bottom: 20px; left: 0; right: 0; font-size: 13px; color: #9BA6A2; display: flex; justify-content: center; align-items: center; gap: 4px; }
+.welFoot .btn.link { font-size: 13px; min-height: 0; padding: 0; }
+@media (max-width: 520px) {
+  .welDays { gap: 7px; }
+  .welDay { width: 58px; height: 76px; border-radius: 12px; }
+  .welDay b { font-size: 26px; }
+  .welDay .dt { font-size: 10.5px; }
+  .welDay .lbl { display: none; }
+  .welDay.done .tick { width: 17px; height: 17px; top: 4px; right: 4px; }
+  .welSun { font-size: 9px; left: -18px; }
+  .welLock { font-size: 14px; }
+  .welDay.afterSun { margin-left: 16px; }
+  .welSun { left: -21px; }
+  .welGo { width: 100%; justify-content: space-between; }
+}
+@media (prefers-reduced-motion: reduce) { .welGlow, .welDay, .welDay.today, .welLogo, .welSite { animation: none !important; } }
 
 /* Bigger, clearer training controls */
 .trainBtns button { min-height: 38px; font-size: 14px; padding: 0 16px; }

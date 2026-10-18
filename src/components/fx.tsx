@@ -71,6 +71,7 @@ const ICONS: Record<string, ReactNode> = {
   list: <><path d="M9 6h12M9 12h12M9 18h12M4 6h.01M4 12h.01M4 18h.01" {...P} /></>,
   sort: <><path d="M8 4v16M4 8l4-4 4 4M16 20V4M12 16l4 4 4-4" {...P} /></>,
   check: <><path d="M5 12l5 5L20 7" {...P} /></>,
+  lock: <><rect x="5" y="11" width="14" height="10" rx="2" {...P} /><path d="M8 11V8a4 4 0 0 1 8 0v3" {...P} /></>,
   plus: <><path d="M12 5v14M5 12h14" {...P} /></>,
   calendar: <><rect x="3" y="5" width="18" height="16" rx="2" {...P} /><path d="M3 10h18M8 3v4M16 3v4" {...P} /></>,
   user: <><circle cx="12" cy="8" r="4" {...P} /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" {...P} /></>,

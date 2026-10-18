@@ -7,6 +7,7 @@ import { Icon, PulseDot, Ring, useMinutesToClose } from './fx';
 import { StartTraining } from './Training';
 import { CommandPalette } from './CommandPalette';
 import { Welcome } from '../screens/Welcome';
+import { isTrained } from '../lib/trainingPlan';
 
 const CHECKIN: Screen[] = ['home', 'dashboard', 'deliveries', 'issued', 'returns', 'transfers', 'submitted'];
 const NAV: { screen: Screen; label: string; icon: string; match: Screen[] }[] = [
@@ -57,6 +58,10 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
   const toggleRail = () => { const v = !mini; setMini(v); try { localStorage.setItem('ssms-rail', v ? 'mini' : 'full'); } catch { /* ignore */ } };
 
   // A store with no stock take yet starts on the welcome page.
+  // New storekeepers stay on the welcome page until 5 training days are done and the store has stock
+  // (a store with no stock unlocks its first stock take after training).
+  const onboarding = api.mode !== 'training' && user.role !== 'admin' && (!isTrained(user) || !balances.length);
+  if (onboarding && !(screen === 'stocktake' && isTrained(user))) return <Welcome />;
   if (screen === 'welcome' || (!balances.length && (screen === 'home' || screen === 'dashboard'))) return <Welcome />;
   const done = STEPS.filter((s) => stepState(s.key) !== 'todo').length;
   const urgent = !submission && min < 60;

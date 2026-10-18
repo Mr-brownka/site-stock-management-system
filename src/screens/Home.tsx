@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react';
 import { Icon, Num, PulseDot, greeting, useMinutesToClose } from '../components/fx';
 import { signal, useSignal } from '../lib/signals';
 import { closeLabel } from '../components/Shell';
-import { api } from '../lib/api';
+import { api, progressStore } from '../lib/api';
 import { Dashboard } from './Dashboard';
 import { fmt } from '../components/ui';
-import { longDate } from '../lib/dates';
+import { longDate, today, weekday } from '../lib/dates';
+import { TRAINING_DAYS } from '../lib/trainingPlan';
 import { resetDemo } from '../lib/demoBackend';
 import { STEPS, useData } from '../lib/store';
-import { ask } from '../components/feedback';
+import { ask, toast } from '../components/feedback';
 import { ADD_NOUN } from '../components/StepShell';
 import type { StepKey } from '../lib/types';
 
@@ -71,6 +72,15 @@ export function Home() {
     setBusy(true); setErr('');
     try {
       await api.submitDay(day, Object.fromEntries(STEPS.map((s) => [s.key, stepState(s.key)])));
+      if (api.mode === 'training') {
+        // A submitted practice evening counts as one training day on the real account (not on Sundays).
+        const real = today();
+        try {
+          const n = await progressStore.recordTrainingDay(real);
+          toast(weekday(real) === 'Sun' ? 'Practice saved · Sundays don’t count as a training day'
+            : n >= TRAINING_DAYS ? `Training day ${Math.min(n, TRAINING_DAYS)} of ${TRAINING_DAYS} done · training complete!` : `Training day ${n} of ${TRAINING_DAYS} done`);
+        } catch { toast('Practice saved, but the training day could not be recorded. Check the connection.', 'warn'); }
+      }
       await refresh();
       go('submitted');
     } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }

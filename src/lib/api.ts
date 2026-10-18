@@ -11,3 +11,5 @@ export const live: Backend | null = url && key ? supabaseBackend(url, key) : nul
 
 /** Training mode → a practice copy in this browser; live when Supabase keys are set; otherwise the demo. */
 export const api: Backend = isTraining() ? demoBackend({ key: TRAINING_KEY, mode: 'training' }) : live ?? demoBackend();
+/** The real store for recording training progress (in demo: the demo store, not the practice copy). */
+export const progressStore: Backend = live ?? (isTraining() ? demoBackend() : api);

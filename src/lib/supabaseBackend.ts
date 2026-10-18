@@ -44,7 +44,7 @@ function toBalance(r: Record<string, unknown>): Balance {
 function adminApi(sb: SupabaseClient): AdminApi {
   return {
     async profiles() {
-      const { data, error } = await sb.from('profiles').select('id, full_name, email, phone, role, status, site_id, created_at, decided_at').order('created_at', { ascending: false });
+      const { data, error } = await sb.from('profiles').select('id, full_name, email, phone, role, status, site_id, created_at, decided_at, training_days, training_waived').order('created_at', { ascending: false });
       if (error) fail(error);
       return (data ?? []) as Profile[];
     },
@@ -150,10 +150,11 @@ export function supabaseBackend(url: string, key: string): Backend {
       const { data } = await sb.auth.getSession();
       const u = data.session?.user;
       if (!u) return null;
-      const { data: p } = await sb.from('profiles').select('full_name, role, status, site_id').eq('id', u.id).maybeSingle();
+      const { data: p } = await sb.from('profiles').select('full_name, role, status, site_id, training_days, training_waived').eq('id', u.id).maybeSingle();
       return {
         email: u.email ?? '', name: p?.full_name || (u.email ?? '').split('@')[0],
         role: (p?.role ?? 'store') as User['role'], status: (p?.status ?? 'pending') as User['status'], siteId: p?.site_id ?? null,
+        trainingDays: (p?.training_days as string[] | null) ?? [], trainingWaived: !!p?.training_waived,
       };
     },
 
@@ -286,6 +287,12 @@ export function supabaseBackend(url: string, key: string): Backend {
     async submitDay(day, steps) {
       const { error } = await sb.from('day_submissions').insert({ day, steps });
       if (error) fail(error);
+    },
+
+    async recordTrainingDay(day) {
+      const { data, error } = await sb.rpc('record_training_day', { d: day });
+      if (error) fail(error);
+      return (data as number) ?? 0;
     },
 
     async setReorder(itemId, level) {
