@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Loader } from '../components/Brand';
+import { bootDone, bootShow, bootStep, isBootDone, rememberVisitor } from './boot';
 import { api } from './api';
 import { projectWeekNo } from './projectWeek';
 import { addDays, today, weekday } from './dates';
@@ -16,6 +16,8 @@ export type Screen = 'home' | 'deliveries' | 'issued' | 'returns' | 'transfers' 
 
 interface Data {
   user: User;
+  /** True while last visit's data is shown and fresh data is still loading. */
+  syncing: boolean;
   site: string;
   company: string;
   /** "COMEX BUILDERS · REVEAL" */
@@ -61,6 +63,8 @@ function readMarks(day: string): Partial<Record<StepKey, StepState>> {
   try { return JSON.parse(localStorage.getItem(markKey(day)) || '{}'); } catch { return {}; }
 }
 
+interface Cache { site: string; company: string; items: Item[]; balances: Balance[]; recent: Doc[]; submission: Submission | null; day: string }
+
 export function DataProvider({ user, go, signOut, openAdmin, children }: { user: User; go: (s: Screen) => void; signOut: () => void; openAdmin: () => void; children: ReactNode }) {
   const day = today();
   const [site, setSite] = useState('');
@@ -86,11 +90,37 @@ export function DataProvider({ user, go, signOut, openAdmin, children }: { user:
     setBalances(b); setRecent(r); setDocs(r.filter((x) => x.doc_date === day)); setSubmission(s);
   }, [day]);
 
+  // Last visit's data shows at once (live mode only) while fresh data loads behind it.
+  const cacheKey = `ssms-cache:${api.mode}:${user.email}`;
+  const [syncing, setSyncing] = useState(false);
   useEffect(() => {
-    Promise.all([api.siteName(), api.items(), refresh()])
-      .then(([s, it]) => { setSite(s.site); setCompany(s.company); setItems(it); })
-      .catch((e) => setError(e.message || String(e)));
+    let cached: Cache | null = null;
+    if (api.mode === 'live') { try { cached = JSON.parse(localStorage.getItem(cacheKey) || 'null'); } catch { cached = null; } }
+    if (cached?.items?.length) {
+      setSite(cached.site); setCompany(cached.company); setItems(cached.items); setBalances(cached.balances);
+      if (cached.day === day) { setRecent(cached.recent); setDocs(cached.recent.filter((x) => x.doc_date === day)); setSubmission(cached.submission); }
+      setSyncing(true);
+      bootDone({ quick: true });
+    } else if (isBootDone()) bootShow('Opening your store…');
+    else bootStep('Opening your store…', 55, 70);
+
+    let n = 0;
+    const tick = (msg: string) => { n++; if (!cached) bootStep(msg, 55 + n * 12, 70 + n * 10); };
+    Promise.all([
+      api.siteName().then((s) => { tick(`Loading the ${s.site || 'store'} item list…`); return s; }),
+      api.items().then((it) => { tick('Counting balances…'); return it; }),
+      refresh().then(() => tick('Checking today’s entries…')),
+    ])
+      .then(([s, it]) => { setSite(s.site); setCompany(s.company); setItems(it); rememberVisitor(user.name, s.site); setSyncing(false); bootDone(); })
+      .catch((e) => { setSyncing(false); if (cached) return; setError(e.message || String(e)); bootDone({ quick: true }); });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refresh]);
+  // Keep the cache up to date after every change.
+  useEffect(() => {
+    if (api.mode !== 'live' || syncing || !items) return;
+    const t = setTimeout(() => { try { localStorage.setItem(cacheKey, JSON.stringify({ site, company, items, balances, recent, submission, day } satisfies Cache)); } catch { /* full or blocked */ } }, 400);
+    return () => clearTimeout(t);
+  }, [cacheKey, syncing, site, company, items, balances, recent, submission, day]);
 
   const avgUse = useMemo(() => {
     const from = addDays(day, -13);
@@ -146,12 +176,12 @@ export function DataProvider({ user, go, signOut, openAdmin, children }: { user:
   }, []);
 
   if (error) return <div className="phone"><div className="body"><div className="note err">Could not load: {error}</div><button className="btn" onClick={() => location.reload()}>Try again</button></div></div>;
-  if (!items) return <Loader intro={false} message="Loading the store…" />;
+  if (!items) return null;
 
   const value: Data = {
     user, site, company, siteLabel: [company, site].filter(Boolean).join(' · ').toUpperCase(), day, items, itemById, balances, balanceOf: (id) => balMap.get(id) ?? 0, docsToday, submission,
     stepState, markStep, refresh, addItem, go, signOut, openAdmin, recent, avgUse, isLow, daysLeft, lowItems,
-    projectWeek: projectWeekNo(day, weekInfo, entryDays), weekInfo, refreshWeek,
+    projectWeek: projectWeekNo(day, weekInfo, entryDays), weekInfo, refreshWeek, syncing,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

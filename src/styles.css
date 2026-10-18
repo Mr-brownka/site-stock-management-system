@@ -1232,3 +1232,7 @@ body:has(.trainBar) .topbar { top: 50px; }
 .plusMenu .ic { color: var(--accent-text); }
 .process { overflow: visible; }
 .process > .panelHead { border-radius: var(--r) var(--r) 0 0; }
+/* Last visit's data is showing while fresh data loads */
+.tbChip.sync { background: var(--accent-soft); color: var(--accent-text); display: inline-flex !important; }
+.syncDot { width: 8px; height: 8px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }

@@ -35,7 +35,7 @@ function crumbs(screen: Screen): string[] {
 const readRail = () => { try { return localStorage.getItem('ssms-rail') === 'mini'; } catch { return false; } };
 
 export function AppShell({ screen, children }: { screen: Screen; children: ReactNode }) {
-  const { user, site, go, signOut, openAdmin, stepState, submission, lowItems, balances, day, projectWeek } = useData();
+  const { user, site, go, signOut, openAdmin, stepState, submission, lowItems, balances, day, projectWeek, syncing } = useData();
   const [mini, setMini] = useState(readRail);
   const [palette, setPalette] = useState(false);
   const min = useMinutesToClose();
@@ -106,6 +106,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
             <Icon name="search" size={16} /><span>Search items, pages, actions</span><kbd>Ctrl K</kbd>
           </button>
           <div className="tbChips">
+            {syncing && <span className="tbChip sync" role="status"><span className="syncDot" aria-hidden="true" />Updating…</span>}
             {projectWeek != null && <span className="tbChip" title="Project week">Week {projectWeek}</span>}
             <span className="tbChip"><Icon name="calendar" size={14} />{dateChip}</span>
             <span className={`tbChip status ${submission ? 'ok' : min <= 0 ? 'late' : urgent ? 'soon' : ''}`}>

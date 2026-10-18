@@ -1,26 +1,36 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Loader } from './components/Brand';
+import type React from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { AppShell } from './components/Shell';
 import { api } from './lib/api';
 import { DataProvider, type Screen } from './lib/store';
 import type { User } from './lib/types';
-import { Admin } from './screens/Admin';
-import { Corrections } from './screens/Corrections';
 import { DashboardJump } from './screens/DashboardJump';
 import { Deliveries } from './screens/Deliveries';
 import { Home } from './screens/Home';
 import { Issued } from './screens/Issued';
 import { Login } from './screens/Login';
-import { StockTake } from './screens/StockTake';
-import { Reports } from './screens/Reports';
 import { Returns } from './screens/Returns';
 import { SetPassword } from './screens/SetPassword';
 import { SignUp, Waiting } from './screens/SignUp';
 import { Submitted } from './screens/Submitted';
 import { Transfers } from './screens/Transfers';
 import { exitTraining } from './lib/training';
+import { bootDone, forgetVisitor } from './lib/boot';
 
-const SCREENS: Record<Screen, () => JSX.Element> = {
+// Screens used less often load on demand, so the first download is smaller.
+const Admin = lazy(() => import('./screens/Admin').then((m) => ({ default: m.Admin })));
+const Corrections = lazy(() => import('./screens/Corrections').then((m) => ({ default: m.Corrections })));
+const StockTake = lazy(() => import('./screens/StockTake').then((m) => ({ default: m.StockTake })));
+const Reports = lazy(() => import('./screens/Reports').then((m) => ({ default: m.Reports })));
+const PageSkeleton = () => (
+  <div className="page" aria-busy="true">
+    <i className="skel" style={{ width: 180, height: 14 }} /><i className="skel" style={{ width: '45%', height: 34 }} />
+    <div className="kpis">{[0, 1, 2, 3].map((i) => <div key={i} className="kpi"><i className="skel" style={{ width: '60%' }} /><i className="skel big" /></div>)}</div>
+    <div className="panel pad stack">{[0, 1, 2, 3, 4].map((i) => <i key={i} className="skel" style={{ width: `${55 + ((i * 13) % 40)}%` }} />)}</div>
+  </div>
+);
+
+const SCREENS: Record<Screen, React.ComponentType> = {
   home: Home, deliveries: Deliveries, issued: Issued, returns: Returns, transfers: Transfers,
   submitted: Submitted, dashboard: DashboardJump, stocktake: StockTake, corrections: Corrections, reports: Reports,
 };
@@ -35,8 +45,6 @@ const isAdminPath = () => location.pathname.replace(/\/+$/, '') === '/admin';
 export function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [screen, setScreen] = useState<Screen>(fromHash);
-  const [introDone, setIntroDone] = useState(false);
-  useEffect(() => { const t = setTimeout(() => setIntroDone(true), 1800); return () => clearTimeout(t); }, []);
   const [recovering, setRecovering] = useState(() => api.isRecovery());
   const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState('');
@@ -57,9 +65,18 @@ export function App() {
     location.hash = `/${s}`;
   }, []);
   const openAdmin = useCallback(() => { history.pushState(null, '', '/admin'); setAdminPath(true); window.scrollTo(0, 0); }, []);
-  const signOut = useCallback(async () => { if (api.mode === 'training') { exitTraining(); return; } await api.signOut(); setUser(null); history.replaceState(null, '', '/'); setAdminPath(false); }, []);
+  const signOut = useCallback(async () => {
+    if (api.mode === 'training') { exitTraining(); return; }
+    await api.signOut();
+    try { Object.keys(localStorage).filter((k) => k.startsWith('ssms-cache:')).forEach((k) => localStorage.removeItem(k)); } catch { /* ignore */ }
+    forgetVisitor();
+    setUser(null); history.replaceState(null, '', '/'); setAdminPath(false);
+  }, []);
+  // Screens that don't load the store finish the boot screen straight away.
+  const storeScreen = !!user && user.status === 'approved' && !adminPath && !recovering;
+  useEffect(() => { if (user !== undefined && !storeScreen) bootDone(); }, [user, storeScreen]);
 
-  if (user === undefined || !introDone) return <Loader />;
+  if (user === undefined) return null;
   if (recovering) return <SetPassword onDone={() => { setRecovering(false); location.hash = ''; loadUser(); }} />;
   if (!user) {
     if (creating) {
@@ -81,12 +98,12 @@ export function App() {
         </main></div>
       );
     }
-    return <Admin user={user} onExit={() => go('home')} onSignOut={signOut} />;
+    return <Suspense fallback={<PageSkeleton />}><Admin user={user} onExit={() => go('home')} onSignOut={signOut} /></Suspense>;
   }
   const View = SCREENS[screen];
   return (
     <DataProvider user={user} go={go} signOut={signOut} openAdmin={openAdmin}>
-      <AppShell screen={screen}><View /></AppShell>
+      <AppShell screen={screen}><Suspense fallback={<PageSkeleton />}><View /></Suspense></AppShell>
     </DataProvider>
   );
 }
