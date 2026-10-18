@@ -4,7 +4,6 @@ import { ask, toast } from '../components/feedback';
 import { Icon } from '../components/fx';
 import { fmt, TimeBoxes } from '../components/ui';
 import { api } from '../lib/api';
-import { categoryOf, CATEGORY_ORDER } from '../lib/categories';
 import { useData } from '../lib/store';
 import type { Item, StockTake as Take } from '../lib/types';
 import { Upload } from './Opening';
@@ -13,18 +12,15 @@ type Tab = 'sheet' | 'import' | 'history';
 type Step = 'print' | 'enter' | 'confirm';
 const nice = (d: string) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 
-/** Group items by category, in the usual order, keeping each item's sheet number. */
-function grouped(items: Item[]) {
-  const by = new Map<string, Item[]>();
-  items.forEach((it) => { const c = categoryOf(it.name); by.set(c, [...(by.get(c) ?? []), it]); });
-  return CATEGORY_ORDER.filter((c) => by.has(c)).map((c) => ({ cat: c, items: by.get(c)!.sort((a, b) => a.name.localeCompare(b.name)) }));
+/** One plain list: numbers first (0–9), then A–Z, like the original item list. */
+function sorted(items: Item[]) {
+  return [...items].sort((a, b) => a.name.trim().localeCompare(b.name.trim(), 'en', { sensitivity: 'base', numeric: true }));
 }
 
 /** The orange paper sheet the storekeeper prints and writes on. */
 export function StockSheet({ items, values, head, title = 'Stock take sheet' }: { items: Item[]; values?: Record<number, string | number>; head?: { date?: string; start?: string | null; end?: string | null; by?: string | null; checked?: string | null }; title?: string }) {
   const { company, site } = useData();
-  const groups = grouped(items);
-  let n = 0;
+  const list = sorted(items);
   return (
     <div className="stSheet">
       <header className="stHead">
@@ -36,16 +32,12 @@ export function StockSheet({ items, values, head, title = 'Stock take sheet' }: 
         <div><span>Start time</span><b>{head?.start ?? ''}</b></div>
         <div><span>End time</span><b>{head?.end ?? ''}</b></div>
         <div><span>Counted by</span><b>{head?.by ?? ''}</b></div>
-        <div><span>Checked by</span><b>{head?.checked ?? ''}</b></div>
         <div><span>Signature</span><b /></div>
       </div>
       <table className="stTable">
         <thead><tr><th>No.</th><th>Item</th><th>Unit</th><th>Quantity counted</th><th>Remarks</th></tr></thead>
         <tbody>
-          {groups.map((g) => [
-            <tr key={g.cat} className="stCat"><td colSpan={5}>{g.cat}</td></tr>,
-            ...g.items.map((it) => { n++; const v = values?.[it.id]; return <tr key={it.id}><td>{n}</td><td>{it.name}</td><td>{it.unit}</td><td className="stQty">{v === undefined || v === '' ? '' : fmt(Number(v))}</td><td /></tr>; }),
-          ])}
+          {list.map((it, i) => { const v = values?.[it.id]; return <tr key={it.id}><td>{i + 1}</td><td>{it.name}</td><td>{it.unit}</td><td className="stQty">{v === undefined || v === '' ? '' : fmt(Number(v))}</td><td /></tr>; })}
         </tbody>
       </table>
       <footer className="stFoot">Write clearly. One number per box. Cross out mistakes and write the right number next to it. · Site Stock · {company || 'Comex Builders'}</footer>
@@ -80,7 +72,7 @@ export function StockTake() {
   useEffect(() => { if (tab === 'history') api.stockTakes().then(setTakes); }, [tab]);
 
   const items = imported ?? list ?? [];
-  const ordered = useMemo(() => grouped(items).flatMap((g) => g.items), [items]);
+  const ordered = useMemo(() => sorted(items), [items]);
   const entered = ordered.filter((it) => (qty[it.id] ?? '') !== '').length;
   const blanks = ordered.filter((it) => (qty[it.id] ?? '') === '');
   const needWeek = first && weekInfo.anchorNo == null;
@@ -175,15 +167,13 @@ export function StockTake() {
               <TimeBoxes label="Start time" value={head.start} onChange={(v) => setHead({ ...head, start: v })} glow={!head.start} />
               <TimeBoxes label="End time" value={head.end} onChange={(v) => setHead({ ...head, end: v })} glow={!!head.start && head.start.length === 5 && !head.end} onDone={() => (rowsRef.current?.querySelector('input.stIn') as HTMLInputElement | null)?.focus()} />
               <label className="field"><span>Counted by</span><input className="input" value={head.by} onChange={(e) => setHead({ ...head, by: e.target.value })} /></label>
-              <label className="field"><span>Checked by</span><input className="input" value={head.checked} placeholder="e.g. Site manager" onChange={(e) => setHead({ ...head, checked: e.target.value })} /></label>
             </div>
             <div className="stProgress"><div><b>{entered}</b> of {ordered.length} entered</div><span className="gauge"><i style={{ width: `${(entered / Math.max(1, ordered.length)) * 100}%` }} /></span></div>
             <div className="searchWrap"><Icon name="search" size={18} /><input className="search" type="search" placeholder="Jump to an item" value={q} onChange={(e) => setQ(e.target.value)} /></div>
             <div className="stRows" ref={rowsRef}>
-              {grouped(shown).map((g) => (
-                <div key={g.cat}>
-                  <div className="groupHead"><span>{g.cat}</span><span className="small muted">{g.items.length}</span></div>
-                  {g.items.map((it) => {
+              {(() => (
+                <div>
+                  {shown.map((it) => {
                     const v = qty[it.id] ?? '';
                     return (
                       <label key={it.id} className={`stRow ${v !== '' ? 'filled' : ''}`}>
@@ -196,7 +186,7 @@ export function StockTake() {
                     );
                   })}
                 </div>
-              ))}
+              ))()}
             </div>
             <div className="stickyBar">
               <button className="btn ghost" onClick={() => setStep('print')}>← Back</button>
@@ -248,7 +238,7 @@ export function StockTake() {
             {!takes ? <div className="card pad muted">Loading…</div> : !takes.length ? <div className="card pad muted">No stock takes yet.</div> : takes.map((t) => (
               <details key={t.id} className="stTake">
                 <summary>
-                  <span className="stTakeDate"><b>{nice(t.count_date)}</b><span className="small muted">{t.start_time ?? '–'} – {t.end_time ?? '–'} · counted by {t.counted_by ?? '–'}{t.checked_by ? ` · checked by ${t.checked_by}` : ''}</span></span>
+                  <span className="stTakeDate"><b>{nice(t.count_date)}</b><span className="small muted">{t.start_time ?? '–'} – {t.end_time ?? '–'} · counted by {t.counted_by ?? '–'}</span></span>
                   <span className="pill">{t.lines.length} items</span>
                   <span className={`pill ${t.is_first ? 'done' : t.status === 'confirmed' ? 'done' : ''}`}>{t.is_first ? 'Opening balances' : t.status === 'confirmed' ? 'Confirmed' : 'Recorded'}</span>
                 </summary>
