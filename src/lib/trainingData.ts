@@ -15,7 +15,7 @@ function rng(seed: number) {
 
 type Act = { name: string; floors: string[]; sup: string[]; mats: [string, number, number][] };
 
-export function buildAstanaTraining(allItems: Item[], user: { email: string; name: string }, today: string): Store {
+export function buildAstanaTraining(allItems: Item[], user: { email: string; name: string; role?: Profile['role'] }, today: string): Store {
   const R = rng(20261017);
   const between = (a: number, b: number) => a + Math.floor(R() * (b - a + 1));
   const pick = <T,>(xs: T[]) => xs[Math.floor(R() * xs.length)];
@@ -59,7 +59,7 @@ export function buildAstanaTraining(allItems: Item[], user: { email: string; nam
     ['Helmet', 90], ['Reflective Jacket', 80], ['Safety Boots', 40], ['Leather Gloves', 120], ['Dust Mask', 300], ['Green Net', 10], ['First Aid Kit', 4], ['Sanitizer', 12],
     ['Wheelbarrow', 14], ['Spade', 22], ['Mattock', 10], ['Buckets', 40], ['Measuring Tape', 6], ['Plastic tank 3000 Ltrs', 2], ['Dr Fixit Waterproof cement', 30],
   ];
-  add({ kind: 'opening', doc_date: start, reason: 'Opening count' }, opening.map(([n, q]) => [n, q]), iso(start, '16:30'));
+  const openDoc = add({ kind: 'opening', doc_date: start, reason: 'First stock take', party: 'Mary Achieng' }, opening.map(([n, q]) => [n, q]), iso(start, '16:30'));
 
   // ── Who and what ──
   const people = ['Enock Mutua', 'Peter Kamau', 'Musa Ali', 'John Otieno', 'Hassan Abdi', 'David Kiprono', 'Joseph Mwangi', 'Salim Omar'];
@@ -94,6 +94,7 @@ export function buildAstanaTraining(allItems: Item[], user: { email: string; nam
   const deliverySize: Record<string, number> = { 'Cement': 300, 'Ballast': 30, 'River Sand': 28, 'Rock Sand': 16, '200mm thick Machine Cut Stones': 2400, 'T12 Bars': 400, 'T16 Bars': 200, 'T10 Bars': 260, 'Binding Wire 16g X 25Kgs': 14, 'Timber 4" x 2"': 400, 'Tile Adhesive': 80, 'PPR Elbow 25mm': 200, 'Conduit 25mm': 400, 'Coupler 25mm': 500, 'Gyprock Gypsum Filler 25kg': 60, 'Marine board': 40, 'Hoop Iron': 12 };
 
   const subs: Record<string, Submission> = {};
+  let balAt30 = new Map<number, number>();
   let card = 4180, dn = 1, tn = 31;
   const missed = new Set([addDays(today, -23), addDays(today, -9)]);
   const afterSix = new Set([addDays(today, -31), addDays(today, -15), addDays(today, -4)]);
@@ -107,6 +108,7 @@ export function buildAstanaTraining(allItems: Item[], user: { email: string; nam
     const wd = weekday(day);
     if (wd === 'Sun') continue;
     const isToday = k === 0;
+    if (k <= 29 && !balAt30.size) balAt30 = new Map([...bal].filter(([, q]) => q > 0));
     const sat = wd === 'Sat';
 
     // Deliveries in the morning: restock anything at or under its reorder level.
@@ -185,9 +187,15 @@ export function buildAstanaTraining(allItems: Item[], user: { email: string; nam
 
   return {
     items: allItems,
-    meta: { company: 'Comex Builders', site: 'Astana', user: { email: user.email, name: user.name, role: 'admin' } },
+    meta: { company: 'Comex Builders', site: 'Astana', user: { email: user.email, name: user.name, role: user.role ?? 'admin' } },
     docs, nextLine, submissions: subs, reorder: reorderById, extraItems: [], signedIn: true,
-    sites: [{ id: SITE, name: 'Astana', company: 'Comex Builders' }, { id: 'site-nyayo', name: 'Nyayo View 2', company: 'Comex Builders' }, { id: 'site-balozi', name: 'Balozi Suites', company: 'Comex Builders' }],
+    checklist: { [SITE]: openDoc ? openDoc.lines.map((l) => l.item_id) : [] },
+    stockTakes: [
+      ...(openDoc ? [{ id: id(), count_date: start, start_time: '07:40', end_time: '12:15', counted_by: 'Mary Achieng', checked_by: 'Eng. Kariuki', is_first: true, status: 'confirmed' as const, created_at: iso(start, '16:30'), lines: openDoc.lines.map((l) => ({ item_id: l.item_id, qty: l.qty })) }] : []),
+      { id: id(), count_date: addDays(today, -29), start_time: '07:30', end_time: '11:05', counted_by: 'Mary Achieng', checked_by: 'Kevin Mutiso', is_first: false, status: 'recorded' as const, created_at: iso(addDays(today, -29), '11:20'),
+        lines: [...balAt30].map(([item_id, qty]) => ({ item_id, qty: Math.max(0, qty - (R() < 0.12 ? between(1, 3) : 0)) })) },
+    ],
+    sites: [{ id: SITE, name: 'Astana', company: 'Comex Builders', week_anchor_no: 46, week_anchor_date: start }, { id: 'site-nyayo', name: 'Nyayo View 2', company: 'Comex Builders' }, { id: 'site-balozi', name: 'Balozi Suites', company: 'Comex Builders' }],
     profiles: [
       { id: ME, full_name: user.name, email: user.email, phone: null, role: 'admin', status: 'approved', site_id: SITE, created_at: iso(addDays(today, -62), '08:00'), decided_at: iso(addDays(today, -62), '08:00') },
       P('demo-mary', 'Mary Achieng', 'store', 'approved', 58, 'mary.achieng@example.com', '0712 448 210'),

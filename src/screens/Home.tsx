@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { SiteLogo } from '../components/Brand';
 import { Icon, Num, PulseDot, Ring, greeting, useMinutesToClose } from '../components/fx';
 import { closeLabel } from '../components/Shell';
 import { api } from '../lib/api';
+import { Dashboard } from './Dashboard';
+import { fmt } from '../components/ui';
 import { longDate } from '../lib/dates';
 import { resetDemo } from '../lib/demoBackend';
 import { STEPS, useData } from '../lib/store';
@@ -48,7 +50,12 @@ export function Home() {
       go('submitted');
     } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   };
-  const openLow = () => { try { sessionStorage.setItem('ssms-dash', 'low'); } catch { /* ignore */ } go('dashboard'); };
+  const toDash = (d: { tab: 'cons' | 'bal'; filter?: 'all' | 'low' | 'today' }) => {
+    window.dispatchEvent(new CustomEvent('ssms-dash', { detail: d }));
+    document.getElementById('dash')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  const openLow = () => toDash({ tab: 'bal', filter: 'low' });
+  const [showEntries, setShowEntries] = useState(false);
 
   return (
     <div className="phone home">
@@ -73,30 +80,22 @@ export function Home() {
       <main className="body">
         {site && <div className="siteLogo card homeLogo enter"><SiteLogo name={site} height={52} /></div>}
 
-        {!balances.length && (
-          <div className="note stack enter">
-            <b>Start here: enter the opening count.</b>
-            <span>Count what is in the store now and enter each item once. All balances start from this.</span>
-            <button className="btn accent" onClick={() => go('opening')}>Enter opening count</button>
-          </div>
-        )}
-
         <div className="statRow">
-          <button className="statTile enter" onClick={() => go('dashboard')}>
+          <button className="statTile enter" onClick={() => toDash({ tab: 'bal', filter: 'all' })}>
             <span className="label">Items in store</span>
             <Num value={balances.filter((b) => b.balance > 0).length} className="statBig" />
-            <span className="small muted">Open the dashboard <Icon name="arrow" size={14} /></span>
+            <span className="small muted">See balances <Icon name="arrow" size={14} /></span>
           </button>
           <button className={`statTile enter ${lowItems.length ? 'alert' : ''}`} style={{ animationDelay: '.05s' }} onClick={openLow}>
             <span className="label">{lowItems.length ? <><PulseDot /> Low stock</> : 'Low stock'}</span>
             <Num value={lowItems.length} className="statBig" />
             <span className="small muted">{lowItems.length ? lowItems.slice(0, 2).map((b) => b.name).join(', ') + (lowItems.length > 2 ? '…' : '') : 'All good'}</span>
           </button>
-          <div className="statTile enter" style={{ animationDelay: '.1s' }}>
+          <button className="statTile enter" style={{ animationDelay: '.1s' }} onClick={() => setShowEntries(true)}>
             <span className="label">Entries today</span>
             <Num value={entries} className="statBig" />
-            <span className="small muted">Cards, notes and transfers</span>
-          </div>
+            <span className="small muted">{entries ? 'See today’s entries' : 'Cards, notes and transfers'} <Icon name="arrow" size={14} /></span>
+          </button>
         </div>
 
         <div className="stepGrid">
@@ -137,15 +136,58 @@ export function Home() {
         <div className="small muted" style={{ lineHeight: 1.5 }}>
           Withdrawal cards can also be entered during the day. They will already be listed when you reach step 2 tonight.
         </div>
+        <Dashboard embedded />
+
         <div className="between small homeFoot">
           <span className="muted">Signed in as {user.name}</span>
           <span className="row">
-            {balances.length > 0 && <button className="btn link" onClick={() => go('opening')}>Opening count</button>}
+            <button className="btn link" onClick={() => go('stocktake')}>Stock take</button>
             {api.mode === 'demo' && <button className="btn link" onClick={() => { resetDemo(); location.reload(); }}>Reset demo</button>}
             <button className="btn link" onClick={signOut}>Sign out</button>
           </span>
         </div>
       </main>
+      {showEntries && <EntriesSheet onClose={() => setShowEntries(false)} />}
+    </div>
+  );
+}
+
+const KIND_LABEL: Record<string, string> = { delivery: 'Delivery', issue: 'Withdrawal card', return: 'Return', transfer_in: 'Transfer in', transfer_out: 'Transfer out', correction: 'Correction', opening: 'Stock take' };
+
+/** Today's entries, grouped by step, with the option to open the step. */
+function EntriesSheet({ onClose }: { onClose: () => void }) {
+  const { docsToday, itemById, go, submission } = useData();
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', k); document.body.classList.add('noScroll');
+    return () => { document.removeEventListener('keydown', k); document.body.classList.remove('noScroll'); };
+  }, [onClose]);
+  const list = docsToday.filter((d) => d.kind !== 'opening').sort((a, b) => a.created_at.localeCompare(b.created_at));
+  return (
+    <div className="sheetBack" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <section className="sheet" role="dialog" aria-modal="true" aria-labelledby="entTitle">
+        <div className="sheetHandle" aria-hidden />
+        <header className="sheetHead"><div><span className="chip">Today</span><h3 id="entTitle">{list.length} entr{list.length === 1 ? 'y' : 'ies'} today</h3></div><button className="iconBtn" onClick={onClose} aria-label="Close"><Icon name="close" /></button></header>
+        {STEPS.map((st) => {
+          const ds = list.filter((d) => st.kinds.includes(d.kind));
+          return (
+            <div key={st.key} className="entGroup">
+              <div className="between"><b>{st.label}</b><button className="btn link" onClick={() => { onClose(); go(st.screen); }}>Open step {st.n}</button></div>
+              {!ds.length && <div className="small muted">Nothing yet.</div>}
+              {ds.map((d) => {
+                const late = !!submission && d.created_at > submission.submitted_at;
+                return (
+                  <div key={d.id} className="entCard">
+                    <div className="between"><b>{KIND_LABEL[d.kind]}{d.ref_no ? ` · ${d.kind === 'issue' ? 'card ' : ''}${d.ref_no}` : ''}{late && <span className="pill late">Late</span>}</b><span className="mono small muted">{d.doc_time ?? new Date(d.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' })}</span></div>
+                    {(d.party || d.activity) && <div className="small muted">{[d.party, d.activity, d.gemba].filter(Boolean).join(' · ')}</div>}
+                    {d.lines.map((l) => <div key={l.id} className="ln"><span>{itemById.get(l.item_id)?.name ?? 'Item'}</span><span className="mono">{fmt(l.qty)} {itemById.get(l.item_id)?.unit}</span></div>)}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </section>
     </div>
   );
 }

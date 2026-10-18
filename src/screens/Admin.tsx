@@ -4,7 +4,7 @@ import { fmt } from '../components/ui';
 import { api } from '../lib/api';
 import { addDays, niceDate, today, weekday } from '../lib/dates';
 import type { Balance, CorrectionRequest, Item, Profile, Role, SiteDoc, SiteInfo, User } from '../lib/types';
-import { ask } from '../components/feedback';
+import { ask, toast } from '../components/feedback';
 import { StartTraining } from '../components/Training';
 
 type Sec = 'overview' | 'people' | 'corr' | 'sites' | 'items' | 'reorder' | 'log';
@@ -184,6 +184,7 @@ function Overview({ d, day, siteName, person, itemById, pendingPeople, pendingCo
 
 function People({ d, me, siteName, busy, act }: { d: Data; me: User; siteName: Map<string, string>; busy: string; act: Act }) {
   const [choice, setChoice] = useState<Record<string, { site: string; role: Role }>>({});
+  const [edit, setEdit] = useState<{ id: string; full_name: string; phone: string; site_id: string; role: Role } | null>(null);
   const pending = d.profiles.filter((p) => p.status === 'pending');
   const active = d.profiles.filter((p) => p.status === 'approved');
   const off = d.profiles.filter((p) => p.status === 'declined' || p.status === 'removed');
@@ -211,11 +212,24 @@ function People({ d, me, siteName, busy, act }: { d: Data; me: User; siteName: M
       })}
       <div className="label" style={{ marginTop: 6 }}>Has access ({active.length})</div>
       <div className="card" style={{ overflow: 'hidden' }}>
-        {active.map((p) => (
+        {active.map((p) => edit?.id === p.id ? (
+          <div key={p.id} className="admRow admEdit">
+            <label className="field" style={{ flex: '2 1 200px' }}><span>Full name</span><input className="input" value={edit.full_name} autoFocus onChange={(e) => setEdit({ ...edit, full_name: e.target.value })} /></label>
+            <label className="field" style={{ flex: '1 1 150px' }}><span>Phone (optional)</span><input className="input" inputMode="tel" value={edit.phone} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} /></label>
+            <label className="field" style={{ flex: '1 1 150px' }}><span>Site</span><select className="select" value={edit.site_id} onChange={(e) => setEdit({ ...edit, site_id: e.target.value })}>{d.sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+            <label className="field" style={{ flex: '1 1 150px' }}><span>Role</span><select className="select" value={edit.role} disabled={p.email === me.email} onChange={(e) => setEdit({ ...edit, role: e.target.value as Role })}>{(['store', 'assistant', 'admin'] as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select></label>
+            <div className="row" style={{ alignSelf: 'flex-end' }}>
+              <button className="btn ok admSm" disabled={!!busy || !edit.full_name.trim()} onClick={() => act(p.id, () => api.admin.setProfile(p.id, { full_name: edit.full_name.trim(), phone: edit.phone.trim() || null, site_id: edit.site_id, ...(p.email === me.email ? {} : { role: edit.role }) })).then(() => setEdit(null))}>Save</button>
+              <button className="btn ghost admSm" onClick={() => setEdit(null)}>Cancel</button>
+            </div>
+            <div className="small muted" style={{ flexBasis: '100%' }}>Email: {p.email} (the sign-in email cannot be changed here).</div>
+          </div>
+        ) : (
           <div key={p.id} className="admRow">
-            <b style={{ flex: 1 }}>{p.full_name}<div className="small muted" style={{ fontWeight: 400 }}>{p.email}</div></b>
+            <b style={{ flex: 1 }}>{p.full_name}<div className="small muted" style={{ fontWeight: 400 }}>{p.email}{p.phone ? ` · ${p.phone}` : ''}</div></b>
             <span style={{ width: 140 }}>{p.role === 'admin' ? 'All sites' : siteName.get(p.site_id ?? '') ?? '–'}</span>
             <span style={{ width: 120 }}><span className={`pill ${p.role === 'admin' ? '' : 'done'}`}>{ROLE_LABEL[p.role]}</span></span>
+            <button className="btn link" onClick={() => setEdit({ id: p.id, full_name: p.full_name, phone: p.phone ?? '', site_id: p.site_id ?? d.sites[0]?.id ?? '', role: p.role })}>Edit</button>
             <span style={{ width: 130, textAlign: 'right' }}>{p.email !== me.email && <button className="btn link" disabled={!!busy} onClick={async () => { if (await ask({ title: `Remove ${p.full_name}’s access?`, body: <p>They will no longer be able to sign in to Site Stock. You can give access back later.</p>, yes: 'Remove access', tone: 'danger' })) act(p.id, () => api.admin.setProfile(p.id, { status: 'removed' })); }}>Remove access</button>}</span>
           </div>
         ))}
@@ -284,6 +298,10 @@ function Corr({ d, siteName, person, itemById, busy, act }: { d: Data; siteName:
 function Sites({ d, busy, act }: { d: Data; busy: string; act: Act }) {
   const [names, setNames] = useState<Record<string, string>>({});
   const [add, setAdd] = useState('');
+  const [lists, setLists] = useState<Record<string, number[]>>({});
+  const [open, setOpen] = useState<string | null>(null);
+  const [weeks, setWeeks] = useState<Record<string, string>>({});
+  useEffect(() => { Promise.all(d.sites.map((s) => api.admin.checklist(s.id).then((ids) => [s.id, ids] as const))).then((x) => setLists(Object.fromEntries(x))); }, [d.sites]);
   return (
     <div className="stack" style={{ gap: 14 }}>
       <div className="card" style={{ overflow: 'hidden' }}>
@@ -297,6 +315,22 @@ function Sites({ d, busy, act }: { d: Data; busy: string; act: Act }) {
               {v.trim() && v !== s.name && <button className="btn link" disabled={!!busy} onClick={() => act(s.id, () => api.admin.renameSite(s.id, v.trim()))}>Save</button>}
               <span className="small muted" style={{ flex: 1 }}>{people} {people === 1 ? 'person' : 'people'} · {items} items in store</span>
               <span className={`pill ${items || people ? 'done' : ''}`}>{items || people ? 'Active' : 'Set up'}</span>
+              <div className="siteExtra">
+                <div className="siteWeek">
+                  <span className="label">Project week</span>
+                  <span>{s.week_anchor_no ? <>Week <b>{s.week_anchor_no}</b> set on {niceDate(s.week_anchor_date!)} · counts on by itself, pausing weeks with no entries</> : <span className="muted">Not set. The first stock take asks for it.</span>}</span>
+                  <span className="row" style={{ gap: 6 }}>
+                    <input className="input num" style={{ width: 90, minHeight: 40 }} inputMode="numeric" placeholder="This week" value={weeks[s.id] ?? ''} onChange={(e) => setWeeks({ ...weeks, [s.id]: e.target.value.replace(/\D/g, '') })} aria-label="Project week this week" />
+                    <button className="btn link" disabled={!(Number(weeks[s.id]) >= 1) || !!busy} onClick={() => act(`w${s.id}`, async () => { await api.admin.setProjectWeek(s.id, Number(weeks[s.id])); setWeeks({ ...weeks, [s.id]: '' }); })}>Set this week</button>
+                  </span>
+                </div>
+                <div className="siteWeek">
+                  <span className="label">Stock take list</span>
+                  <span>{lists[s.id] ? <><b>{lists[s.id].length}</b> items listed (no quantities)</> : '…'}</span>
+                  <button className="btn link" onClick={() => setOpen(open === s.id ? null : s.id)}>{open === s.id ? 'Close' : 'Edit list'}</button>
+                </div>
+                {open === s.id && <ChecklistEditor d={d} siteId={s.id} ids={lists[s.id] ?? []} onSaved={(ids) => setLists({ ...lists, [s.id]: ids })} />}
+              </div>
             </div>
           );
         })}
@@ -304,6 +338,46 @@ function Sites({ d, busy, act }: { d: Data; busy: string; act: Act }) {
       <div className="row"><input className="input" style={{ width: 260 }} placeholder="New site name" value={add} onChange={(e) => setAdd(e.target.value)} />
         <button className="btn accent admSm" disabled={!add.trim() || !!busy} onClick={() => act('add', async () => { await api.admin.addSite(add.trim()); setAdd(''); })}>+ Add site</button></div>
       <div className="small muted">Each site has its own store, balances and team. The company name shows above the site name everywhere.</div>
+    </div>
+  );
+}
+
+/** The admin lists the items in a store (no quantities). The store prints this list for its stock take. */
+function ChecklistEditor({ d, siteId, ids, onSaved }: { d: Data; siteId: string; ids: number[]; onSaved: (ids: number[]) => void }) {
+  const [list, setList] = useState<number[]>(ids);
+  const [q, setQ] = useState('');
+  const [paste, setPaste] = useState('');
+  const [busy, setBusy] = useState(false);
+  const byId = useMemo(() => new Map(d.items.map((i) => [i.id, i])), [d.items]);
+  const inList = new Set(list);
+  const hits = q.trim().length > 1 ? d.items.filter((i) => !inList.has(i.id) && i.name.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 8) : [];
+  const inStore = d.balances.filter((b) => b.site_id === siteId && !inList.has(b.item_id)).map((b) => b.item_id);
+  const addPaste = async () => {
+    const { readPasted, matchRows } = await import('../lib/importSheet');
+    const rows = matchRows(readPasted(paste.split('\n').map((l) => (/\d\s*$/.test(l) ? l : `${l} 1`)).join('\n')), d.items);
+    const ok = rows.filter((r) => r.kind === 'ok' && r.item && !inList.has(r.item.id)).map((r) => r.item!.id);
+    setList([...list, ...new Set(ok)]); setPaste('');
+    toast(`${ok.length} added · ${rows.length - ok.length} not matched (add those one by one)`);
+  };
+  const save = async () => { setBusy(true); try { await api.admin.setChecklist(siteId, list); onSaved(list); toast('Stock take list saved'); } catch (e) { toast((e as Error).message, 'warn'); } finally { setBusy(false); } };
+  return (
+    <div className="ckEditor">
+      <div className="row" style={{ flexWrap: 'wrap' }}>
+        <div className="field" style={{ flex: '2 1 260px', position: 'relative' }}><span>Add an item</span>
+          <input className="input" placeholder="Search the item list" value={q} onChange={(e) => setQ(e.target.value)} />
+          {!!hits.length && <div className="drop">{hits.map((i) => <button key={i.id} onClick={() => { setList([...list, i.id]); setQ(''); }}><span>{i.name}</span><span className="unit">{i.unit}</span></button>)}</div>}
+        </div>
+        {!!inStore.length && <button className="btn ghost admSm" onClick={() => setList([...list, ...inStore])}>+ Add the {inStore.length} items now in this store</button>}
+      </div>
+      <details><summary className="small" style={{ cursor: 'pointer', fontWeight: 600 }}>Paste a list of item names</summary>
+        <textarea className="input" style={{ minHeight: 90, padding: 10 }} value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="One item per line, e.g.&#10;Cement&#10;T12 Bars" />
+        <button className="btn link" disabled={!paste.trim()} onClick={addPaste}>Add matching items</button>
+      </details>
+      <div className="ckChips">
+        {list.map((id) => <span key={id} className="ckChip">{byId.get(id)?.name ?? id}<button aria-label="Remove" onClick={() => setList(list.filter((x) => x !== id))}>×</button></span>)}
+        {!list.length && <span className="muted small">No items yet.</span>}
+      </div>
+      <div className="row"><button className="btn ok admSm" disabled={busy} onClick={save}>{busy ? 'Saving…' : `Save list (${list.length})`}</button><span className="small muted">The store prints this list, counts, then types the quantities.</span></div>
     </div>
   );
 }

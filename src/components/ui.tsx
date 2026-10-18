@@ -224,3 +224,27 @@ export function checkLines(lines: LineDraft[], opts: { subphase?: boolean; stock
   }
   return null;
 }
+
+/** Time as two boxes, hour then minute. Typing two digits in the hour jumps to the minute;
+ *  two digits in the minute moves on to the next field. */
+export function TimeBoxes({ value, onChange, glow, label = 'Time', onDone }: { value: string; onChange: (v: string) => void; glow?: boolean; label?: string; onDone?: (el: HTMLElement) => void }) {
+  const [h, m] = (value || ':').split(':');
+  const hRef = useRef<HTMLInputElement>(null), mRef = useRef<HTMLInputElement>(null);
+  const set = (hh: string, mm: string) => onChange(hh || mm ? `${hh}:${mm}` : '');
+  const clamp = (v: string, max: number) => (v.length === 2 && Number(v) > max ? String(max) : v);
+  const hourGlow = glow && !h;
+  const minGlow = glow && !!h && h.length === 2 && !m;
+  return (
+    <div className="field timeBoxes">
+      <span>{label}</span>
+      <div className="tbRow">
+        <input ref={hRef} data-nav className={`input num tbBox ${hourGlow ? 'next' : ''}`} inputMode="numeric" placeholder="HH" aria-label={`${label} hour`} value={h ?? ''} maxLength={2}
+          onChange={(e) => { const v = clamp(e.target.value.replace(/\D/g, '').slice(0, 2), 23); set(v, m ?? ''); if (v.length === 2) mRef.current?.focus(); }} />
+        <b>:</b>
+        <input ref={mRef} data-nav className={`input num tbBox ${minGlow ? 'next' : ''}`} inputMode="numeric" placeholder="MM" aria-label={`${label} minute`} value={m ?? ''} maxLength={2}
+          onChange={(e) => { const v = clamp(e.target.value.replace(/\D/g, '').slice(0, 2), 59); set(h ?? '', v); if (v.length === 2) { if (onDone) onDone(mRef.current!); else focusNext(mRef.current!); } }}
+          onKeyDown={(e) => { if (e.key === 'Backspace' && !m) hRef.current?.focus(); }} />
+      </div>
+    </div>
+  );
+}

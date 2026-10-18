@@ -27,9 +27,10 @@ function useSaveOpening() {
   };
 }
 
-function Upload({ first }: { first: boolean }) {
+export function Upload({ first, onPairs }: { first: boolean; onPairs?: (pairs: [Item, number][]) => Promise<unknown> }) {
   const { items, addItem } = useData();
-  const save = useSaveOpening();
+  const saveOpening = useSaveOpening();
+  const save = onPairs ?? saveOpening;
   const [rows, setRows] = useState<MatchRow[] | null>(null);
   const [fileName, setFileName] = useState('');
   const [paste, setPaste] = useState('');

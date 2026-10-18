@@ -38,7 +38,7 @@ function usage(lines: Line[]): Map<number, Use> {
   return m;
 }
 
-export function Dashboard() {
+export function Dashboard({ embedded = false }: { embedded?: boolean }) {
   const { day, balances, refresh, go, siteLabel, isLow, lowItems, docsToday, recent } = useData();
   // Remember the last view; a link from another screen (low stock, balances after today) wins.
   const [prefs] = useState(() => {
@@ -61,7 +61,13 @@ export function Dashboard() {
   const searchRef = useRef<HTMLInputElement>(null);
 
   const range = periodRange(period, date || day);
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => { if (!embedded) refresh(); }, [refresh, embedded]);
+  // The check-in page's tiles can switch the dashboard (e.g. "Low stock" → Balances, low only).
+  useEffect(() => {
+    const on = (e: Event) => { const d = (e as CustomEvent<{ tab?: Tab; filter?: Filter }>).detail; if (d.tab) setTab(d.tab); if (d.filter) setFilter(d.filter); };
+    window.addEventListener('ssms-dash', on);
+    return () => window.removeEventListener('ssms-dash', on);
+  }, []);
   useEffect(() => { setLines(null); api.linesBetween(range.from, range.to).then(setLines); }, [range.from, range.to]);
   // Press "/" to jump to the search box.
   useEffect(() => {
@@ -128,13 +134,13 @@ export function Dashboard() {
   const skeleton = Array.from({ length: 6 }, (_, i) => <div key={i} className="skelRow"><i className="skel" style={{ width: `${40 + ((i * 17) % 40)}%` }} /><i className="skel" style={{ width: 60 }} /></div>);
 
   return (
-    <div className="dash">
+    <div className={`dash ${embedded ? 'embedded' : ''}`} id="dash">
       <div className="dashTop">
-        <div>
+        {embedded ? <div className="dashEmbHead"><h2>Store dashboard</h2><span className="small">Consumption and balances, live</span></div> : <div>
           <button className="back" onClick={() => go('home')}>← Back to check-in</button>
           <div className="mono" style={{ fontSize: 11, letterSpacing: '.08em', color: '#B9C0BC' }}>{siteLabel}{api.mode === 'demo' ? ' · DEMO' : ''}</div>
           <h1>Store dashboard</h1>
-        </div>
+        </div>}
         <div className="tabs" role="tablist" data-tab={tab}>
           <span className="tabInk" aria-hidden />
           <button role="tab" aria-selected={tab === 'cons'} onClick={() => setTab('cons')}>Consumption</button>

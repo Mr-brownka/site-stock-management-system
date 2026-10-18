@@ -2,9 +2,9 @@
 // before Supabase is connected. Nothing leaves the phone.
 import ITEMS from '../data/items.json';
 import { addDays, today, weekday } from './dates';
-import { delta, type Backend, type Balance, type CorrectionRequest, type Doc, type DocInput, type Field, type Item, type Line, type LineInput, type Profile, type SiteDoc, type SiteInfo, type Submission } from './types';
+import { delta, type Backend, type Balance, type CorrectionRequest, type Doc, type DocInput, type Field, type Item, type Line, type LineInput, type Profile, type SiteDoc, type SiteInfo, type StockTake, type Submission } from './types';
 
-const KEY = 'ssms-demo-v3';
+const KEY = 'ssms-demo-v4';
 const SITE = 'site-reveal';
 const ME = 'demo-admin';
 
@@ -21,6 +21,9 @@ export interface Store {
   sites: SiteInfo[];
   profiles: Profile[];
   corrections: CorrectionRequest[];
+  /** Stock take list per site (item ids). */
+  checklist?: Record<string, number[]>;
+  stockTakes?: StockTake[];
 }
 
 const BASE_ITEMS: Item[] = (ITEMS as [string, string][]).map(([name, unit], i) => ({ id: i + 1, name, unit }));
@@ -58,6 +61,9 @@ function seed(): Store {
     ['Cement', 240], ['Ballast', 18], ['River Sand', 60], ['200mm thick Machine Cut Stones', 1900], ['Hoop Iron', 13], ['Binding Wire 16g X 25Kgs', 9],
     ['BRC Mesh A142', 7], ['Concrete Steel Nails 4"', 12], ['PPR pipe 25mm', 70], ['Tile Adhesive', 20], ['Hardcore Filling', 30], ['Gyprock Gypsum Filler 25kg', 40],
   ]);
+  s.checklist = { [SITE]: [...new Set(s.docs[0].lines.map((l) => l.item_id).concat(['River Sand', 'Rock Sand', 'Wheelbarrow', 'Spade', 'Helmet', 'Safety Boots', 'Cutting Disc 9"'].map(byName)))] };
+  s.stockTakes = [{ id: uid(), count_date: start, start_time: '07:30', end_time: '10:45', counted_by: 'Abdirahman', checked_by: 'Site manager', is_first: true, status: 'confirmed', created_at: `${start}T10:50:00Z`, lines: s.docs[0].lines.map((l) => ({ item_id: l.item_id, qty: l.qty })) }];
+  s.sites[0] = { ...s.sites[0], week_anchor_no: 38, week_anchor_date: start };
   const reorder: [string, number][] = [['Cement', 60], ['Ballast', 10], ['River Sand', 8], ['Hoop Iron', 4], ['BRC Mesh A142', 6], ['Binding Wire 16g X 25Kgs', 8], ['Concrete Steel Nails 4"', 4], ['200mm thick Machine Cut Stones', 400]];
   reorder.forEach(([n, r]) => (s.reorder[byName(n)] = r));
   let card = 5120;
@@ -136,6 +142,9 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
       async updateItem(id, name, unit) { s.extraItems = s.extraItems.map((i) => (i.id === id ? { ...i, name, unit } : i)); save(); },
       async mergeItems() { /* demo */ },
       async setReorder(_site, itemId, level) { s.reorder[itemId] = level; save(); },
+      async checklist(siteId) { return s.checklist?.[siteId] ?? []; },
+      async setChecklist(siteId, ids) { s.checklist = { ...(s.checklist ?? {}), [siteId]: ids }; save(); },
+      async setProjectWeek(siteId, week) { s.sites = s.sites.map((x) => (x.id === siteId ? { ...x, week_anchor_no: week, week_anchor_date: today() } : x)); save(); },
     },
     async signIn() { s.signedIn = true; save(); },
     async signOut() { s.signedIn = false; save(); },
@@ -189,6 +198,25 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
     async submission(day) { return s.submissions[day] ?? null; },
     async submitDay(day, steps) { s.submissions[day] = { day, steps, submitted_at: new Date().toISOString() }; save(); },
     async setReorder(itemId, level) { s.reorder[itemId] = level; save(); },
+    async checklist() {
+      const ids = s.checklist?.[SITE] ?? [];
+      const m = new Map(allItems().map((i) => [i.id, i]));
+      return ids.map((id) => m.get(id)).filter(Boolean) as Item[];
+    },
+    async stockTakes() { return wait([...(s.stockTakes ?? [])].sort((a, b) => b.count_date.localeCompare(a.count_date) || b.created_at.localeCompare(a.created_at))); },
+    async saveStockTake(input) {
+      const first = !s.docs.length;
+      if (first) {
+        const id = uid();
+        s.docs.push({ kind: 'opening', doc_date: input.count_date, doc_time: input.end_time, reason: 'First stock take', party: input.counted_by, id, created_at: new Date().toISOString(),
+          lines: input.lines.filter((l) => l.qty > 0).map((l) => ({ id: s.nextLine++, document_id: id, kind: 'opening' as const, move_date: input.count_date, item_id: l.item_id, qty: l.qty, subphase: null, return_of: null })) });
+      }
+      s.stockTakes = [{ ...input, id: uid(), is_first: first, status: first ? 'confirmed' : 'recorded', created_at: new Date().toISOString() }, ...(s.stockTakes ?? [])];
+      save(); return wait(undefined);
+    },
+    async projectWeek() { const x = s.sites.find((y) => y.id === SITE); return { anchorNo: x?.week_anchor_no ?? null, anchorDate: x?.week_anchor_date ?? null }; },
+    async setProjectWeek(week) { s.sites = s.sites.map((x) => (x.id === SITE ? { ...x, week_anchor_no: week, week_anchor_date: today() } : x)); save(); },
+    async entryDays(from, to) { return [...new Set(s.docs.filter((d) => d.kind !== 'opening' && d.doc_date >= from && d.doc_date <= to).map((d) => d.doc_date))]; },
   };
   return this_;
 }

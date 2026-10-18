@@ -6,12 +6,12 @@ import { DataProvider, type Screen } from './lib/store';
 import type { User } from './lib/types';
 import { Admin } from './screens/Admin';
 import { Corrections } from './screens/Corrections';
-import { Dashboard } from './screens/Dashboard';
+import { DashboardJump } from './screens/DashboardJump';
 import { Deliveries } from './screens/Deliveries';
 import { Home } from './screens/Home';
 import { Issued } from './screens/Issued';
 import { Login } from './screens/Login';
-import { Opening } from './screens/Opening';
+import { StockTake } from './screens/StockTake';
 import { Reports } from './screens/Reports';
 import { Returns } from './screens/Returns';
 import { SetPassword } from './screens/SetPassword';
@@ -22,7 +22,7 @@ import { exitTraining } from './lib/training';
 
 const SCREENS: Record<Screen, () => JSX.Element> = {
   home: Home, deliveries: Deliveries, issued: Issued, returns: Returns, transfers: Transfers,
-  submitted: Submitted, dashboard: Dashboard, opening: Opening, corrections: Corrections, reports: Reports,
+  submitted: Submitted, dashboard: DashboardJump, stocktake: StockTake, corrections: Corrections, reports: Reports,
 };
 
 const fromHash = (): Screen => {

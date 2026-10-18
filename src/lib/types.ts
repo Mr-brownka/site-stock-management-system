@@ -84,7 +84,26 @@ export interface SiteInfo {
   id: string;
   name: string;
   company: string;
+  /** Project week the admin set, and the date it was set (the app counts on from there). */
+  week_anchor_no?: number | null;
+  week_anchor_date?: string | null;
 }
+
+/** One physical count of the store. The first one becomes the opening balances. */
+export interface StockTake {
+  id: string;
+  count_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  counted_by: string | null;
+  checked_by: string | null;
+  is_first: boolean;
+  status: 'recorded' | 'confirmed';
+  created_at: string;
+  lines: { item_id: number; qty: number }[];
+}
+export type StockTakeInput = Pick<StockTake, 'count_date' | 'start_time' | 'end_time' | 'counted_by' | 'checked_by' | 'lines'>;
+export interface WeekInfo { anchorNo: number | null; anchorDate: string | null }
 
 export interface Profile {
   id: string;
@@ -135,7 +154,11 @@ export interface SiteDoc extends Doc {
 /** Admin-only reads and actions across all sites. */
 export interface AdminApi {
   profiles(): Promise<Profile[]>;
-  setProfile(id: string, patch: Partial<Pick<Profile, 'status' | 'role' | 'site_id'>>): Promise<void>;
+  setProfile(id: string, patch: Partial<Pick<Profile, 'status' | 'role' | 'site_id' | 'full_name' | 'phone'>>): Promise<void>;
+  /** Item ids on a site's stock take list. */
+  checklist(siteId: string): Promise<number[]>;
+  setChecklist(siteId: string, itemIds: number[]): Promise<void>;
+  setProjectWeek(siteId: string, week: number): Promise<void>;
   sites(): Promise<SiteInfo[]>;
   addSite(name: string): Promise<void>;
   renameSite(id: string, name: string): Promise<void>;
@@ -179,6 +202,16 @@ export interface Backend {
   submission(day: string): Promise<Submission | null>;
   submitDay(day: string, steps: Submission['steps']): Promise<void>;
   setReorder(itemId: number, level: number | null): Promise<void>;
+  /** The items the admin listed for this store's stock take (no quantities). */
+  checklist(): Promise<Item[]>;
+  stockTakes(): Promise<StockTake[]>;
+  /** Records a stock take. The first one for a store also becomes its opening balances. */
+  saveStockTake(input: StockTakeInput): Promise<void>;
+  projectWeek(): Promise<WeekInfo>;
+  /** Storekeepers can set it once (onboarding); after that only the admin. */
+  setProjectWeek(week: number): Promise<void>;
+  /** Dates (from..to) that have any entries other than stock takes, for counting project weeks. */
+  entryDays(from: string, to: string): Promise<string[]>;
 }
 
 export const SUBPHASES = [

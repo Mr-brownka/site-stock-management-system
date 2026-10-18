@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { AdminApi, Backend, Balance, CorrectionRequest, Doc, DocInput, Field, Item, Line, LineInput, Profile, SiteDoc, SiteInfo, Submission, User } from './types';
+import type { AdminApi, Backend, Balance, CorrectionRequest, Doc, DocInput, Field, Item, Line, LineInput, Profile, SiteDoc, SiteInfo, StockTake, Submission, User } from './types';
 
 const PAGE = 1000;
 
@@ -49,15 +49,15 @@ function adminApi(sb: SupabaseClient): AdminApi {
       return (data ?? []) as Profile[];
     },
     async setProfile(id, patch) {
-      const { error } = await sb.from('profiles').update({ ...patch, decided_at: new Date().toISOString() }).eq('id', id);
+      const { error } = await sb.from('profiles').update({ ...patch, ...(patch.status ? { decided_at: new Date().toISOString() } : {}) }).eq('id', id);
       if (error) fail(error);
     },
     async sites() {
-      const { data, error } = await sb.from('sites').select('id, name, created_at, companies(name)').order('created_at');
+      const { data, error } = await sb.from('sites').select('id, name, created_at, week_anchor_no, week_anchor_date, companies(name)').order('created_at');
       if (error) fail(error);
       return (data ?? []).map((r: Record<string, unknown>) => {
         const c = r.companies as { name?: string } | { name?: string }[] | null;
-        return { id: String(r.id), name: String(r.name), company: (Array.isArray(c) ? c[0]?.name : c?.name) ?? '' };
+        return { id: String(r.id), name: String(r.name), company: (Array.isArray(c) ? c[0]?.name : c?.name) ?? '', week_anchor_no: (r.week_anchor_no as number) ?? null, week_anchor_date: (r.week_anchor_date as string) ?? null };
       });
     },
     async addSite(name) {
@@ -102,6 +102,21 @@ function adminApi(sb: SupabaseClient): AdminApi {
     },
     async setReorder(siteId, itemId, level) {
       const { error } = await sb.from('site_items').update({ reorder_level: level }).eq('site_id', siteId).eq('item_id', itemId);
+      if (error) fail(error);
+    },
+    async checklist(siteId) {
+      const rows = await fetchAll<Record<string, unknown>>((a, b) => sb.from('site_checklist').select('item_id').eq('site_id', siteId).order('position').range(a, b));
+      return rows.map((r) => num(r.item_id));
+    },
+    async setChecklist(siteId, itemIds) {
+      const { error } = await sb.from('site_checklist').delete().eq('site_id', siteId);
+      if (error) fail(error);
+      if (!itemIds.length) return;
+      const { error: e2 } = await sb.from('site_checklist').insert(itemIds.map((item_id, position) => ({ site_id: siteId, item_id, position })));
+      if (e2) fail(e2);
+    },
+    async setProjectWeek(siteId, week) {
+      const { error } = await sb.rpc('set_project_week', { p_site: siteId, p_week: week });
       if (error) fail(error);
     },
   };
@@ -276,6 +291,59 @@ export function supabaseBackend(url: string, key: string): Backend {
     async setReorder(itemId, level) {
       const { error } = await sb.from('site_items').update({ reorder_level: level }).eq('site_id', await mySite()).eq('item_id', itemId);
       if (error) fail(error);
+    },
+
+    async checklist() {
+      const site = await mySite();
+      const rows = await fetchAll<Record<string, unknown>>((a, b) => sb.from('site_checklist').select('position, items(id,name,unit)').eq('site_id', site).order('position').range(a, b));
+      return rows.map((r) => { const i = (Array.isArray(r.items) ? r.items[0] : r.items) as Item; return { id: num(i.id), name: i.name, unit: i.unit }; });
+    },
+
+    async stockTakes() {
+      const site = await mySite();
+      const { data, error } = await sb.from('stock_takes').select('*, stock_take_lines(item_id, qty)').eq('site_id', site).order('count_date', { ascending: false }).order('created_at', { ascending: false });
+      if (error) fail(error);
+      return (data ?? []).map((r: Record<string, unknown>) => ({ ...(r as unknown as StockTake), lines: ((r.stock_take_lines as Record<string, unknown>[]) ?? []).map((l) => ({ item_id: num(l.item_id), qty: num(l.qty) })) }));
+    },
+
+    async saveStockTake(input) {
+      const site = await mySite();
+      const { count } = await sb.from('documents').select('id', { count: 'exact', head: true }).eq('site_id', site);
+      const first = !count;
+      let documentId: string | null = null;
+      if (first) {
+        const lines = input.lines.filter((l) => l.qty > 0);
+        const { data, error } = await sb.from('documents').insert({ kind: 'opening', doc_date: input.count_date, doc_time: input.end_time, reason: 'First stock take', party: input.counted_by }).select('id').single();
+        if (error) fail(error);
+        documentId = data.id;
+        if (lines.length) {
+          const { error: e2 } = await sb.from('movements').insert(lines.map((l) => ({ ...l, document_id: data.id })));
+          if (e2) { await sb.from('documents').delete().eq('id', data.id); fail(e2); }
+        }
+      }
+      const { lines, ...head } = input;
+      const { data: t, error } = await sb.from('stock_takes').insert({ ...head, is_first: first, status: first ? 'confirmed' : 'recorded', document_id: documentId }).select('id').single();
+      if (error) fail(error);
+      if (lines.length) {
+        const { error: e3 } = await sb.from('stock_take_lines').insert(lines.map((l) => ({ ...l, stock_take_id: t.id })));
+        if (e3) fail(e3);
+      }
+    },
+
+    async projectWeek() {
+      const { data } = await sb.from('sites').select('week_anchor_no, week_anchor_date').eq('id', await mySite()).maybeSingle();
+      return { anchorNo: (data?.week_anchor_no as number) ?? null, anchorDate: (data?.week_anchor_date as string) ?? null };
+    },
+
+    async setProjectWeek(week) {
+      const { error } = await sb.rpc('set_project_week', { p_site: await mySite(), p_week: week });
+      if (error) fail(error);
+    },
+
+    async entryDays(from, to) {
+      const site = await mySite();
+      const rows = await fetchAll<Record<string, unknown>>((a, b) => sb.from('documents').select('doc_date').eq('site_id', site).neq('kind', 'opening').gte('doc_date', from).lte('doc_date', to).range(a, b));
+      return [...new Set(rows.map((r) => String(r.doc_date)))];
     },
   };
 }

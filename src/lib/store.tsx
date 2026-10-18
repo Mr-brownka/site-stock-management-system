@@ -1,8 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Loader } from '../components/Brand';
 import { api } from './api';
+import { projectWeekNo } from './projectWeek';
 import { addDays, today, weekday } from './dates';
-import type { Balance, Doc, Item, StepKey, StepState, Submission, User } from './types';
+import type { Balance, Doc, Item, StepKey, StepState, Submission, User, WeekInfo } from './types';
 
 export const STEPS: { key: StepKey; n: number; label: string; desc: string; kinds: Doc['kind'][]; screen: Screen }[] = [
   { key: 'deliveries', n: 1, label: 'Deliveries', desc: 'Supplier, delivery note, items received', kinds: ['delivery'], screen: 'deliveries' },
@@ -11,7 +12,7 @@ export const STEPS: { key: StepKey; n: number; label: string; desc: string; kind
   { key: 'transfers', n: 4, label: 'Site transfers', desc: 'Stock sent to or received from other sites', kinds: ['transfer_in', 'transfer_out'], screen: 'transfers' },
 ];
 
-export type Screen = 'home' | 'deliveries' | 'issued' | 'returns' | 'transfers' | 'submitted' | 'dashboard' | 'opening' | 'corrections' | 'reports';
+export type Screen = 'home' | 'deliveries' | 'issued' | 'returns' | 'transfers' | 'submitted' | 'dashboard' | 'stocktake' | 'corrections' | 'reports';
 
 interface Data {
   user: User;
@@ -41,6 +42,10 @@ interface Data {
   /** About how many days the stock lasts at the current rate (null = no recent use). */
   daysLeft: (b: Balance) => number | null;
   lowItems: Balance[];
+  /** This week's project week number (null until someone sets it). */
+  projectWeek: number | null;
+  weekInfo: WeekInfo;
+  refreshWeek: () => Promise<void>;
 }
 
 const Ctx = createContext<Data | null>(null);
@@ -64,6 +69,14 @@ export function DataProvider({ user, go, signOut, openAdmin, children }: { user:
   const [balances, setBalances] = useState<Balance[]>([]);
   const [docsToday, setDocs] = useState<Doc[]>([]);
   const [recent, setRecent] = useState<Doc[]>([]);
+  const [weekInfo, setWeekInfo] = useState<WeekInfo>({ anchorNo: null, anchorDate: null });
+  const [entryDays, setEntryDays] = useState<string[]>([]);
+  const refreshWeek = useCallback(async () => {
+    const w = await api.projectWeek().catch(() => ({ anchorNo: null, anchorDate: null }));
+    setWeekInfo(w);
+    if (w.anchorDate) setEntryDays(await api.entryDays(w.anchorDate, day).catch(() => []));
+  }, [day]);
+  useEffect(() => { refreshWeek(); }, [refreshWeek]);
   const [submission, setSubmission] = useState<Submission | null>(null);
   const [marks, setMarks] = useState(() => readMarks(day));
   const [error, setError] = useState('');
@@ -138,6 +151,7 @@ export function DataProvider({ user, go, signOut, openAdmin, children }: { user:
   const value: Data = {
     user, site, company, siteLabel: [company, site].filter(Boolean).join(' · ').toUpperCase(), day, items, itemById, balances, balanceOf: (id) => balMap.get(id) ?? 0, docsToday, submission,
     stepState, markStep, refresh, addItem, go, signOut, openAdmin, recent, avgUse, isLow, daysLeft, lowItems,
+    projectWeek: projectWeekNo(day, weekInfo, entryDays), weekInfo, refreshWeek,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

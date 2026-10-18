@@ -13,7 +13,7 @@ export function isTraining(): boolean {
 /** Build the Astana practice store (realistic 60 days) and reload into training. */
 export async function startTraining(source: Backend, user: User) {
   const items = await source.items();
-  const store = buildAstanaTraining(items, { email: user.email, name: user.name }, today());
+  const store = buildAstanaTraining(items, { email: user.email, name: user.name, role: user.role }, today());
   localStorage.setItem(TRAINING_KEY, JSON.stringify(store));
   localStorage.setItem(`${TRAINING_KEY}-backup`, JSON.stringify(store));
   sessionStorage.setItem(FLAG, '1');

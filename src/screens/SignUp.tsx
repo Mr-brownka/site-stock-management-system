@@ -6,7 +6,6 @@ import type { SiteInfo } from '../lib/types';
 export function SignUp({ onBack, onDone }: { onBack: () => void; onDone: () => void }) {
   const [sites, setSites] = useState<SiteInfo[]>([]);
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [site, setSite] = useState('');
@@ -17,12 +16,12 @@ export function SignUp({ onBack, onDone }: { onBack: () => void; onDone: () => v
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    const problem = !name.trim() ? 'Enter your full name.' : !phone.trim() ? 'Enter your phone number.' : !email.trim() ? 'Enter your email.'
+    const problem = !name.trim() ? 'Enter your full name.' : !email.trim() ? 'Enter your email.'
       : password.length < 8 ? 'Use a password of at least 8 characters.' : !site ? 'Choose your site.' : null;
     if (problem) { setErr(problem); return; }
     setBusy(true); setErr('');
     try {
-      await api.signUp({ email: email.trim(), password, full_name: name.trim(), phone: phone.trim(), site_id: site, role });
+      await api.signUp({ email: email.trim(), password, full_name: name.trim(), phone: '', site_id: site, role });
       onDone();
     } catch (x) {
       const m = (x as Error).message;
@@ -42,7 +41,6 @@ export function SignUp({ onBack, onDone }: { onBack: () => void; onDone: () => v
       <main className="body">
         <form className="stack enter" onSubmit={submit}>
           <label className="field"><span>Full name</span><input className="input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" autoFocus placeholder="e.g. Peter Otieno" /></label>
-          <label className="field"><span>Phone</span><input className="input" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" placeholder="07…" /></label>
           <label className="field"><span>Email</span><input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" placeholder="you@example.com" /></label>
           <label className="field"><span>Create a password</span><input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" placeholder="At least 8 characters" /></label>
           <div className="field"><span>Your site</span>

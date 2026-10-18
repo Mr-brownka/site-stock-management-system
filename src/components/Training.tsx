@@ -39,5 +39,12 @@ export function StartTraining({ user, className = 'railLink', label = 'Training 
     setBusy(true);
     try { await startTraining(source, user); } catch (e) { toast((e as Error).message, 'warn'); setBusy(false); }
   };
-  return <button className={className} disabled={busy} onClick={go}><Icon name="shield" />{busy ? 'Copying the store…' : label}</button>;
+  if (className.includes('wBtn')) return (
+    <button className={className} disabled={busy} onClick={go}>
+      <Icon name="shield" size={28} />
+      <span><b>{busy ? 'Opening the practice store…' : label}</b><small>Practise the full evening check-in on example data</small></span>
+      <Icon name="arrow" size={22} />
+    </button>
+  );
+  return <button className={className} disabled={busy} onClick={go}><Icon name="shield" />{busy ? 'Opening the practice store…' : label}</button>;
 }
