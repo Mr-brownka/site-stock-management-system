@@ -32,7 +32,7 @@ const PageSkeleton = () => (
 
 const SCREENS: Record<Screen, React.ComponentType> = {
   home: Home, deliveries: Deliveries, issued: Issued, returns: Returns, transfers: Transfers,
-  submitted: Submitted, dashboard: DashboardJump, stocktake: StockTake, corrections: Corrections, reports: Reports,
+  submitted: Submitted, dashboard: DashboardJump, stocktake: StockTake, corrections: Corrections, reports: Reports, welcome: Home,
 };
 
 const fromHash = (): Screen => {

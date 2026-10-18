@@ -57,7 +57,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
   const toggleRail = () => { const v = !mini; setMini(v); try { localStorage.setItem('ssms-rail', v ? 'mini' : 'full'); } catch { /* ignore */ } };
 
   // A store with no stock take yet starts on the welcome page.
-  if (!balances.length && (screen === 'home' || screen === 'dashboard')) return <Welcome />;
+  if (screen === 'welcome' || (!balances.length && (screen === 'home' || screen === 'dashboard'))) return <Welcome />;
   const done = STEPS.filter((s) => stepState(s.key) !== 'todo').length;
   const urgent = !submission && min < 60;
   const trail = crumbs(screen);

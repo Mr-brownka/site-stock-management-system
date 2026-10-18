@@ -5,7 +5,7 @@ import { useData } from '../lib/store';
 
 /** First screen for a store that has no stock take yet: train first, or start the first stock take. */
 export function Welcome() {
-  const { user, company, site, go, signOut } = useData();
+  const { user, company, site, go, signOut, balances } = useData();
   const first = user.name.split(' ')[0];
   return (
     <div className="welcome">
@@ -28,7 +28,9 @@ export function Welcome() {
           <span><b>Continue to first stock take</b><small>Print the store’s checklist, count, then type the quantities</small></span>
           <Icon name="arrow" size={22} />
         </button>
-        <button className="btn link" style={{ alignSelf: 'center' }} onClick={signOut}>Sign out</button>
+        {balances.length > 0
+          ? <button className="btn link" style={{ alignSelf: 'center' }} onClick={() => go('home')}>Back to check-in</button>
+          : <button className="btn link" style={{ alignSelf: 'center' }} onClick={signOut}>Sign out</button>}
       </section>
     </div>
   );
