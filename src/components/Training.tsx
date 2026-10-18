@@ -46,5 +46,5 @@ export function StartTraining({ user, className = 'railLink', label = 'Training 
       <Icon name="arrow" size={22} />
     </button>
   );
-  return <button className={className} disabled={busy} onClick={go}><Icon name="shield" />{busy ? 'Opening the practice store…' : label}</button>;
+  return <button className={className} title={label} disabled={busy} onClick={go}><Icon name="shield" /><span className="rlText">{busy ? 'Opening the practice store…' : label}</span></button>;
 }

@@ -6,6 +6,7 @@ import { fmt } from '../components/ui';
 import { api } from '../lib/api';
 import { periodRange, type Period } from '../lib/dates';
 import { useData } from '../lib/store';
+import { useSignal } from '../lib/signals';
 import { SUBPHASES, type Balance, type Line } from '../lib/types';
 
 type Tab = 'cons' | 'bal';
@@ -39,7 +40,7 @@ function usage(lines: Line[]): Map<number, Use> {
 }
 
 export function Dashboard({ embedded = false }: { embedded?: boolean }) {
-  const { day, balances, refresh, go, siteLabel, isLow, lowItems, docsToday, recent } = useData();
+  const { day, balances, refresh, go, siteLabel, isLow, lowItems, docsToday, recent, daysLeft } = useData();
   // Remember the last view; a link from another screen (low stock, balances after today) wins.
   const [prefs] = useState(() => {
     let p: { tab?: Tab; period?: Period; group?: 'none' | 'sub' } = {};
@@ -57,17 +58,19 @@ export function Dashboard({ embedded = false }: { embedded?: boolean }) {
   const activeDays = useMemo(() => new Set(recent.filter((d) => d.kind === 'issue').map((d) => d.doc_date)), [recent]);
   const [q, setQ] = useState('');
   const [sel, setSel] = useState<number | null>(null);
+  const [sort, setSort] = useState<{ k: 'name' | 'val' | 'days'; dir: 1 | -1 }>({ k: 'name', dir: 1 });
   const [lines, setLines] = useState<Line[] | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const range = periodRange(period, date || day);
   useEffect(() => { if (!embedded) refresh(); }, [refresh, embedded]);
   // The check-in page's tiles can switch the dashboard (e.g. "Low stock" → Balances, low only).
-  useEffect(() => {
-    const on = (e: Event) => { const d = (e as CustomEvent<{ tab?: Tab; filter?: Filter }>).detail; if (d.tab) setTab(d.tab); if (d.filter) setFilter(d.filter); };
-    window.addEventListener('ssms-dash', on);
-    return () => window.removeEventListener('ssms-dash', on);
-  }, []);
+  useSignal<{ tab?: Tab; filter?: Filter; item?: number }>('dash', (d) => {
+    if (d.tab) setTab(d.tab);
+    if (d.filter) setFilter(d.filter);
+    if (d.item != null) { setTab('bal'); setFilter('all'); setQ(''); setSel(d.item); }
+    document.getElementById('dash')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
   useEffect(() => { setLines(null); api.linesBetween(range.from, range.to).then(setLines); }, [range.from, range.to]);
   // Press "/" to jump to the search box.
   useEffect(() => {
@@ -87,7 +90,10 @@ export function Dashboard({ embedded = false }: { embedded?: boolean }) {
   const shown = balances
     .filter((b) => !search || b.name.toLowerCase().includes(search))
     .filter((b) => tab !== 'bal' || filter === 'all' || (filter === 'low' ? isLow(b) : movedToday.has(b.item_id)))
-    .sort(byName);
+    .sort((a, b) => {
+      const v = (x: Balance) => sort.k === 'val' ? (tab === 'bal' ? x.balance : usedOf(x.item_id)) : sort.k === 'days' ? (daysLeft(x) ?? 1e9) : 0;
+      return sort.k === 'name' ? sort.dir * byName(a, b) : sort.dir * (v(a) - v(b)) || byName(a, b);
+    });
 
   const top = useMemo(() => {
     if (tab === 'bal') return balances.filter((b) => b.deliveries > 0).sort((a, b) => b.deliveries - a.deliveries || byName(a, b)).slice(0, 5);
@@ -112,31 +118,53 @@ export function Dashboard({ embedded = false }: { embedded?: boolean }) {
     })).filter((g) => g.rows.length);
   }, [group, shown, use]);
 
-  const row = (b: Balance, value: number | null, i: number) => {
-    const low = tab === 'bal' && isLow(b);
-    const out = tab === 'bal' && b.balance <= 0;
-    return (
-      <button key={b.item_id} className={`listRow ${low ? 'isLow' : ''}`} style={i < 24 ? { animationDelay: `${i * 0.015}s` } : undefined} aria-pressed={sel === b.item_id} onClick={() => setSel(b.item_id)}>
-        {low ? <PulseDot label="Low stock" /> : <span className="dotSpace" />}
-        <span className="nm">{hl(b.name)}</span>
-        {out ? <span className="tag out">Out</span> : low && <span className="tag low">Low</span>}
-        <span className={`q ${low ? 'low' : ''}`} style={value ? undefined : { color: '#A9B1AD' }}>{value ? fmt(value) : '–'}</span>
-        <span className="u">{b.unit}</span>
-        <span className="chev"><Icon name="arrow" size={16} /></span>
-      </button>
-    );
-  };
   const hl = (name: string) => {
     if (!search) return name;
     const i = name.toLowerCase().indexOf(search);
     return i < 0 ? name : <>{name.slice(0, i)}<mark>{name.slice(i, i + search.length)}</mark>{name.slice(i + search.length)}</>;
+  };
+  const sortBy = (k: 'name' | 'val' | 'days') => setSort((o) => ({ k, dir: o.k === k ? (o.dir === 1 ? -1 : 1) : k === 'name' ? 1 : -1 }));
+  const trow = (b: Balance, v?: number, key?: string) => {
+    const low = tab === 'bal' && isLow(b);
+    const out = tab === 'bal' && b.balance <= 0;
+    const u = use.get(b.item_id);
+    const dl = daysLeft(b);
+    return (
+      <tr key={(key ?? '') + b.item_id} className={`${low ? 'isLow' : ''} ${sel === b.item_id ? 'on' : ''}`} onClick={() => setSel(b.item_id)}>
+        <td><button className="cellLink" onClick={(e) => { e.stopPropagation(); setSel(b.item_id); }}>{low && <PulseDot label="Low stock" />}{hl(b.name)}</button></td>
+        <td className="muted">{b.unit}</td>
+        {tab === 'bal' ? <>
+          <td className={`num strong ${low ? 'low' : ''}`}>{fmt(b.balance)}</td>
+          <td className="num hideS muted">{b.reorder_level != null ? fmt(b.reorder_level) : '–'}</td>
+          <td className="num hideS">{dl == null ? <span className="muted">–</span> : dl < 1 ? '< 1' : fmt(Math.round(dl))}</td>
+          <td><span className={`stPill ${out ? 'out' : low ? 'low' : 'ok'}`}>{out ? 'Out of stock' : low ? 'Running low' : 'Healthy'}</span></td>
+        </> : <>
+          <td className="num hideS">{u?.issued ? fmt(u.issued) : '–'}</td>
+          <td className="num hideS">{u?.returned ? fmt(u.returned) : '–'}</td>
+          <td className="num strong">{(v ?? u?.used) ? fmt(v ?? u!.used) : '–'}</td>
+        </>}
+      </tr>
+    );
+  };
+  const exportCsv = () => {
+    const esc = (x: string | number) => /[",\n]/.test(String(x)) ? `"${String(x).replace(/"/g, '""')}"` : String(x);
+    const head = tab === 'bal' ? ['Item', 'Unit', 'Balance', 'Reorder at', 'Days left', 'Status'] : ['Item', 'Unit', 'Issued', 'Returned', 'Used'];
+    const rows = shown.map((b) => {
+      if (tab === 'bal') { const dl = daysLeft(b); return [b.name, b.unit, b.balance, b.reorder_level ?? '', dl == null ? '' : Math.round(dl), b.balance <= 0 ? 'Out of stock' : isLow(b) ? 'Running low' : 'Healthy']; }
+      const u = use.get(b.item_id); return [b.name, b.unit, u?.issued ?? 0, u?.returned ?? 0, u?.used ?? 0];
+    });
+    const csv = [head, ...rows].map((r) => r.map(esc).join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = `${tab === 'bal' ? 'balances' : 'consumption'}-${tab === 'bal' ? day : range.from + '_' + range.to}.csv`;
+    a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   };
   const skeleton = Array.from({ length: 6 }, (_, i) => <div key={i} className="skelRow"><i className="skel" style={{ width: `${40 + ((i * 17) % 40)}%` }} /><i className="skel" style={{ width: 60 }} /></div>);
 
   return (
     <div className={`dash ${embedded ? 'embedded' : ''}`} id="dash">
       <div className="dashTop">
-        {embedded ? <div className="dashEmbHead"><h2>Store dashboard</h2><span className="small">Consumption and balances, live</span></div> : <div>
+        {embedded ? <div className="dashEmbHead"><h2>Store dashboard</h2><span className="small">Balances and consumption, live</span></div> : <div>
           <button className="back" onClick={() => go('home')}>← Back to check-in</button>
           <div className="mono" style={{ fontSize: 11, letterSpacing: '.08em', color: '#B9C0BC' }}>{siteLabel}{api.mode === 'demo' ? ' · DEMO' : ''}</div>
           <h1>Store dashboard</h1>
@@ -200,28 +228,48 @@ export function Dashboard({ embedded = false }: { embedded?: boolean }) {
                 </span>
               )}
             </div>
-            <div className="searchWrap">
-              <Icon name="search" size={18} />
-              <input ref={searchRef} className="search" type="search" placeholder="Search items" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search items" />
-              <kbd>/</kbd>
+            <div className="tblBar">
+              <div className="searchWrap">
+                <Icon name="search" size={18} />
+                <input ref={searchRef} className="search" type="search" placeholder="Search items" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search items" />
+                <kbd>/</kbd>
+              </div>
+              <span className="small muted">{shown.length} of {balances.length} items</span>
+              <button className="btn ghost sm" onClick={exportCsv}><Icon name="download" size={16} />Export CSV</button>
             </div>
-            <div className="list">
-              {tab === 'cons' && lines === null ? skeleton : (
-                <>
-                  {tab === 'bal' && shown.map((b, i) => row(b, b.balance, i))}
-                  {tab === 'cons' && group === 'none' && shown.map((b, i) => row(b, usedOf(b.item_id), i))}
-                  {tab === 'cons' && group === 'sub' && groups.map((g) => (
-                    <div key={g.name}>
-                      <div className="groupHead"><span>{g.name}</span><span className="small muted">{g.rows.length} item{g.rows.length === 1 ? '' : 's'}</span></div>
-                      {g.rows.map(({ b, v }, i) => row(b, v, i))}
-                    </div>
-                  ))}
-                  {tab === 'cons' && group === 'sub' && !groups.length && <div className="pad muted">Nothing was issued in this period.</div>}
-                  {!shown.length && <div className="pad muted">{search ? `No items match “${q}”.` : filter === 'low' && tab === 'bal' ? 'Nothing is low. All good.' : filter === 'today' && tab === 'bal' ? 'No stock moved today.' : 'No items yet. Enter the opening count first.'}</div>}
-                </>
+            <div className="tblWrap">
+              {tab === 'cons' && lines === null ? <div className="list">{skeleton}</div> : (
+                <table className="dataTbl">
+                  <thead>
+                    <tr>
+                      <th aria-sort={sort.k === 'name' ? (sort.dir > 0 ? 'ascending' : 'descending') : undefined}><button onClick={() => sortBy('name')}>Item<Icon name="sort" size={12} /></button></th>
+                      <th>Unit</th>
+                      {tab === 'bal' ? <>
+                        <th className="num" aria-sort={sort.k === 'val' ? (sort.dir > 0 ? 'ascending' : 'descending') : undefined}><button onClick={() => sortBy('val')}>Balance<Icon name="sort" size={12} /></button></th>
+                        <th className="num hideS">Reorder at</th>
+                        <th className="num hideS" aria-sort={sort.k === 'days' ? (sort.dir > 0 ? 'ascending' : 'descending') : undefined}><button onClick={() => sortBy('days')}>Days left<Icon name="sort" size={12} /></button></th>
+                        <th>Status</th>
+                      </> : <>
+                        <th className="num hideS">Issued</th>
+                        <th className="num hideS">Returned</th>
+                        <th className="num" aria-sort={sort.k === 'val' ? (sort.dir > 0 ? 'ascending' : 'descending') : undefined}><button onClick={() => sortBy('val')}>Used<Icon name="sort" size={12} /></button></th>
+                      </>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tab === 'bal' && shown.map((b) => trow(b))}
+                    {tab === 'cons' && group === 'none' && shown.map((b) => trow(b))}
+                    {tab === 'cons' && group === 'sub' && groups.map((g) => [
+                      <tr key={g.name} className="grpRow"><td colSpan={5}>{g.name}<span className="muted"> · {g.rows.length} item{g.rows.length === 1 ? '' : 's'}</span></td></tr>,
+                      ...g.rows.map(({ b, v }) => trow(b, v, g.name)),
+                    ])}
+                  </tbody>
+                </table>
               )}
+              {tab === 'cons' && group === 'sub' && lines !== null && !groups.length && <div className="pad muted">Nothing was issued in this period.</div>}
+              {!shown.length && <div className="pad muted">{search ? `No items match “${q}”.` : filter === 'low' && tab === 'bal' ? 'Nothing is low. All good.' : filter === 'today' && tab === 'bal' ? 'No stock moved today.' : 'No items yet. Do the first stock take.'}</div>}
             </div>
-            <div className="small muted">Only items that have been in this store are listed. A new item appears the first time it arrives. Tap an item for details.</div>
+            <div className="small muted">Only items that have been in this store are listed. A new item appears the first time it arrives. Click an item for its history and details.</div>
           </section>
         </main>
       </div>

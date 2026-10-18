@@ -64,6 +64,15 @@ const ICONS: Record<string, ReactNode> = {
   close: <><path d="M6 6l12 12M18 6L6 18" {...P} /></>,
   search: <><circle cx="11" cy="11" r="7" {...P} /><path d="M20 20l-4-4" {...P} /></>,
   clock: <><circle cx="12" cy="12" r="9" {...P} /><path d="M12 7v5l3 2" {...P} /></>,
+  panel: <><rect x="3" y="4" width="18" height="16" rx="2" {...P} /><path d="M9 4v16" {...P} /></>,
+  print: <><path d="M7 9V3h10v6M7 17H4v-7h16v7h-3" {...P} /><rect x="7" y="14" width="10" height="7" {...P} /></>,
+  download: <><path d="M12 4v11M7 10l5 5 5-5M4 20h16" {...P} /></>,
+  alert: <><path d="M12 3l10 18H2L12 3z" {...P} /><path d="M12 10v5M12 18h.01" {...P} /></>,
+  list: <><path d="M9 6h12M9 12h12M9 18h12M4 6h.01M4 12h.01M4 18h.01" {...P} /></>,
+  sort: <><path d="M8 4v16M4 8l4-4 4 4M16 20V4M12 16l4 4 4-4" {...P} /></>,
+  check: <><path d="M5 12l5 5L20 7" {...P} /></>,
+  calendar: <><rect x="3" y="5" width="18" height="16" rx="2" {...P} /><path d="M3 10h18M8 3v4M16 3v4" {...P} /></>,
+  user: <><circle cx="12" cy="8" r="4" {...P} /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" {...P} /></>,
 };
 export function Icon({ name, size = 20 }: { name: keyof typeof ICONS | string; size?: number }) {
   return <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" className="ic">{ICONS[name]}</svg>;

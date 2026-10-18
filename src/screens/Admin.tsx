@@ -1,4 +1,5 @@
-import { SiteLogo, Wordmark } from '../components/Brand';
+import { CrateMark, SiteLogo } from '../components/Brand';
+import { Icon } from '../components/fx';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fmt } from '../components/ui';
 import { api } from '../lib/api';
@@ -48,8 +49,8 @@ export function Admin({ user, onExit, onSignOut }: { user: User; onExit: () => v
   const pendingCorr = d?.corr.filter((c) => c.status === 'pending') ?? [];
 
   const NAV: [Sec, string, string, number?][] = [
-    ['overview', '◎', 'Overview'], ['people', '👤', 'People', pendingPeople.length], ['corr', '✎', 'Corrections', pendingCorr.length],
-    ['sites', '⌂', 'Sites'], ['items', '▤', 'Items'], ['reorder', '⚑', 'Reorder levels'], ['log', '≡', 'Activity log'],
+    ['overview', 'chart', 'Overview'], ['people', 'user', 'People', pendingPeople.length], ['corr', 'fix', 'Corrections', pendingCorr.length],
+    ['sites', 'box', 'Sites'], ['items', 'list', 'Items'], ['reorder', 'alert', 'Reorder levels'], ['log', 'clock', 'Activity log'],
   ];
   const TITLE: Record<Sec, string> = { overview: 'Overview', people: 'People', corr: 'Corrections', sites: 'Sites', items: 'Items', reorder: 'Reorder levels', log: 'Activity log' };
   const company = d?.sites[0]?.company ?? '';
@@ -57,17 +58,18 @@ export function Admin({ user, onExit, onSignOut }: { user: User; onExit: () => v
   return (
     <div className="adm">
       <nav className="admNav" aria-label="Admin sections">
-        <div className="admBrand"><Wordmark company={company || 'Comex Builders'} size={40} /><div className="mono small" style={{ color: '#B9C0BC', letterSpacing: '.08em', marginTop: 8 }}>ADMIN</div></div>
+        <div className="admBrand railBrand"><CrateMark size={34} tile="dark" /><div className="railName"><b>COMEX BUILDERS</b><span>Admin</span></div></div>
+        <span className="railSec">Manage</span>
         {NAV.map(([k, icon, label, badge]) => (
           <button key={k} className="admLink" aria-current={sec === k ? 'page' : undefined} onClick={() => setSec(k)}>
-            <span aria-hidden className="admIcon">{icon}</span><span style={{ flex: 1 }}>{label}</span>
+            <Icon name={icon} /><span style={{ flex: 1 }}>{label}</span>
             {!!badge && <span className="admBadge">{badge}</span>}
           </button>
         ))}
         <div className="admFoot">
           <div>Signed in as <b style={{ color: '#fff' }}>{user.name}</b></div>
-          <button className="admLink" onClick={onExit}>← Check-in app</button>
-          <button className="admLink" onClick={onSignOut}>Sign out</button>
+          <button className="admLink" onClick={onExit}><Icon name="checkin" />Check-in app</button>
+          <button className="admLink" onClick={onSignOut}><Icon name="out" />Sign out</button>
         </div>
       </nav>
       <main className="admMain">

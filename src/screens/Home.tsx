@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { SiteLogo } from '../components/Brand';
-import { Icon, Num, PulseDot, Ring, greeting, useMinutesToClose } from '../components/fx';
+import { Icon, Num, PulseDot, greeting, useMinutesToClose } from '../components/fx';
+import { signal, useSignal } from '../lib/signals';
 import { closeLabel } from '../components/Shell';
 import { api } from '../lib/api';
 import { Dashboard } from './Dashboard';
@@ -13,9 +13,10 @@ import { ask } from '../components/feedback';
 const STEP_ICON: Record<string, string> = { deliveries: 'truck', issued: 'card', returns: 'back', transfers: 'swap' };
 
 export function Home() {
-  const { day, user, site, siteLabel, balances, docsToday, stepState, submission, refresh, go, signOut, lowItems } = useData();
+  const { day, user, balances, docsToday, stepState, submission, refresh, go, signOut, lowItems, daysLeft } = useData();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [lastTake, setLastTake] = useState<string | null | undefined>(undefined);
   const min = useMinutesToClose();
   const states = STEPS.map((s) => stepState(s.key));
   const firstTodo = STEPS.find((s) => stepState(s.key) === 'todo');
@@ -23,13 +24,18 @@ export function Home() {
   const done = states.filter((s) => s !== 'todo').length;
   const entries = docsToday.filter((d) => d.kind !== 'opening').length;
   const first = user.name.split(' ')[0];
+  const [showEntries, setShowEntries] = useState(false);
+  useSignal('entries', () => setShowEntries(true));
+  useEffect(() => { api.stockTakes().then((t) => setLastTake(t.map((x) => x.count_date).sort().pop() ?? null)).catch(() => setLastTake(null)); }, []);
 
   const status = (i: number) => {
     const s = STEPS[i];
-    const n = docsToday.filter((d) => s.kinds.includes(d.kind)).length;
-    if (states[i] === 'done') return { text: n ? `${n} entered` : 'Done', done: true };
-    if (states[i] === 'none') return { text: 'Nothing today', done: true };
-    return { text: 'To do', done: false };
+    const ds = docsToday.filter((d) => s.kinds.includes(d.kind));
+    const lines = ds.reduce((a, d) => a + d.lines.length, 0);
+    if (states[i] === 'done') return { text: 'Done', detail: `${ds.length} entr${ds.length === 1 ? 'y' : 'ies'} · ${lines} line${lines === 1 ? '' : 's'}`, cls: 'done' };
+    if (states[i] === 'none') return { text: 'Nothing today', detail: 'Answered “No”', cls: 'done' };
+    if (!submission && firstTodo?.key === s.key) return { text: 'Next', detail: ds.length ? `${ds.length} entered during the day` : s.desc, cls: 'next' };
+    return { text: 'Not started', detail: ds.length ? `${ds.length} entered during the day` : s.desc, cls: '' };
   };
 
   const submit = async () => {
@@ -50,103 +56,125 @@ export function Home() {
       go('submitted');
     } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   };
-  const toDash = (d: { tab: 'cons' | 'bal'; filter?: 'all' | 'low' | 'today' }) => {
-    window.dispatchEvent(new CustomEvent('ssms-dash', { detail: d }));
-    document.getElementById('dash')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-  const openLow = () => toDash({ tab: 'bal', filter: 'low' });
-  const [showEntries, setShowEntries] = useState(false);
+  const toDash = (d: { tab: 'cons' | 'bal'; filter?: 'all' | 'low' | 'today'; item?: number }) => signal('dash', d);
+  const attention = [...lowItems].sort((a, b) => (a.balance <= 0 ? -1 : 0) - (b.balance <= 0 ? -1 : 0) || (daysLeft(a) ?? 1e9) - (daysLeft(b) ?? 1e9)).slice(0, 6);
+  const outCount = lowItems.filter((b) => b.balance <= 0).length;
+  const lead = submission
+    ? `Day submitted at ${new Date(submission.submitted_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' })}. Balances are final for today.`
+    : answered ? 'All four steps are answered. Submit the day to lock it.'
+      : done ? `${done} of 4 steps done. Next: ${firstTodo!.label.toLowerCase()}.` : `Four quick steps. ${closeLabel(min)}.`;
+  const nice = (d: string) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
   return (
-    <div className="phone home">
-      <header className="hero">
-        <div className="heroRow">
-          <div className="heroText">
-            <div className="kicker"><span>{siteLabel}</span>{api.mode === 'demo' && <span className="badge">DEMO</span>}</div>
-            <h1>{greeting()}, {first}</h1>
-            <div className="sub">{longDate(day)} · Evening stock check-in</div>
-          </div>
-          <Ring done={submission ? 4 : done} total={4} size={72} />
+    <div className="page home">
+      <header className="pageHead enter">
+        <div className="phText">
+          <span className="phKicker">Evening check-in · {longDate(day)}{api.mode === 'demo' ? ' · Demo' : ''}</span>
+          <h1>{greeting()}, {first}</h1>
+          <span className="phLead">{lead}</span>
         </div>
-        {submission ? (
-          <div className="clockChip ok"><Icon name="checkin" size={16} />Submitted at {new Date(submission.submitted_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' })} · balances are up to date</div>
-        ) : (
-          <div className={`clockChip ${min <= 0 ? 'late' : min < 60 ? 'soon' : ''}`}>
-            {min <= 0 ? <PulseDot /> : <Icon name="clock" size={16} />}{closeLabel(min)} · four quick steps
-          </div>
-        )}
+        <div className="phActions">
+          <button className="btn ghost sm" onClick={() => setShowEntries(true)}><Icon name="list" size={16} />Today’s entries</button>
+          {submission ? (
+            <button className="btn sm" onClick={() => go('submitted')}>Today’s summary<Icon name="arrow" size={16} /></button>
+          ) : answered ? (
+            <button className="btn accent sm" disabled={busy} onClick={submit}>{busy ? 'Submitting…' : 'Submit the day'}<Icon name="check" size={16} /></button>
+          ) : (
+            <button className="btn sm" onClick={() => go(firstTodo!.screen)}>{done ? `Continue · ${firstTodo!.label}` : 'Start check-in'}<Icon name="arrow" size={16} /></button>
+          )}
+        </div>
       </header>
 
-      <main className="body">
-        {site && <div className="siteLogo card homeLogo enter"><SiteLogo name={site} height={52} /></div>}
+      <section className="kpis" aria-label="Key figures">
+        <button className="kpi enter" onClick={() => toDash({ tab: 'bal', filter: 'all' })}>
+          <span className="kpiLabel">Items in store</span>
+          <Num value={balances.filter((b) => b.balance > 0).length} className="kpiNum" />
+          <span className="kpiFoot">Open balances <Icon name="arrow" size={13} /></span>
+        </button>
+        <button className={`kpi enter ${lowItems.length ? 'alert' : ''}`} style={{ animationDelay: '.04s' }} onClick={() => toDash({ tab: 'bal', filter: 'low' })}>
+          <span className="kpiLabel">{lowItems.length > 0 && <PulseDot />}Low stock</span>
+          <Num value={lowItems.length} className="kpiNum" />
+          <span className="kpiFoot">{lowItems.length ? `${outCount} out of stock` : 'All good'}</span>
+        </button>
+        <button className="kpi enter" style={{ animationDelay: '.08s' }} onClick={() => setShowEntries(true)}>
+          <span className="kpiLabel">Entries today</span>
+          <Num value={entries} className="kpiNum" />
+          <span className="kpiFoot">{entries ? 'See the list' : 'Cards, notes, transfers'} <Icon name="arrow" size={13} /></span>
+        </button>
+        <button className="kpi enter" style={{ animationDelay: '.12s' }} onClick={() => go('stocktake')}>
+          <span className="kpiLabel">Last stock take</span>
+          <span className="kpiNum">{lastTake === undefined ? <i className="skel" style={{ width: 90, height: 28 }} /> : lastTake ? nice(lastTake) : 'None'}</span>
+          <span className="kpiFoot">Stock take <Icon name="arrow" size={13} /></span>
+        </button>
+      </section>
 
-        <div className="statRow">
-          <button className="statTile enter" onClick={() => toDash({ tab: 'bal', filter: 'all' })}>
-            <span className="label">Items in store</span>
-            <Num value={balances.filter((b) => b.balance > 0).length} className="statBig" />
-            <span className="small muted">See balances <Icon name="arrow" size={14} /></span>
-          </button>
-          <button className={`statTile enter ${lowItems.length ? 'alert' : ''}`} style={{ animationDelay: '.05s' }} onClick={openLow}>
-            <span className="label">{lowItems.length ? <><PulseDot /> Low stock</> : 'Low stock'}</span>
-            <Num value={lowItems.length} className="statBig" />
-            <span className="small muted">{lowItems.length ? lowItems.slice(0, 2).map((b) => b.name).join(', ') + (lowItems.length > 2 ? '…' : '') : 'All good'}</span>
-          </button>
-          <button className="statTile enter" style={{ animationDelay: '.1s' }} onClick={() => setShowEntries(true)}>
-            <span className="label">Entries today</span>
-            <Num value={entries} className="statBig" />
-            <span className="small muted">{entries ? 'See today’s entries' : 'Cards, notes and transfers'} <Icon name="arrow" size={14} /></span>
-          </button>
-        </div>
-
-        <div className="stepGrid">
+      <div className="homeGrid">
+        <section className="panel process enter" aria-label="Today’s process">
+          <header className="panelHead"><b>Today’s process</b><span className="muted small">{submission ? 'Submitted' : `${done} of 4 done`}</span></header>
+          <div className="procBar" aria-hidden="true"><i style={{ width: `${((submission ? 4 : done) / 4) * 100}%` }} /></div>
           {STEPS.map((s, i) => {
             const st = status(i);
-            const next = !submission && firstTodo?.key === s.key;
             return (
-              <button key={s.key} className={`stepCard enter ${st.done ? 'done' : ''} ${next ? 'next' : ''}`} style={{ animationDelay: `${0.08 + i * 0.06}s` }} onClick={() => go(s.screen)}>
-                <span className="stepIcon"><Icon name={STEP_ICON[s.key]} size={22} /></span>
-                <span className="stepText">
-                  <span className="stepN">Step {s.n}</span>
-                  <b>{s.label}</b>
-                  <span className="small muted">{s.desc}</span>
-                </span>
-                <span className={`pill ${st.done ? 'done' : ''}`}>{st.done ? '✓ ' : ''}{st.text}</span>
+              <button key={s.key} className={`procRow ${st.cls}`} onClick={() => go(s.screen)}>
+                <span className="procDot">{st.cls === 'done' ? <Icon name="check" size={16} /> : s.n}</span>
+                <span className="procIc"><Icon name={STEP_ICON[s.key]} size={18} /></span>
+                <span className="procText"><b>{s.label}</b><span>{st.detail}</span></span>
+                <span className={`stPill ${st.cls === 'done' ? 'ok' : st.cls === 'next' ? 'warn' : 'idle'}`}>{st.text}</span>
+                <span className="procGo">{st.cls === 'done' ? 'Review' : 'Open'}<Icon name="arrow" size={14} /></span>
               </button>
             );
           })}
-        </div>
+          <footer className="panelFoot">
+            {submission ? (
+              <>
+                <span className="small muted">Something came in after submitting? Add it as a late entry.</span>
+                <span className="lateBtns">{STEPS.map((st) => <button key={st.key} className="lateBtn" onClick={() => go(st.screen)}>+ {st.key === 'issued' ? 'Card' : st.key === 'deliveries' ? 'Delivery' : st.key === 'returns' ? 'Return' : 'Transfer'}</button>)}</span>
+              </>
+            ) : (
+              <>
+                <span className="small muted">Submitting locks today. Cards can be entered during the day too.</span>
+                <button className="btn accent sm" disabled={!answered || busy} onClick={submit}>{busy ? 'Submitting…' : 'Submit the day'}</button>
+              </>
+            )}
+          </footer>
+          {err && <div className="note err" role="alert" style={{ margin: 12 }}>{err}</div>}
+        </section>
 
-        {err && <div className="note err" role="alert">{err}</div>}
-        {submission && (
-          <div className="lateCard enter">
-            <div><b>Came in after you submitted?</b><span className="small muted">Add it as a late entry. It counts in today’s balances.</span></div>
-            <div className="lateBtns">
-              {STEPS.map((st) => <button key={st.key} className="lateBtn" onClick={() => go(st.screen)}><Icon name={STEP_ICON[st.key]} size={18} />+ {st.key === 'issued' ? 'Card' : st.key === 'deliveries' ? 'Delivery' : st.key === 'returns' ? 'Return' : 'Transfer'}</button>)}
-            </div>
-          </div>
-        )}
-        {submission ? (
-          <button className="btn ok" onClick={() => go('submitted')}>See today’s summary</button>
-        ) : answered ? (
-          <button className="btn accent pulse" disabled={busy} onClick={submit}>{busy ? 'Submitting…' : 'Submit the day'}</button>
-        ) : (
-          <button className="btn accent pulse" onClick={() => go(firstTodo!.screen)}>{done ? 'Continue check-in' : 'Start check-in'}<Icon name="arrow" /></button>
-        )}
+        <aside className="homeAside">
+          <section className="panel enter" aria-label="Needs attention" style={{ animationDelay: '.06s' }}>
+            <header className="panelHead"><b>{lowItems.length > 0 && <PulseDot />}Needs attention</b>{lowItems.length > 0 && <button className="btn link" onClick={() => toDash({ tab: 'bal', filter: 'low' })}>All {lowItems.length}</button>}</header>
+            {!attention.length && <div className="pad small muted">Nothing is low. All good.</div>}
+            {attention.map((b) => {
+              const dl = daysLeft(b);
+              return (
+                <button key={b.item_id} className="attRow" onClick={() => toDash({ tab: 'bal', item: b.item_id })}>
+                  <span className="attName">{b.name}</span>
+                  <span className={`attVal ${b.balance <= 0 ? 'out' : ''}`}>{b.balance <= 0 ? 'Out' : dl != null && dl < 30 ? `${Math.max(0, Math.round(dl))} day${Math.round(dl) === 1 ? '' : 's'} left` : `${fmt(b.balance)} ${b.unit}`}</span>
+                </button>
+              );
+            })}
+          </section>
+          <section className="panel dark enter" style={{ animationDelay: '.1s' }}>
+            <b>Stock take</b>
+            <span>{lastTake ? `Last count ${nice(lastTake)}.` : 'No count recorded yet.'} Print the orange sheet, count, then enter the numbers.</span>
+            <button className="btn link" onClick={() => go('stocktake')}><Icon name="print" size={16} />Open stock take</button>
+          </section>
+          <section className="panel tip enter" style={{ animationDelay: '.14s' }}>
+            <span><kbd>Ctrl</kbd> <kbd>K</kbd> finds any item, page or action.</span>
+            <button className="btn link" onClick={() => signal('palette')}>Try it</button>
+          </section>
+        </aside>
+      </div>
 
-        <div className="small muted" style={{ lineHeight: 1.5 }}>
-          Withdrawal cards can also be entered during the day. They will already be listed when you reach step 2 tonight.
-        </div>
-        <Dashboard embedded />
+      <Dashboard embedded />
 
-        <div className="between small homeFoot">
-          <span className="muted">Signed in as {user.name}</span>
-          <span className="row">
-            <button className="btn link" onClick={() => go('stocktake')}>Stock take</button>
-            {api.mode === 'demo' && <button className="btn link" onClick={() => { resetDemo(); location.reload(); }}>Reset demo</button>}
-            <button className="btn link" onClick={signOut}>Sign out</button>
-          </span>
-        </div>
-      </main>
+      <div className="between small homeFoot">
+        <span className="muted">Signed in as {user.name}</span>
+        <span className="row">
+          {api.mode === 'demo' && <button className="btn link" onClick={() => { resetDemo(); location.reload(); }}>Reset demo</button>}
+          <button className="btn link" onClick={signOut}>Sign out</button>
+        </span>
+      </div>
       {showEntries && <EntriesSheet onClose={() => setShowEntries(false)} />}
     </div>
   );

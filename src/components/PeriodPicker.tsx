@@ -48,7 +48,13 @@ export function PeriodPicker({ period, date, today, onPeriod, onDate, activeDays
   const chips = useMemo(() => chipsFor(period, today), [period, today]);
   const selectedKey = period === 'day' ? date : period === 'week' ? weekStart(date) : monthStart(date);
   const stripRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { stripRef.current?.querySelector<HTMLElement>('[aria-pressed="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }, [selectedKey, period]);
+  // Bring the chosen day into view inside the strip only (never scroll the page).
+  useEffect(() => {
+    const strip = stripRef.current; const el = strip?.querySelector<HTMLElement>('[aria-pressed="true"]');
+    if (!strip || !el) return;
+    const l = el.offsetLeft - strip.offsetLeft, r = l + el.offsetWidth;
+    if (l < strip.scrollLeft) strip.scrollLeft = l - 8; else if (r > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = r - strip.clientWidth + 8;
+  }, [selectedKey, period]);
   const inChips = chips.some((c) => c.key === selectedKey);
 
   return (
