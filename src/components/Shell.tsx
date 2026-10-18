@@ -1,8 +1,8 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
 import { STEPS, useData, type Screen } from '../lib/store';
 import { signal, useSignal } from '../lib/signals';
-import { CrateMark, SiteLogo } from './Brand';
+import { ComexLogo, CrateMark, SiteLogo } from './Brand';
 import { Icon, PulseDot, Ring, useMinutesToClose } from './fx';
 import { StartTraining } from './Training';
 import { CommandPalette } from './CommandPalette';
@@ -38,6 +38,14 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
   const { user, site, go, signOut, openAdmin, stepState, submission, lowItems, balances, day, projectWeek, syncing } = useData();
   const [mini, setMini] = useState(readRail);
   const [palette, setPalette] = useState(false);
+  const [siteOpen, setSiteOpen] = useState(false);
+  // The gold menu highlight slides to the current page.
+  const navRef = useRef<HTMLElement>(null);
+  const [ink, setInk] = useState<{ top: number; height: number; opacity: number }>({ top: 0, height: 0, opacity: 0 });
+  useLayoutEffect(() => {
+    const el = navRef.current?.querySelector<HTMLElement>('.railLink[aria-current="page"]');
+    setInk(el ? { top: el.offsetTop, height: el.offsetHeight, opacity: 1 } : { top: 0, height: 0, opacity: 0 });
+  }, [screen, mini]);
   const min = useMinutesToClose();
   useSignal('palette', () => setPalette(true));
   // Ctrl/⌘ + K opens the search from anywhere.
@@ -59,12 +67,11 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
   return (
     <div className={`shell ${TABBAR.includes(screen) ? 'hasTab' : ''} ${mini ? 'mini' : ''}`}>
       <aside className="rail" aria-label="Main menu">
-        <div className="railBrand">
-          <CrateMark size={34} tile="dark" />
-          <div className="railName"><b>COMEX BUILDERS</b><span>Site Stock</span></div>
+        <div className="railBrand comexBrand" title="Comex Builders Ltd">
+          {mini ? <ComexLogo dark hatOnly width={44} /> : <ComexLogo dark width={172} />}
         </div>
-        {site && <div className="railSite" title={site}><SiteLogo name={site} height={34} /></div>}
-        <nav className="railNav">
+        <nav className="railNav" ref={navRef}>
+          <span className="railInk" aria-hidden="true" style={ink} />
           <span className="railSec">Operations</span>
           {NAV.map((n) => (
             <button key={n.screen} className="railLink" title={n.label} aria-current={n.match.includes(screen) ? 'page' : undefined} onClick={() => go(n.screen)}>
@@ -89,13 +96,31 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
           <div className="rlText"><b>{user.name}</b><span>{user.role === 'admin' ? 'Admin' : 'Storekeeper'}{site ? ` · ${site}` : ''}{api.mode === 'demo' ? ' · demo' : ''}</span></div>
           <button className="iconBtn sm rlText" onClick={signOut} title="Sign out" aria-label="Sign out"><Icon name="out" size={18} /></button>
         </div>
+        <div className="poweredBy rlText"><CrateMark size={18} tile="dark" /><span>Powered by <b>Site Stock</b></span></div>
         <button className="railCollapse" onClick={toggleRail} aria-label={mini ? 'Expand the menu' : 'Collapse the menu'} title={mini ? 'Expand the menu' : 'Collapse the menu'}><Icon name="panel" size={18} /><span className="rlText">Collapse menu</span></button>
       </aside>
 
       <div className="shellMain">
         <header className="topbar">
+          <span className="routeBar" key={screen} aria-hidden="true" />
+          <span className="tbComex" aria-hidden="true"><ComexLogo hatOnly width={36} /></span>
+          <div className="siteSwitchWrap">
+            <button className="siteSwitch" onClick={() => setSiteOpen((v) => !v)} aria-expanded={siteOpen} aria-haspopup="dialog" title={site ? `Site: ${site}` : 'Site'}>
+              {site ? <SiteLogo name={site} height={26} /> : <b>Store</b>}
+              <span className="ssChev" aria-hidden="true">▾</span>
+            </button>
+            {siteOpen && (
+              <div className="sitePop" role="dialog" aria-label="Site" onMouseLeave={() => setSiteOpen(false)}>
+                {site && <div className="spLogo"><SiteLogo name={site} height={44} /></div>}
+                <div className="spRow"><span>Site</span><b>{site || '–'}</b></div>
+                {projectWeek != null && <div className="spRow"><span>Project week</span><b>{projectWeek}</b></div>}
+                <div className="spRow"><span>Items in store</span><b>{balances.filter((b) => b.balance > 0).length}</b></div>
+                <div className="spRow"><span>You</span><b>{user.name} · {user.role === 'admin' ? 'Admin' : 'Storekeeper'}</b></div>
+                {user.role === 'admin' && <button className="btn ghost sm" onClick={() => { setSiteOpen(false); openAdmin(); }}>Manage sites</button>}
+              </div>
+            )}
+          </div>
           <nav className="crumbs" aria-label="Breadcrumb">
-            <span className="crSite">{site || 'Store'}</span>
             {trail.map((c, i) => (
               <span key={c} className="crPart"><span aria-hidden="true">/</span>
                 {i < trail.length - 1 ? <button onClick={() => go('home')}>{c}</button> : <b aria-current="page">{c}</b>}

@@ -4,8 +4,10 @@ import { App } from './App';
 import { FeedbackHost } from './components/feedback';
 import './styles.css';
 import { bootStep } from './lib/boot';
+import { installFx } from './lib/fxGlobal';
 
 bootStep('Checking your account…', 30, 55);
+installFx();
 import { TrainingBar } from './components/Training';
 
 createRoot(document.getElementById('root')!).render(

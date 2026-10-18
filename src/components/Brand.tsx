@@ -19,6 +19,33 @@ export function CrateMark({ size = 40, tile = 'dark', animate = false }: { size?
   );
 }
 
+/** Comex Builders Ltd logo, redrawn as a vector from the company's file (sharp at any size).
+ *  `dark` turns "COMEX" white for the dark menu. `hatOnly` shows just the hard hat (collapsed menu).
+ *  The hat settles in and the crane hook swings when it first appears and on hover. */
+export function ComexLogo({ dark = false, width = 176, hatOnly = false }: { dark?: boolean; width?: number; hatOnly?: boolean }) {
+  const ink = dark ? '#FFFFFF' : '#2B2B2B';
+  return (
+    <svg className="comexLogo" viewBox={hatOnly ? '36 4 104 60' : '22 4 144 76'} width={width} role="img" aria-label="Comex Builders Ltd">
+      <g className="clHat">
+        <path d="M40 48 C48 44 56 41 62 38 C64 20 80 9 102 9 C122 9 134 22 135 44 L135 48 Z" fill="#FBB03B" />
+        <path className="clShine" d="M66 31 C80 17 112 13 128 25" fill="none" stroke="#FDCB7A" strokeWidth="3" strokeLinecap="round" />
+        <circle cx="92.5" cy="20.8" r="1.1" fill="#E58227" /><circle cx="86" cy="24.5" r="1.1" fill="#E58227" />
+        <circle cx="92.5" cy="24.5" r="1.1" fill="#E58227" /><circle cx="99" cy="24.5" r="1.1" fill="#E58227" />
+        <circle cx="92.5" cy="28.2" r="1.1" fill="#E58227" />
+        <rect x="86" y="37" width="13" height="9" rx="1" fill="#E58227" />
+      </g>
+      <g className="clHook">
+        <line x1="133.5" y1="48" x2="133.5" y2="53" stroke={dark ? '#C9D0CD' : '#6B6B6B'} strokeWidth="1" />
+        <path d="M131.5 53 h4 v3.5 a2 2 0 0 1 -4 0 z" fill="#E58227" />
+      </g>
+      {!hatOnly && <>
+        <text x="90" y="61" textAnchor="middle" fontFamily="Montserrat, 'Segoe UI', sans-serif" fontSize="9" fontWeight="700" fill={ink} textLength="68" lengthAdjust="spacing">COMEX</text>
+        <text x="93" y="75" textAnchor="middle" fontFamily="Montserrat, 'Segoe UI', sans-serif" fontSize="10" fontWeight="700" fill="#FBB03B" textLength="134" lengthAdjust="spacing">BUILDERS LTD</text>
+      </>}
+    </svg>
+  );
+}
+
 /** Mark + "Site Stock" + company name, for headers. */
 export function Wordmark({ company = 'Comex Builders', dark = true, size = 36 }: { company?: string; dark?: boolean; size?: number }) {
   return (

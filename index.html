@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#121315" />
+    <meta name="theme-color" content="#FFFFFF" />
     <meta name="description" content="Site Stock Management System: live stock balances for a construction site store." />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="manifest" href="/manifest.webmanifest" />
@@ -14,14 +14,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <!-- Fonts load without holding up the first paint. -->
-    <link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Cinzel:wght@400;600&family=Cormorant+Garamond:wght@300;400&family=Montserrat:wght@400&family=Playfair+Display:wght@500&family=Barlow:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" />
+    <link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Cinzel:wght@400;600&family=Cormorant+Garamond:wght@300;400&family=Montserrat:wght@400;700&family=Playfair+Display:wght@500&family=Barlow:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" />
     <title>Site Stock · Comex Builders</title>
     <style>
       /* Boot screen: painted instantly, before the app code arrives. */
-      html, body { margin: 0; background: #121315; }
-      #boot { position: fixed; inset: 0; z-index: 200; background: #121315; color: #F2F3F1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; padding: 24px 24px 60px; overflow: hidden; font-family: Barlow, 'Segoe UI', system-ui, sans-serif; transition: opacity .45s ease, visibility .45s; }
+      html, body { margin: 0; background: #FFFFFF; }
+      #boot { position: fixed; inset: 0; z-index: 200; background: #FFFFFF; color: #121315; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; padding: 24px 24px 60px; overflow: hidden; font-family: Barlow, 'Segoe UI', system-ui, sans-serif; transition: opacity .45s ease, visibility .45s; }
       #boot.gone { opacity: 0; visibility: hidden; pointer-events: none; }
-      #boot .bGlow { position: absolute; width: 460px; height: 460px; border-radius: 50%; left: 50%; top: 50%; margin: -290px 0 0 -230px; background: radial-gradient(circle, rgba(252,167,45,.18), rgba(252,167,45,0) 65%); animation: bBreathe 3s ease-in-out infinite; }
+      #boot .bGlow { position: absolute; width: 460px; height: 460px; border-radius: 50%; left: 50%; top: 50%; margin: -290px 0 0 -230px; background: radial-gradient(circle, rgba(252,167,45,.14), rgba(252,167,45,0) 65%); animation: bBreathe 3s ease-in-out infinite; }
       #boot .bStage { position: relative; width: 132px; height: 132px; }
       #boot svg { width: 132px; height: 132px; overflow: visible; }
       #boot .f { transform-box: fill-box; transform-origin: center; }
@@ -38,14 +38,14 @@
       #boot.ready .bStage { animation: bPop .5s .3s cubic-bezier(.3,1.4,.5,1) both; }
       #boot .bName { text-align: center; display: flex; flex-direction: column; gap: 6px; position: relative; animation: bRise .5s .25s both; }
       #boot .bName b { font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-weight: 800; font-size: 36px; letter-spacing: .06em; line-height: 1; }
-      #boot .bName span { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 11px; letter-spacing: .16em; color: #FCA72D; }
-      #boot .bHello { min-height: 20px; font-size: 15px; color: #C9D0CD; text-align: center; position: relative; animation: bRise .5s .3s both; }
-      #boot .bBar { position: relative; width: min(240px, 70vw); height: 4px; border-radius: 4px; background: #262C2B; overflow: hidden; animation: bRise .4s .35s both; }
+      #boot .bName span { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 11px; letter-spacing: .16em; color: #9A5B00; }
+      #boot .bHello { min-height: 20px; font-size: 15px; color: #3D4542; text-align: center; position: relative; animation: bRise .5s .3s both; }
+      #boot .bBar { position: relative; width: min(240px, 70vw); height: 4px; border-radius: 4px; background: #ECEEEC; overflow: hidden; animation: bRise .4s .35s both; }
       #boot .bBar i { position: absolute; left: 0; top: 0; bottom: 0; width: 6%; border-radius: 4px; background: linear-gradient(90deg, #E8901A, #FCA72D 70%, #FFD27A); transition: width .6s cubic-bezier(.2,.8,.2,1); }
       #boot .bBar i::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent); animation: bShine 1.4s ease-in-out infinite; }
-      #boot .bMsg { min-height: 20px; font-size: 14px; color: #9AA3A0; text-align: center; position: relative; animation: bRise .4s .4s both; transition: opacity .25s; }
+      #boot .bMsg { min-height: 20px; font-size: 14px; color: #59625F; text-align: center; position: relative; animation: bRise .4s .4s both; transition: opacity .25s; }
       #boot .bMsg.swap { opacity: 0; }
-      #boot .bRetry { display: none; margin-top: 4px; min-height: 40px; padding: 0 18px; border-radius: 10px; border: 1px solid #3A4341; background: transparent; color: #F2F3F1; font: inherit; font-weight: 600; cursor: pointer; }
+      #boot .bRetry { display: none; margin-top: 4px; min-height: 40px; padding: 0 18px; border-radius: 10px; border: 1px solid #C9CFCC; background: #FFFFFF; color: #121315; font: inherit; font-weight: 600; cursor: pointer; }
       #boot.slow .bRetry { display: inline-block; }
       @keyframes bBreathe { 0%, 100% { opacity: .55; transform: scale(.94); } 50% { opacity: 1; transform: scale(1.05); } }
       @keyframes bInL { from { opacity: 0; transform: translate(-26px, 10px); } to { opacity: 1; transform: none; } }
@@ -66,14 +66,13 @@
       <div class="bGlow" aria-hidden="true"></div>
       <div class="bStage" aria-hidden="true">
         <svg viewBox="0 0 64 64">
-          <rect width="64" height="64" rx="15" fill="#1E2322" />
-          <rect class="drop" x="28" y="14" width="8" height="8" rx="1.5" fill="#FFD27A" />
-          <rect class="drop d2" x="23" y="16" width="6" height="6" rx="1.2" fill="#FCA72D" />
-          <rect class="drop d3" x="35" y="16" width="6" height="6" rx="1.2" fill="#F2F3F1" />
-          <polygon class="f fl" points="11,21 32,32 32,55 11,44" fill="#F2F3F1" />
-          <polygon class="f fr" points="32,32 53,21 53,44 32,55" fill="#9AA3A0" />
+                    <rect class="drop" x="28" y="14" width="8" height="8" rx="1.5" fill="#FCA72D" />
+          <rect class="drop d2" x="23" y="16" width="6" height="6" rx="1.2" fill="#E8901A" />
+          <rect class="drop d3" x="35" y="16" width="6" height="6" rx="1.2" fill="#59625F" />
+          <polygon class="f fl" points="11,21 32,32 32,55 11,44" fill="#1B2120" />
+          <polygon class="f fr" points="32,32 53,21 53,44 32,55" fill="#59625F" />
           <polygon class="lid" points="32,10 53,21 32,32 11,21" fill="#FCA72D" />
-          <polyline class="tick" points="17,36 22,41 28,33" fill="none" stroke="#121315" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+          <polyline class="tick" points="17,36 22,41 28,33" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
         </svg>
       </div>
       <div class="bName"><b>SITE STOCK</b><span>COMEX BUILDERS</span></div>
