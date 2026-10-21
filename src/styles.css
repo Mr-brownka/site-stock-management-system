@@ -1379,3 +1379,47 @@ body:has(.trainBar) .topbar { top: 50px; }
 
 /* Page change: a quick lift-and-fade */
 .screen { animation: screenIn .45s cubic-bezier(.2,.8,.2,1) backwards; }
+
+/* ════════════════════ Missed days · catch-up ════════════════════ */
+.catchBar { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 12px; padding: 10px 24px; background: var(--accent); color: var(--ink); font-size: 15px; animation: cardIn .35s var(--spring) both; }
+.catchBar .cbTag { flex: none; height: 26px; padding: 0 10px; border-radius: 99px; background: var(--ink); color: var(--accent); display: inline-flex; align-items: center; font-size: 12px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.catchBar .cbText { flex: 1; min-width: 0; }
+.catchBar .cbBack { flex: none; border: 0; background: transparent; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; color: var(--ink); }
+.phKicker.catch { color: #8A5000; }
+.dayStrip { list-style: none; margin: 0 0 16px; padding: 0; display: flex; gap: 10px; flex-wrap: wrap; }
+.dsDay { flex: 1 1 140px; border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; gap: 2px; border: 1.5px solid var(--line); background: #fff; animation: cardIn .4s var(--spring) both; }
+.dsDay .dsLabel { font-size: 12px; font-weight: 700; letter-spacing: .06em; opacity: .8; }
+.dsDay b { font-size: 17px; }
+.dsDay .dsSub { font-size: 12.5px; display: inline-flex; align-items: center; gap: 4px; }
+.dsDay.missing { background: var(--red-soft); border-color: var(--red); color: #8E1B12; }
+.dsDay.holiday { border-style: dashed; border-color: var(--field); color: var(--ink-2); }
+.dsDay.current { background: #FFF4DE; border: 2px solid var(--accent); box-shadow: 0 0 0 5px rgba(252,167,45,.18); }
+.dsDay.done { background: var(--ink); border-color: var(--ink); color: #fff; }
+.dsDay.closed { background: #F1F3F2; color: var(--muted); }
+.catchCard { margin-bottom: 16px; overflow: hidden; }
+.catchCard .ccHead { display: flex; align-items: center; gap: 14px; padding: 16px 20px; border-bottom: 1px solid var(--line-2); }
+.catchCard .ccHead div { display: flex; flex-direction: column; gap: 2px; }
+.catchCard .ccHead b { font-size: 18px; }
+.catchCard .ccHead span:not(.ccBang) { color: var(--muted); }
+.ccBang { width: 40px; height: 40px; flex: none; border-radius: 12px; background: var(--red-soft); color: var(--error); display: grid; place-items: center; font-weight: 800; font-size: 20px; }
+.ccRow { display: flex; align-items: center; gap: 14px; padding: 14px 20px; border-bottom: 1px solid var(--line-2); flex-wrap: wrap; }
+.ccRow:last-child { border-bottom: 0; }
+.ccText { flex: 1 1 260px; display: flex; flex-direction: column; gap: 2px; }
+.ccText b { font-size: 16px; }
+.ccText span { color: var(--muted); font-size: 14px; }
+.ccActs { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.lockedPanel .procRow, .lockedPanel .startBtn, .lockedPanel .panelFoot .btn { pointer-events: none; opacity: .45; }
+.lockNote { padding: 12px 18px; border-top: 1px solid var(--line-2); color: var(--muted); font-size: 14px; background: #FAFAF8; }
+.dayAskBack { display: grid; place-items: center; padding: 16px; }
+.dayAsk { width: min(520px, 100%); background: #fff; border-radius: 20px; box-shadow: 0 30px 70px rgba(18,23,22,.3); padding: 26px; display: flex; flex-direction: column; gap: 14px; animation: sheetPop .25s var(--spring); }
+.dayAsk h2 { margin: 0; font-family: var(--display); font-size: 32px; line-height: 1.05; }
+.dayAsk p { margin: 0; }
+.daDone { display: inline-flex; align-items: center; gap: 6px; color: var(--ok); font-weight: 700; }
+.daChoice { display: flex; align-items: center; gap: 14px; text-align: left; padding: 16px 18px; border-radius: 14px; border: 1.5px solid var(--ink); background: #fff; font: inherit; cursor: pointer; color: var(--ink); }
+.daChoice span { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.daChoice b { font-size: 17px; }
+.daChoice small { font-size: 14px; color: var(--muted); }
+.daChoice.dark { background: var(--ink); color: #fff; }
+.daChoice.dark small { color: #C9D0CD; }
+.dayAsk .btn.link { align-self: center; }
+@media (max-width: 640px) { .catchBar { padding: 10px 16px; font-size: 14px; flex-wrap: wrap; } .dsDay { flex: 1 1 90px; padding: 8px 10px; } .dsDay b { font-size: 15px; } }

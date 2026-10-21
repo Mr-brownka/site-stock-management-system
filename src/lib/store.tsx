@@ -1,8 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { bootDone, bootShow, bootStep, isBootDone, rememberVisitor } from './boot';
 import { api } from './api';
 import { projectWeekNo } from './projectWeek';
 import { addDays, today, weekday } from './dates';
+import { holidayName } from './holidays';
 import type { Balance, Doc, Item, StepKey, StepState, Submission, User, WeekInfo } from './types';
 
 export const STEPS: { key: StepKey; n: number; label: string; desc: string; kinds: Doc['kind'][]; screen: Screen }[] = [
@@ -48,6 +49,15 @@ interface Data {
   projectWeek: number | null;
   weekInfo: WeekInfo;
   refreshWeek: () => Promise<void>;
+  /** The real calendar day (Nairobi). `day` differs from it while catching up a missed day. */
+  realToday: string;
+  catchUp: boolean;
+  /** Working days since the last submitted day that still need doing, oldest first (max 7 days back). */
+  pendingDays: { day: string; holiday: string | null }[];
+  startCatchUp: (day: string) => void;
+  endCatchUp: () => void;
+  closeDay: (day: string, reason: string) => Promise<void>;
+  refreshPending: () => Promise<{ day: string; holiday: string | null }[]>;
 }
 
 const Ctx = createContext<Data | null>(null);
@@ -66,7 +76,9 @@ function readMarks(day: string): Partial<Record<StepKey, StepState>> {
 interface Cache { site: string; company: string; items: Item[]; balances: Balance[]; recent: Doc[]; submission: Submission | null; day: string }
 
 export function DataProvider({ user, go, signOut, openAdmin, children }: { user: User; go: (s: Screen) => void; signOut: () => void; openAdmin: () => void; children: ReactNode }) {
-  const day = today();
+  const realToday = today();
+  const [day, setWorkDay] = useState(realToday);
+  const catchUp = day !== realToday;
   const [site, setSite] = useState('');
   const [company, setCompany] = useState('');
   const [items, setItems] = useState<Item[] | null>(null);
@@ -83,12 +95,22 @@ export function DataProvider({ user, go, signOut, openAdmin, children }: { user:
   useEffect(() => { refreshWeek(); }, [refreshWeek]);
   const [submission, setSubmission] = useState<Submission | null>(null);
   const [marks, setMarks] = useState(() => readMarks(day));
+  useEffect(() => { setMarks(readMarks(day)); }, [day]);
   const [error, setError] = useState('');
 
   const refresh = useCallback(async () => {
-    const [b, r, s] = await Promise.all([api.balances(), api.documents(addDays(day, -27), day), api.submission(day)]);
+    const [b, r, s] = await Promise.all([api.balances(), api.documents(addDays(realToday, -27), realToday), api.submission(day)]);
     setBalances(b); setRecent(r); setDocs(r.filter((x) => x.doc_date === day)); setSubmission(s);
-  }, [day]);
+  }, [day, realToday]);
+
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+  const firstLoad = useRef(true);
+  useEffect(() => {
+    if (firstLoad.current) { firstLoad.current = false; return; }
+    setDocs([]); setSubmission(null);
+    refresh().catch((e) => setError(e.message || String(e)));
+  }, [refresh]);
 
   // Last visit's data shows at once (live mode only) while fresh data loads behind it.
   const cacheKey = `ssms-cache:${api.mode}:${user.email}`;
@@ -109,21 +131,21 @@ export function DataProvider({ user, go, signOut, openAdmin, children }: { user:
     Promise.all([
       api.siteName().then((s) => { tick(`Loading the ${s.site || 'store'} item list…`); return s; }),
       api.items().then((it) => { tick('Counting balances…'); return it; }),
-      refresh().then(() => tick('Checking today’s entries…')),
+      refreshRef.current().then(() => tick('Checking today’s entries…')),
     ])
       .then(([s, it]) => { setSite(s.site); setCompany(s.company); setItems(it); rememberVisitor(user.name, s.site); setSyncing(false); bootDone(); })
       .catch((e) => { setSyncing(false); if (cached) return; setError(e.message || String(e)); bootDone({ quick: true }); });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refresh]);
+  }, []);
   // Keep the cache up to date after every change.
   useEffect(() => {
-    if (api.mode !== 'live' || syncing || !items) return;
+    if (api.mode !== 'live' || syncing || !items || catchUp) return;
     const t = setTimeout(() => { try { localStorage.setItem(cacheKey, JSON.stringify({ site, company, items, balances, recent, submission, day } satisfies Cache)); } catch { /* full or blocked */ } }, 400);
     return () => clearTimeout(t);
   }, [cacheKey, syncing, site, company, items, balances, recent, submission, day]);
 
   const avgUse = useMemo(() => {
-    const from = addDays(day, -13);
+    const from = addDays(realToday, -13);
     const used = new Map<number, number>();
     for (const d of recent) {
       if (d.doc_date < from) continue;
@@ -136,9 +158,9 @@ export function DataProvider({ user, go, signOut, openAdmin, children }: { user:
       }
     }
     let workdays = 0;
-    for (let i = 0; i < 14; i++) if (weekday(addDays(day, -i)) !== 'Sun') workdays++;
+    for (let i = 0; i < 14; i++) if (weekday(addDays(realToday, -i)) !== 'Sun') workdays++;
     return new Map([...used].map(([id, v]) => [id, Math.max(0, v) / workdays]));
-  }, [recent, day]);
+  }, [recent, realToday]);
   const isLow = useCallback((b: Balance) => {
     if (b.balance <= 0) return true;
     if (b.reorder_level != null && b.balance <= b.reorder_level) return true;
@@ -169,6 +191,28 @@ export function DataProvider({ user, go, signOut, openAdmin, children }: { user:
     return marks[k] ?? 'todo';
   }, [submission, docsToday, marks]);
 
+  const [pendingDays, setPending] = useState<{ day: string; holiday: string | null }[]>([]);
+  const refreshPending = useCallback(async () => {
+    if (api.mode === 'training') { setPending([]); return []; }
+    const last = await api.lastSubmittedDay(realToday).catch(() => null);
+    const list: { day: string; holiday: string | null }[] = [];
+    if (last) {
+      const floor = addDays(realToday, -7);
+      for (let d = addDays(last, 1); d < realToday; d = addDays(d, 1)) {
+        if (d < floor || weekday(d) === 'Sun') continue;
+        list.push({ day: d, holiday: holidayName(d) });
+      }
+    }
+    setPending(list);
+    return list;
+  }, [realToday]);
+  useEffect(() => { refreshPending(); }, [refreshPending]);
+  const startCatchUp = useCallback((d: string) => setWorkDay(d), []);
+  const endCatchUp = useCallback(() => setWorkDay(realToday), [realToday]);
+  const closeDay = useCallback(async (d: string, reason: string) => {
+    await api.submitDay(d, { deliveries: 'none', issued: 'none', returns: 'none', transfers: 'none' }, reason);
+  }, []);
+
   const addItem = useCallback(async (name: string, unit: string) => {
     const it = await api.addItem(name, unit);
     setItems((x) => [...(x ?? []), it].sort((a, b) => a.name.localeCompare(b.name)));
@@ -182,6 +226,7 @@ export function DataProvider({ user, go, signOut, openAdmin, children }: { user:
     user, site, company, siteLabel: [company, site].filter(Boolean).join(' · ').toUpperCase(), day, items, itemById, balances, balanceOf: (id) => balMap.get(id) ?? 0, docsToday, submission,
     stepState, markStep, refresh, addItem, go, signOut, openAdmin, recent, avgUse, isLow, daysLeft, lowItems,
     projectWeek: projectWeekNo(day, weekInfo, entryDays), weekInfo, refreshWeek, syncing,
+    realToday, catchUp, pendingDays, startCatchUp, endCatchUp, closeDay, refreshPending,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

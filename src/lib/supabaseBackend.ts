@@ -279,14 +279,20 @@ export function supabaseBackend(url: string, key: string): Backend {
     },
 
     async submission(day) {
-      const { data, error } = await sb.from('day_submissions').select('day,submitted_at,steps').eq('site_id', await mySite()).eq('day', day).maybeSingle();
+      const { data, error } = await sb.from('day_submissions').select('day,submitted_at,steps,closed_reason').eq('site_id', await mySite()).eq('day', day).maybeSingle();
       if (error) fail(error);
       return (data as Submission) ?? null;
     },
 
-    async submitDay(day, steps) {
-      const { error } = await sb.from('day_submissions').insert({ day, steps });
+    async submitDay(day, steps, closedReason) {
+      const { error } = await sb.from('day_submissions').insert({ day, steps, ...(closedReason ? { closed_reason: closedReason } : {}) });
       if (error) fail(error);
+    },
+
+    async lastSubmittedDay(before) {
+      const { data, error } = await sb.from('day_submissions').select('day').eq('site_id', await mySite()).lt('day', before).order('day', { ascending: false }).limit(1).maybeSingle();
+      if (error) fail(error);
+      return (data?.day as string) ?? null;
     },
 
     async recordTrainingDay(day) {

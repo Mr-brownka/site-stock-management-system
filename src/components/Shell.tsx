@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
 import { STEPS, useData, type Screen } from '../lib/store';
+import { longDate, weekdayName } from '../lib/dates';
 import { signal, useSignal } from '../lib/signals';
 import { ComexLogo, CrateMark, SiteLogo } from './Brand';
 import { Icon, PulseDot, Ring, useMinutesToClose } from './fx';
@@ -36,7 +37,7 @@ function crumbs(screen: Screen): string[] {
 const readRail = () => { try { return localStorage.getItem('ssms-rail') === 'mini'; } catch { return false; } };
 
 export function AppShell({ screen, children }: { screen: Screen; children: ReactNode }) {
-  const { user, site, go, signOut, openAdmin, stepState, submission, lowItems, balances, day, projectWeek, syncing } = useData();
+  const { user, site, go, signOut, openAdmin, stepState, submission, lowItems, balances, day, projectWeek, syncing, catchUp, endCatchUp } = useData();
   const [mini, setMini] = useState(readRail);
   const [palette, setPalette] = useState(false);
   const [siteOpen, setSiteOpen] = useState(false);
@@ -106,6 +107,13 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
       </aside>
 
       <div className="shellMain">
+        {catchUp && (
+          <div className="catchBar" role="status">
+            <span className="cbTag">Catch-up</span>
+            <span className="cbText">You are entering <b>{longDate(day)}</b>. Everything you save now is dated {weekdayName(day)}.</span>
+            <button className="cbBack" onClick={() => { endCatchUp(); go('home'); }}>Back to today</button>
+          </div>
+        )}
         <header className="topbar">
           <span className="routeBar" key={screen} aria-hidden="true" />
           <span className="tbComex" aria-hidden="true"><ComexLogo hatOnly width={36} /></span>
@@ -139,9 +147,9 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
             {syncing && <span className="tbChip sync" role="status"><span className="syncDot" aria-hidden="true" />Updating…</span>}
             {projectWeek != null && <span className="tbChip" title="Project week">Week {projectWeek}</span>}
             <span className="tbChip"><Icon name="calendar" size={14} />{dateChip}</span>
-            <span className={`tbChip status ${submission ? 'ok' : min <= 0 ? 'late' : urgent ? 'soon' : ''}`}>
+            {!catchUp && <span className={`tbChip status ${submission ? 'ok' : min <= 0 ? 'late' : urgent ? 'soon' : ''}`}>
               {submission ? <><Icon name="check" size={14} />Submitted</> : <>{min <= 0 ? <PulseDot /> : <Icon name="clock" size={14} />}{closeLabel(min).replace('Register ', '')}</>}
-            </span>
+            </span>}
           </div>
         </header>
         <div className="screen" key={screen}>{children}</div>

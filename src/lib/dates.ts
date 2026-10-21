@@ -64,3 +64,8 @@ export function eachDay(from: string, to: string): string[] {
   for (let d = from; d <= to; d = addDays(d, 1)) out.push(d);
   return out;
 }
+
+/** "Monday" */
+export function weekdayName(d: string): string {
+  return ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][parse(d).getUTCDay()];
+}

@@ -68,6 +68,8 @@ export interface Submission {
   day: string;
   submitted_at: string;
   steps: Partial<Record<StepKey, StepState>>;
+  /** Set when the day was marked closed (holiday, no work). */
+  closed_reason?: string | null;
 }
 
 export type Role = 'store' | 'assistant' | 'admin';
@@ -207,7 +209,9 @@ export interface Backend {
   linesBetween(from: string, to: string): Promise<Line[]>;
   balances(): Promise<Balance[]>;
   submission(day: string): Promise<Submission | null>;
-  submitDay(day: string, steps: Submission['steps']): Promise<void>;
+  submitDay(day: string, steps: Submission['steps'], closedReason?: string | null): Promise<void>;
+  /** The latest submitted day before the given day (null if none yet). */
+  lastSubmittedDay(before: string): Promise<string | null>;
   /** Counts a training day for the signed-in person (Sundays don't count). Returns days done. */
   recordTrainingDay(day: string): Promise<number>;
   setReorder(itemId: number, level: number | null): Promise<void>;

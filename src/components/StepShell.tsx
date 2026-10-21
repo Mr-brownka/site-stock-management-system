@@ -20,7 +20,7 @@ export function StepShell({ step, question, hint, another, formTitle, tone, rend
   docTone?: (d: Doc) => '' | 'out' | 'in';
   docTitle: (d: Doc) => string;
 }) {
-  const { stepState, markStep, docsToday, submission, refresh, go, itemById } = useData();
+  const { stepState, markStep, docsToday, submission, refresh, go, itemById, catchUp } = useData();
   const meta = STEPS.find((s) => s.key === step)!;
   const next = STEPS[meta.n] as (typeof STEPS)[number] | undefined;
   const locked = !!submission;
@@ -46,7 +46,7 @@ export function StepShell({ step, question, hint, another, formTitle, tone, rend
       <Top onBack={() => go('home')} kicker={`Step ${meta.n} of 4 · Evening check-in`} title={stage === 'form' && formTitle ? formTitle : meta.label} sub={meta.desc} tone={tone} />
       <main className="body">
         {stage === 'ask' && (
-          <YesNo question={question} hint={hint} onYes={() => setStage('form')} onNo={() => { markStep(step, 'none'); setStage('summary'); toast(`${meta.label}: nothing today`); }} />
+          <YesNo question={question} hint={hint} onYes={() => setStage('form')} onNo={() => { markStep(step, 'none'); setStage('summary'); toast(`${meta.label}: nothing ${catchUp ? "that day" : "today"}`); }} />
         )}
 
         {stage === 'form' && renderForm(saved, again)}

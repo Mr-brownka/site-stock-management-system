@@ -5,7 +5,8 @@ import { closeLabel } from '../components/Shell';
 import { api, progressStore } from '../lib/api';
 import { Dashboard } from './Dashboard';
 import { fmt } from '../components/ui';
-import { longDate, today, weekday } from '../lib/dates';
+import { longDate, niceDate, today, weekday, weekdayName } from '../lib/dates';
+import { DayStrip, type DayCell } from '../components/DayStrip';
 import { TRAINING_DAYS } from '../lib/trainingPlan';
 import { resetDemo } from '../lib/demoBackend';
 import { STEPS, useData } from '../lib/store';
@@ -16,7 +17,30 @@ import type { StepKey } from '../lib/types';
 const STEP_ICON: Record<string, string> = { deliveries: 'truck', issued: 'card', returns: 'back', transfers: 'swap' };
 
 export function Home() {
-  const { day, user, balances, docsToday, stepState, submission, refresh, go, signOut, lowItems, daysLeft, itemById } = useData();
+  const { day, user, balances, docsToday, stepState, submission, refresh, go, signOut, lowItems, daysLeft, itemById,
+    realToday, catchUp, pendingDays, startCatchUp, endCatchUp, closeDay, refreshPending } = useData();
+  const locked = !catchUp && pendingDays.length > 0;
+  const [runTotal, setRunTotal] = useState(0);
+  const [askDay, setAskDay] = useState<{ day: string; holiday: string | null } | null>(null);
+  const [closing, setClosing] = useState(false);
+  const wd = weekdayName(day);
+  const runIndex = Math.max(1, runTotal - pendingDays.length + 1);
+  const beginCatchUp = (d: string) => { if (!catchUp) setRunTotal(pendingDays.length); startCatchUp(d); window.scrollTo(0, 0); };
+  // After a missed day is done: ask about the next one, or go back to today.
+  const nextMissed = (rest: { day: string; holiday: string | null }[]) => {
+    if (!rest.length) { endCatchUp(); setRunTotal(0); toast('All caught up · today is open'); return; }
+    setAskDay(rest[0]);
+  };
+  const markClosed = async (d: { day: string; holiday: string | null }) => {
+    setClosing(true);
+    try {
+      await closeDay(d.day, d.holiday ?? 'Store closed');
+      toast(`${weekdayName(d.day)} ${niceDate(d.day).split(' ').slice(1).join(' ')} marked Closed`);
+      const rest = await refreshPending();
+      setAskDay(null);
+      if (catchUp || runTotal) nextMissed(rest);
+    } catch (e) { toast((e as Error).message, 'warn'); } finally { setClosing(false); }
+  };
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [lastTake, setLastTake] = useState<string | null | undefined>(undefined);
@@ -53,7 +77,7 @@ export function Home() {
     const ds = docsToday.filter((d) => s.kinds.includes(d.kind));
     const lines = ds.reduce((a, d) => a + d.lines.length, 0);
     if (states[i] === 'done') return { text: 'Done', detail: `${ds.length} entr${ds.length === 1 ? 'y' : 'ies'} · ${lines} line${lines === 1 ? '' : 's'}`, cls: 'done' };
-    if (states[i] === 'none') return { text: 'Nothing today', detail: 'Answered “No”', cls: 'done' };
+    if (states[i] === 'none') return { text: catchUp ? 'Nothing that day' : 'Nothing today', detail: 'Answered “No”', cls: 'done' };
     if (!submission && firstTodo?.key === s.key) return { text: 'Next', detail: ds.length ? `${ds.length} entered during the day` : s.desc, cls: 'next' };
     return { text: 'Not started', detail: ds.length ? `${ds.length} entered during the day` : s.desc, cls: '' };
   };
@@ -81,6 +105,12 @@ export function Home() {
             : n >= TRAINING_DAYS ? `Training day ${Math.min(n, TRAINING_DAYS)} of ${TRAINING_DAYS} done · training complete!` : `Training day ${n} of ${TRAINING_DAYS} done`);
         } catch { toast('Practice saved, but the training day could not be recorded. Check the connection.', 'warn'); }
       }
+      if (catchUp) {
+        const rest = await refreshPending();
+        toast(`${wd} submitted`);
+        nextMissed(rest);
+        return;
+      }
       await refresh();
       go('submitted');
     } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
@@ -98,13 +128,21 @@ export function Home() {
     <div className="page home">
       <header className="pageHead enter">
         <div className="phText">
-          <span className="phKicker">Evening check-in · {longDate(day)}{api.mode === 'demo' ? ' · Demo' : ''}</span>
-          <h1>{greeting()}, {first}</h1>
-          <span className="phLead">{lead}</span>
+          {catchUp ? <>
+            <span className="phKicker catch">Catch-up · day {runIndex} of {Math.max(runTotal, runIndex)}</span>
+            <h1>{wd}’s check-in</h1>
+            <span className="phLead">Use {wd}’s delivery notes and withdrawal cards. Everything saved here is dated {niceDate(day)}.</span>
+          </> : <>
+            <span className="phKicker">Evening check-in · {longDate(day)}{api.mode === 'demo' ? ' · Demo' : ''}</span>
+            <h1>{greeting()}, {first}</h1>
+            <span className="phLead">{locked ? `${pendingDays.length} earlier day${pendingDays.length === 1 ? '' : 's'} need${pendingDays.length === 1 ? 's' : ''} you before today.` : lead}</span>
+          </>}
         </div>
         <div className="phActions">
-          <button className="btn ghost sm" onClick={() => setShowEntries(true)}><Icon name="list" size={16} />Today’s entries</button>
-          {submission ? (
+          <button className="btn ghost sm" onClick={() => setShowEntries(true)}><Icon name="list" size={16} />{catchUp ? `${wd}’s entries` : 'Today’s entries'}</button>
+          {locked ? (
+            <button className="btn sm" onClick={() => beginCatchUp(pendingDays[0].day)}>Enter {weekdayName(pendingDays[0].day)}’s papers<Icon name="arrow" size={16} /></button>
+          ) : submission ? (
             <button className="btn sm" onClick={() => go('submitted')}>Today’s summary<Icon name="arrow" size={16} /></button>
           ) : answered ? (
             <button className="btn accent sm" disabled={busy} onClick={submit}>{busy ? 'Submitting…' : 'Submit the day'}<Icon name="check" size={16} /></button>
@@ -114,6 +152,34 @@ export function Home() {
         </div>
       </header>
 
+
+      {(locked || catchUp) && (
+        <DayStrip days={[
+          ...pendingDays.map((p): DayCell => ({ day: p.day, kind: p.day === day ? 'current' : catchUp || p.holiday ? 'holiday' : 'missing',
+            sub: p.day === day ? 'Entering now' : p.holiday ?? (catchUp ? 'Next' : 'Not submitted') })),
+          { day: realToday, kind: 'today', label: 'TODAY', sub: catchUp ? 'After these' : 'Waiting' },
+        ]} />
+      )}
+      {locked && (
+        <section className="panel catchCard enter" aria-label="Days to catch up">
+          <header className="ccHead">
+            <span className="ccBang" aria-hidden="true">!</span>
+            <div><b>{pendingDays.length} day{pendingDays.length === 1 ? '' : 's'} need{pendingDays.length === 1 ? 's' : ''} you before today</b><span>Do them in order. Each one is saved under its own date, not today’s.</span></div>
+          </header>
+          {pendingDays.map((p, i) => (
+            <div key={p.day} className="ccRow">
+              <div className="ccText"><b>{weekdayName(p.day)} {niceDate(p.day).split(' ').slice(1).join(' ')}{p.holiday ? ` · ${p.holiday}` : ''}</b>
+                <span>{i === 0 ? (p.holiday ? 'Public holiday. Was the store open?' : 'Nothing entered and not submitted') : `After ${weekdayName(pendingDays[i - 1].day)}`}</span></div>
+              {i === 0 ? (
+                <span className="ccActs">
+                  <button className="btn link" disabled={closing} onClick={() => markClosed(p)}>Store was closed</button>
+                  <button className="btn sm" onClick={() => beginCatchUp(p.day)}>Enter {weekdayName(p.day)}’s papers<Icon name="arrow" size={16} /></button>
+                </span>
+              ) : <span className="stPill idle">Waiting</span>}
+            </div>
+          ))}
+        </section>
+      )}
       <section className="kpis" aria-label="Key figures">
         <button className="kpi enter" onClick={() => toDash({ tab: 'bal', filter: 'all' })}>
           <span className="kpiLabel">Items in store</span>
@@ -126,7 +192,7 @@ export function Home() {
           <span className="kpiFoot">{lowItems.length ? `${outCount} finished` : 'All good'}</span>
         </button>
         <button className="kpi enter" style={{ animationDelay: '.08s' }} onClick={() => setShowEntries(true)}>
-          <span className="kpiLabel">Entries today</span>
+          <span className="kpiLabel">{catchUp ? `Entries on ${wd}` : 'Entries today'}</span>
           <Num value={entries} className="kpiNum" />
           <span className="kpiFoot">{entries ? 'See the list' : 'Cards, notes, transfers'} <Icon name="arrow" size={13} /></span>
         </button>
@@ -138,9 +204,9 @@ export function Home() {
       </section>
 
       <div className="homeGrid">
-        <section className="panel process enter" aria-label="Today’s process">
+        <section className={`panel process enter ${locked ? 'lockedPanel' : ''}`} aria-label="Today’s process" aria-disabled={locked || undefined}>
           <header className="panelHead">
-            <span className="phTitle"><b>Today’s process</b><span className="muted small">{submission ? 'Submitted' : `${done} of 4 done`}</span></span>
+            <span className="phTitle"><b>{catchUp ? `${wd}’s process` : 'Today’s process'}</b><span className="muted small">{submission ? 'Submitted' : `${done} of 4 done`}</span></span>
             {submission ? (
               <span className="plusWrap">
                 <button className="plusBtn" aria-label="Add" aria-expanded={plusOpen} aria-haspopup="menu" onClick={() => setPlusOpen((v) => !v)}><Icon name="plus" size={22} /></button>
@@ -169,11 +235,12 @@ export function Home() {
           })}
           {!submission && (
             <footer className="panelFoot">
-              <span className="small muted">Submitting locks today. Cards can be entered during the day too.</span>
+              <span className="small muted">{catchUp ? `Submitting locks ${wd}. Balances update as if it was entered on ${wd}.` : 'Submitting locks today. Cards can be entered during the day too.'}</span>
               <button className="btn accent sm" disabled={!answered || busy} onClick={submit}>{busy ? 'Submitting…' : 'Submit the day'}</button>
             </footer>
           )}
           {err && <div className="note err" role="alert" style={{ margin: 12 }}>{err}</div>}
+          {locked && <div className="lockNote">Today opens after the earlier day{pendingDays.length === 1 ? '' : 's'} above.</div>}
         </section>
 
         <aside className="homeAside">
@@ -207,6 +274,22 @@ export function Home() {
         </span>
       </div>
       {showEntries && <EntriesSheet onClose={() => setShowEntries(false)} />}
+      {askDay && (
+        <div className="sheetBack dayAskBack">
+          <section className="dayAsk" role="dialog" aria-modal="true" aria-labelledby="dayAskTitle">
+            <span className="daDone"><Icon name="check" size={14} />{catchUp ? `${wd} submitted` : 'Earlier day done'}</span>
+            <h2 id="dayAskTitle">Was the store open on {weekdayName(askDay.day)} {niceDate(askDay.day).split(' ').slice(1).join(' ')}?</h2>
+            {askDay.holiday && <p className="muted">It was {askDay.holiday}, a public holiday.</p>}
+            <button className="daChoice dark" disabled={closing} onClick={() => markClosed(askDay)}>
+              <span><b>No, the store was closed</b><small>Nothing came in or went out. {weekdayName(askDay.day)} is marked Closed.</small></span><Icon name="arrow" size={20} />
+            </button>
+            <button className="daChoice" disabled={closing} onClick={() => { const d = askDay.day; setAskDay(null); beginCatchUp(d); }}>
+              <span><b>Yes, it was open</b><small>Enter {weekdayName(askDay.day)}’s papers the same way.</small></span><Icon name="arrow" size={20} />
+            </button>
+            <button className="btn link" onClick={() => { setAskDay(null); endCatchUp(); setRunTotal(0); }}>Decide later</button>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
