@@ -92,6 +92,14 @@ export const isBootDone = () => finished || !!document.getElementById('boot')?.c
 export function rememberVisitor(name: string, site: string) {
   try { localStorage.setItem('ssms-last', JSON.stringify({ name: name.split(' ')[0], site })); } catch { /* ignore */ }
 }
+/** Greet the person actually signing in (a new account on a shared phone must not see the last person's name). */
+export function bootGreet(name: string, site?: string) {
+  const first = name.split(' ')[0];
+  let back = false;
+  try { back = JSON.parse(localStorage.getItem('ssms-last') || 'null')?.name === first; } catch { /* ignore */ }
+  const h = document.getElementById('bootHello');
+  if (h) h.textContent = `${back ? 'Welcome back' : 'Welcome'}, ${first}${site ? ` · ${site}` : ''}`;
+}
 export function forgetVisitor() {
   try { localStorage.removeItem('ssms-last'); } catch { /* ignore */ }
 }

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { bootDone, bootShow, bootStep, isBootDone, rememberVisitor } from './boot';
+import { bootDone, bootGreet, bootShow, bootStep, isBootDone, rememberVisitor } from './boot';
 import { api } from './api';
 import { projectWeekNo } from './projectWeek';
 import { addDays, today, weekday } from './dates';
@@ -134,8 +134,8 @@ export function DataProvider({ user, go, signOut, openAdmin, children }: { user:
       if (cached.day === day) { setRecent(cached.recent); setDocs(cached.recent.filter((x) => x.doc_date === day)); setSubmission(cached.submission); }
       setSyncing(true);
       bootDone({ quick: true });
-    } else if (isBootDone()) bootShow('Opening your store…');
-    else bootStep('Opening your store…', 55, 70);
+    } else if (isBootDone()) { bootGreet(user.name); bootShow('Opening your store…'); }
+    else { bootGreet(user.name); bootStep('Opening your store…', 55, 70); }
 
     let n = 0;
     const tick = (msg: string) => { n++; if (!cached) bootStep(msg, 55 + n * 12, 70 + n * 10); };

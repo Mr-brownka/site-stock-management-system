@@ -15,7 +15,7 @@ import { SignUp, Waiting } from './screens/SignUp';
 import { Submitted } from './screens/Submitted';
 import { Transfers } from './screens/Transfers';
 import { exitTraining } from './lib/training';
-import { bootDone, forgetVisitor } from './lib/boot';
+import { bootDone, bootGreet, forgetVisitor } from './lib/boot';
 
 // Screens used less often load on demand, so the first download is smaller.
 const Admin = lazy(() => import('./screens/Admin').then((m) => ({ default: m.Admin })));
@@ -74,6 +74,8 @@ export function App() {
   }, []);
   // Screens that don't load the store finish the boot screen straight away.
   const storeScreen = !!user && user.status === 'approved' && !adminPath && !recovering;
+  // Once we know who is signed in, greet that person (or nobody), never the last person on this device.
+  useEffect(() => { if (user) bootGreet(user.name); else if (user === null) { const h = document.getElementById('bootHello'); if (h) h.textContent = ''; } }, [user]);
   useEffect(() => { if (user !== undefined && !storeScreen) bootDone(); }, [user, storeScreen]);
 
   if (user === undefined) return null;
