@@ -89,7 +89,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
   const toggleRail = () => { const v = !mini; setMini(v); try { localStorage.setItem('ssms-rail', v ? 'mini' : 'full'); } catch { /* ignore */ } };
 
   // A store with no stock take yet starts on the welcome page.
-  // New store members stay on the welcome page until 5 training days are done and the store has stock
+  // New store members stay on the welcome page until the training days are done and the store has stock
   // (a store with no stock unlocks its first stock take after training).
   const onboarding = api.mode !== 'training' && user.role !== 'admin' && (!isTrained(user) || !balances.length);
   if (onboarding && !(screen === 'stocktake' && isTrained(user))) return <><ZohoAutoSync /><Welcome /></>;

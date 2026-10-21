@@ -7,7 +7,7 @@ import { TRAINING_DAYS, trainingPlan } from '../lib/trainingPlan';
 import { ZohoStatusLine } from '../components/Zoho';
 
 /**
- * Start page for someone new: 5 working days of practice (Mon–Sat), then the first stock take
+ * Start page for someone new: 3 working days of practice (Mon–Sat), then the first stock take
  * (a store with no stock yet) or straight to check-in (a store that already has stock).
  */
 export function Welcome() {

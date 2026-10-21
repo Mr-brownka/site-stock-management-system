@@ -1,8 +1,8 @@
-// Store onboarding: 5 working days of practice (Mon–Sat), then the live store opens.
+// Store onboarding: 3 working days of practice (Mon–Sat), then the live store opens.
 import { addDays, today, weekday } from './dates';
 import type { User } from './types';
 
-export const TRAINING_DAYS = 5;
+export const TRAINING_DAYS = 3;
 
 export const isWorkday = (d: string) => weekday(d) !== 'Sun';
 
@@ -13,7 +13,7 @@ export function isTrained(u: User): boolean {
 
 export interface TrainingTile { n: number; date: string; state: 'done' | 'today' | 'ahead' }
 
-/** Five tiles: the days already done, then the next working days ahead (today first if not done yet). */
+/** One tile per training day: the days already done, then the next working days ahead (today first if not done yet). */
 export function trainingPlan(u: User, now = today()) {
   const done = [...(u.trainingDays ?? [])].sort().slice(0, TRAINING_DAYS);
   const doneToday = done.includes(now);
