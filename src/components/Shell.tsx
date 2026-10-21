@@ -17,8 +17,16 @@ const NAV: { screen: Screen; label: string; icon: string; match: Screen[] }[] = 
   { screen: 'reports', label: 'Reports', icon: 'report', match: ['reports'] },
   { screen: 'corrections', label: 'Fix an error', icon: 'fix', match: ['corrections'] },
 ];
+/** Records: past entries per kind, each with its colour (green in, orange out, blue back in, purple transfers). */
+const RECORDS: { screen: Screen; label: string; tone: string }[] = [
+  { screen: 'rec-deliveries', label: 'Deliveries', tone: 'deliveries' },
+  { screen: 'rec-issued', label: 'Issued items', tone: 'issued' },
+  { screen: 'rec-returns', label: 'Returned items', tone: 'returns' },
+  { screen: 'rec-transfers', label: 'Project transfers', tone: 'transfers' },
+];
+const readRecOpen = () => { try { return localStorage.getItem('ssms-records') !== 'closed'; } catch { return true; } };
 // Screens that show the phone tab bar (not the step-by-step forms).
-const TABBAR: Screen[] = ['home', 'dashboard', 'corrections', 'submitted', 'reports', 'stocktake'];
+const TABBAR: Screen[] = ['home', 'dashboard', 'corrections', 'submitted', 'reports', 'stocktake', 'rec-deliveries', 'rec-issued', 'rec-returns', 'rec-transfers'];
 
 export function closeLabel(min: number): string {
   if (min <= 0) return 'Register closed at 6:00 pm';
@@ -31,6 +39,9 @@ function crumbs(screen: Screen): string[] {
   if (step) return ['Check-in', `Step ${step.n} · ${step.label}`];
   if (screen === 'submitted') return ['Check-in', 'Day submitted'];
   if (CHECKIN.includes(screen)) return ['Check-in'];
+  const rec = RECORDS.find((r) => r.screen === screen);
+  if (rec) return ['Records', rec.label];
+  if (screen === 'reports') return ['Records', 'Reports'];
   return [NAV.find((n) => n.match.includes(screen))?.label ?? ''];
 }
 
@@ -39,6 +50,9 @@ const readRail = () => { try { return localStorage.getItem('ssms-rail') === 'min
 export function AppShell({ screen, children }: { screen: Screen; children: ReactNode }) {
   const { user, site, go, signOut, openAdmin, stepState, submission, lowItems, balances, day, projectWeek, syncing, catchUp, endCatchUp } = useData();
   const [mini, setMini] = useState(readRail);
+  const [recOpen, setRecOpen] = useState(readRecOpen);
+  const [userMenu, setUserMenu] = useState(false);
+  const toggleRec = () => { const v = !recOpen; setRecOpen(v); try { localStorage.setItem('ssms-records', v ? 'open' : 'closed'); } catch { /* ignore */ } };
   const [palette, setPalette] = useState(false);
   const [siteOpen, setSiteOpen] = useState(false);
   // The gold menu highlight slides to the current page.
@@ -47,7 +61,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
   useLayoutEffect(() => {
     const el = navRef.current?.querySelector<HTMLElement>('.railLink[aria-current="page"]');
     setInk(el ? { top: el.offsetTop, height: el.offsetHeight, opacity: 1 } : { top: 0, height: 0, opacity: 0 });
-  }, [screen, mini]);
+  }, [screen, mini, recOpen]);
   const min = useMinutesToClose();
   useSignal('palette', () => setPalette(true));
   // Ctrl/⌘ + K opens the search from anywhere.
@@ -79,16 +93,30 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
         <nav className="railNav" ref={navRef}>
           <span className="railInk" aria-hidden="true" style={ink} />
           <span className="railSec">Operations</span>
-          {NAV.map((n) => (
+          {NAV.slice(0, 2).map((n) => (
             <button key={n.screen} className="railLink" title={n.label} aria-current={n.match.includes(screen) ? 'page' : undefined} onClick={() => go(n.screen)}>
               <Icon name={n.icon} /><span className="rlText">{n.label}</span>
               {n.screen === 'home' && lowItems.length > 0 && <span className="railLow"><PulseDot />{lowItems.length}</span>}
             </button>
           ))}
-          <span className="railSec">Tools</span>
-          {user.role === 'admin' && <button className="railLink" title="Admin" onClick={openAdmin}><Icon name="user" /><span className="rlText">Admin</span></button>}
-          <StartTraining user={user} label="Training mode" />
-          <button className="railLink" title="Search" onClick={() => setPalette(true)}><Icon name="search" /><span className="rlText">Search</span><kbd className="rlText">Ctrl K</kbd></button>
+          <span className="railSec">Records</span>
+          <button className="railLink railGroup" title="Records" aria-expanded={recOpen} onClick={toggleRec}>
+            <Icon name="list" /><span className="rlText">Records</span><span className={`rgChev rlText ${recOpen ? 'open' : ''}`} aria-hidden="true">▾</span>
+          </button>
+          {recOpen && <>
+            {RECORDS.map((r) => (
+              <button key={r.screen} className={`railLink railSub ${r.tone}`} title={r.label} aria-current={screen === r.screen ? 'page' : undefined} onClick={() => go(r.screen)}>
+                <span className="rsDot" aria-hidden="true" /><span className="rlText">{r.label}</span>
+              </button>
+            ))}
+            <button className="railLink railSub" title="Reports" aria-current={screen === 'reports' ? 'page' : undefined} onClick={() => go('reports')}>
+              <Icon name="report" size={17} /><span className="rlText">Reports</span>
+            </button>
+          </>}
+          <span className="railSec">Corrections</span>
+          <button className="railLink" title="Fix an error" aria-current={screen === 'corrections' ? 'page' : undefined} onClick={() => go('corrections')}>
+            <Icon name="fix" /><span className="rlText">Fix an error</span>
+          </button>
         </nav>
         <div className={`railToday ${urgent ? 'urgent' : ''}`}>
           <Ring done={submission ? 4 : done} total={4} size={44} />
@@ -97,10 +125,19 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
             <span>{submission ? 'All four steps done' : closeLabel(min)}</span>
           </div>
         </div>
-        <div className="railUser">
-          <span className="avatar">{initials}</span>
-          <div className="rlText"><b>{user.name}</b><span>{user.role === 'admin' ? 'Admin' : 'Storekeeper'}{site ? ` · ${site}` : ''}{api.mode === 'demo' ? ' · demo' : ''}</span></div>
-          <button className="iconBtn sm rlText" onClick={signOut} title="Sign out" aria-label="Sign out"><Icon name="out" size={18} /></button>
+        <div className="railUserWrap">
+          {userMenu && (
+            <div className="railUserMenu" role="menu" onMouseLeave={() => setUserMenu(false)}>
+              {user.role === 'admin' && <button className="railLink" role="menuitem" onClick={() => { setUserMenu(false); openAdmin(); }}><Icon name="user" /><span className="rlText">Admin</span></button>}
+              <StartTraining user={user} label="Training mode" />
+              <button className="railLink signOut" role="menuitem" onClick={signOut}><Icon name="out" /><span className="rlText">Sign out</span></button>
+            </div>
+          )}
+          <button className="railUser" onClick={() => setUserMenu((v) => !v)} aria-expanded={userMenu} aria-haspopup="menu" title="Your account">
+            <span className="avatar">{initials}</span>
+            <div className="rlText"><b>{user.name}</b><span>{user.role === 'admin' ? 'Admin' : 'Storekeeper'}{site ? ` · ${site}` : ''}{api.mode === 'demo' ? ' · demo' : ''}</span></div>
+            <span className={`rgChev rlText ${userMenu ? 'open' : ''}`} aria-hidden="true">▴</span>
+          </button>
         </div>
         <button className="railCollapse" onClick={toggleRail} aria-label={mini ? 'Expand the menu' : 'Collapse the menu'} title={mini ? 'Expand the menu' : 'Collapse the menu'}><Icon name="panel" size={18} /><span className="rlText">Collapse menu</span></button>
       </aside>
@@ -135,7 +172,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
           <nav className="crumbs" aria-label="Breadcrumb">
             {trail.map((c, i) => (
               <span key={c} className="crPart"><span aria-hidden="true">/</span>
-                {i < trail.length - 1 ? <button onClick={() => go('home')}>{c}</button> : <b aria-current="page">{c}</b>}
+                {i < trail.length - 1 ? (c === 'Records' ? <span>{c}</span> : <button onClick={() => go('home')}>{c}</button>) : <b aria-current="page">{c}</b>}
               </span>
             ))}
           </nav>

@@ -21,6 +21,7 @@ import { bootDone, bootGreet, forgetVisitor } from './lib/boot';
 const Admin = lazy(() => import('./screens/Admin').then((m) => ({ default: m.Admin })));
 const Corrections = lazy(() => import('./screens/Corrections').then((m) => ({ default: m.Corrections })));
 const StockTake = lazy(() => import('./screens/StockTake').then((m) => ({ default: m.StockTake })));
+const Records = lazy(() => import('./screens/Records').then((m) => ({ default: m.Records })));
 const Reports = lazy(() => import('./screens/Reports').then((m) => ({ default: m.Reports })));
 const PageSkeleton = () => (
   <div className="page" aria-busy="true">
@@ -33,6 +34,8 @@ const PageSkeleton = () => (
 const SCREENS: Record<Screen, React.ComponentType> = {
   home: Home, deliveries: Deliveries, issued: Issued, returns: Returns, transfers: Transfers,
   submitted: Submitted, dashboard: DashboardJump, stocktake: StockTake, corrections: Corrections, reports: Reports, welcome: Home,
+  'rec-deliveries': () => <Records recKey="deliveries" />, 'rec-issued': () => <Records recKey="issued" />,
+  'rec-returns': () => <Records recKey="returns" />, 'rec-transfers': () => <Records recKey="transfers" />,
 };
 
 const fromHash = (): Screen => {
