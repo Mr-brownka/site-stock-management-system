@@ -37,7 +37,6 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
 
     const actions: Cmd[] = [
       { id: 'a-bal', group: 'Actions', label: 'Store balances', icon: 'chart', run: () => { go('home'); signal('dash', { tab: 'bal', filter: 'all' }); } },
-      { id: 'a-cons', group: 'Actions', label: 'Consumption', hint: 'What was used, by period', icon: 'chart', run: () => { go('home'); signal('dash', { tab: 'cons' }); } },
       { id: 'a-print', group: 'Actions', label: 'Print the stock take sheet', icon: 'print', run: to('stocktake') },
       { id: 'a-out', group: 'Actions', label: 'Sign out', icon: 'out', run: signOut },
     ];

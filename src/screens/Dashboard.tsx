@@ -49,7 +49,9 @@ export function Dashboard({ embedded = false }: { embedded?: boolean }) {
     try { p = JSON.parse(localStorage.getItem('ssms-dash-prefs') || '{}'); jump = sessionStorage.getItem('ssms-dash') || ''; sessionStorage.removeItem('ssms-dash'); } catch { /* ignore */ }
     return { tab: (jump ? 'bal' : p.tab ?? 'cons') as Tab, filter: (jump === 'low' ? 'low' : jump === 'bal' ? 'today' : 'all') as Filter, period: p.period ?? 'day', group: p.group ?? 'none' };
   });
-  const [tab, setTab] = useState<Tab>(prefs.tab);
+  // Consumption is switched off for now: the dashboard shows balances only.
+  const tab = 'bal' as Tab;
+  const setTab = (_t: Tab) => undefined;
   const [filter, setFilter] = useState<Filter>(prefs.filter);
   const [period, setPeriod] = useState<Period>(prefs.period);
   const [date, setDate] = useState(day);
@@ -161,16 +163,12 @@ export function Dashboard({ embedded = false }: { embedded?: boolean }) {
   return (
     <div className={`dash ${embedded ? 'embedded' : ''}`} id="dash">
       <div className="dashTop">
-        {embedded ? <div className="dashEmbHead"><h2>Store dashboard</h2><span className="small">Balances and consumption, live</span></div> : <div>
+        {embedded ? <div className="dashEmbHead"><h2>Store dashboard</h2><span className="small">What is in the store right now</span></div> : <div>
           <button className="back" onClick={() => go('home')}>← Back to check-in</button>
           <div className="mono" style={{ fontSize: 11, letterSpacing: '.08em', color: '#B9C0BC' }}>{siteLabel}{api.mode === 'demo' ? ' · DEMO' : ''}</div>
           <h1>Store dashboard</h1>
         </div>}
-        <div className="tabs" role="tablist" data-tab={tab}>
-          <span className="tabInk" aria-hidden />
-          <button role="tab" aria-selected={tab === 'cons'} onClick={() => setTab('cons')}>Consumption</button>
-          <button role="tab" aria-selected={tab === 'bal'} onClick={() => setTab('bal')}>Balances{lowItems.length > 0 && <span className="tabLow"><PulseDot />{lowItems.length}</span>}</button>
-        </div>
+
       </div>
 
       <div className="dashBody">
