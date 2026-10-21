@@ -4,6 +4,7 @@ import { fmt, Top } from '../components/ui';
 import { api } from '../lib/api';
 import { addDays, niceDate } from '../lib/dates';
 import { useData } from '../lib/store';
+import { currentScreen, goBack } from '../lib/nav';
 import type { CorrectionRequest, Doc } from '../lib/types';
 
 type Tab = 'pick' | 'fix' | 'recount' | 'mine';
@@ -106,11 +107,12 @@ export function Corrections() {
 
   const shownItems = balances.filter((b) => !q.trim() || b.name.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 40);
   const diff = bal && counted !== '' ? Number(counted) - bal.balance : 0;
-  const back = () => (tab === 'fix' && openDoc ? (setOpenDoc(null), reset()) : tab !== 'pick' ? toTab('pick') : go('home'));
+  const back = () => (tab === 'fix' && openDoc ? (setOpenDoc(null), reset()) : tab !== 'pick' ? toTab('pick') : goBack(go, currentScreen()));
+  const backLabel = tab === 'fix' && openDoc ? 'Pick another entry' : tab !== 'pick' ? 'What to fix' : undefined;
 
   return (
     <div className="phone fixPage">
-      <Top onBack={back} title="Fix an error" sub="Every change goes to the admin for approval. Nothing is deleted." />
+      <Top onBack={back} backLabel={backLabel} title="Fix an error" sub="Every change goes to the admin for approval. Nothing is deleted." />
       <main className="body">
         {msg && <div className="note ok enter" role="status">{msg}</div>}
 

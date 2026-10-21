@@ -6,6 +6,7 @@ import { api } from '../lib/api';
 import { addDays } from '../lib/dates';
 import { REPORTS, type Ctx, type Def, type Report } from '../lib/reports';
 import { useData } from '../lib/store';
+import { BackPill } from '../components/BackPill';
 import type { CorrectionRequest, Doc, Item, Submission } from '../lib/types';
 
 const D = (d: string) => new Date(d + 'T00:00:00Z');
@@ -36,7 +37,7 @@ const GROUP_NOTE: Record<string, string> = {
 };
 
 export function Reports() {
-  const { go, siteLabel } = useData();
+  const { siteLabel } = useData();
   const [key, setKey] = useState<string | null>(() => { try { return sessionStorage.getItem('ssms-report'); } catch { return null; } });
   const def = REPORTS.find((r) => r.key === key) ?? null;
   const open = (k: string | null) => { setKey(k); try { if (k) sessionStorage.setItem('ssms-report', k); else sessionStorage.removeItem('ssms-report'); } catch { /* ignore */ } window.scrollTo(0, 0); };
@@ -45,7 +46,7 @@ export function Reports() {
   return (
     <div className="phone reports">
       <header className="top">
-        <button className="back" onClick={() => go('home')}>← Back to check-in</button>
+        <BackPill />
         <div className="kicker"><span>{siteLabel}</span></div>
         <h1>Reports</h1>
         <div className="sub">{REPORTS.length} reports from the store’s entries. Pick one, choose the dates, then download to Excel or print.</div>
@@ -129,7 +130,7 @@ function ReportView({ def, onBack }: { def: Def; onBack: () => void }) {
   return (
     <div className="phone reports">
       <header className="top">
-        <button className="back" onClick={onBack}>← All reports</button>
+        <BackPill label="All reports" onClick={onBack} />
         <div className="kicker"><span>{siteLabel} · REPORT</span></div>
         <h1>{def.title}</h1>
         <div className="sub">{def.desc}</div>

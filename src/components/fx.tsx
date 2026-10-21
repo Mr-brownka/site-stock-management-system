@@ -75,6 +75,7 @@ const ICONS: Record<string, ReactNode> = {
   plus: <><path d="M12 5v14M5 12h14" {...P} /></>,
   mail: <><rect x="3" y="5" width="18" height="14" rx="2" {...P} /><path d="M4 7l8 6 8-6" {...P} /></>,
   upload: <><path d="M12 16V4M7 9l5-5 5 5M5 20h14" {...P} /></>,
+  arrowL: <><path d="M19 12H5M11 6l-6 6 6 6" {...P} /></>,
   chevL: <><path d="M15 6l-6 6 6 6" {...P} /></>,
   calendar: <><rect x="3" y="5" width="18" height="16" rx="2" {...P} /><path d="M3 10h18M8 3v4M16 3v4" {...P} /></>,
   user: <><circle cx="12" cy="8" r="4" {...P} /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" {...P} /></>,

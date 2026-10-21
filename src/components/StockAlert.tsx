@@ -39,7 +39,7 @@ export function AlertButton() {
   const sent = info?.sent_at ? new Date(info.sent_at) : null;
   return (
     <>
-      <button className="alertBtn" onClick={() => setOpen(true)}><ChatMark />Send to site admin</button>
+      <button className="alertBtn" onClick={() => setOpen(true)}><ChatMark />Send to Site manager</button>
       {sent && <div className="alertLast">Last sent: {sent.toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' })}{info?.sent_by ? ` · by ${info.sent_by.split(' ')[0]}` : ''}</div>}
       {open && createPortal(<AlertSheet info={info} onClose={() => setOpen(false)} onSent={load} />, document.body)}
     </>
@@ -99,7 +99,7 @@ function AlertSheet({ info, onClose, onSent }: { info: AlertInfo | null; onClose
     keepSign(sign);
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
     api.markAlertSent().then(onSent).catch(() => undefined);
-    toast(phone ? `WhatsApp opened for ${info?.name || 'the site admin'}` : 'WhatsApp opened · choose who to send it to');
+    toast(phone ? `WhatsApp opened for ${info?.name || 'the Site manager'}` : 'WhatsApp opened · choose who to send it to');
     onClose();
   };
   const copy = async () => { keepSign(sign); try { await navigator.clipboard.writeText(text); toast('Message copied'); } catch { toast('Could not copy', 'warn'); } };
@@ -112,13 +112,13 @@ function AlertSheet({ info, onClose, onSent }: { info: AlertInfo | null; onClose
     <div className="sheetBack alertBack" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <section className="alertSheet" role="dialog" aria-modal="true" aria-labelledby="alertTitle">
         <div className="asLeft">
-          <div className="asHead"><div><span className="asKicker">Needs attention · {lowItems.length} item{lowItems.length === 1 ? '' : 's'}</span><h2 id="alertTitle">Send to site admin</h2></div><button className="iconBtn" onClick={onClose} aria-label="Close"><Icon name="close" /></button></div>
+          <div className="asHead"><div><span className="asKicker">Needs attention · {lowItems.length} item{lowItems.length === 1 ? '' : 's'}</span><h2 id="alertTitle">Send to Site manager</h2></div><button className="iconBtn" onClick={onClose} aria-label="Close"><Icon name="close" /></button></div>
           <div className="asField"><span>To</span>
             <div className="asTo">
               <span className="avatar">{(info?.name || 'SA').split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase()}</span>
-              <div><b>{info?.name || 'Site admin'}</b><small>{phone ? `+${phone.slice(0, 3)} ${phone.slice(3, 4)}•• ••• ${phone.slice(-3)}` : 'No number saved · WhatsApp will ask who to send it to'}</small></div>
+              <div><b>{info?.name || 'Site manager'}</b><small>{phone ? `+${phone.slice(0, 3)} ${phone.slice(3, 4)}•• ••• ${phone.slice(-3)}` : 'No number saved · WhatsApp will ask who to send it to'}</small></div>
             </div>
-            {!phone && user.role === 'admin' && <small className="muted">Save the site admin’s WhatsApp number in Admin → Sites.</small>}
+            {!phone && user.role === 'admin' && <small className="muted">Save the Site manager’s WhatsApp number in Admin → Sites.</small>}
           </div>
           <div className="asField"><span>Message style</span>
             <div className="asTabs" role="tablist">{STYLES.map(([k, l]) => <button key={k} role="tab" aria-pressed={style === k} onClick={() => setStyle(k)}>{l}</button>)}</div>

@@ -9,6 +9,7 @@ import { Icon } from '../components/fx';
 import { fmt } from '../components/ui';
 import { toast } from '../components/feedback';
 import { checkZohoNow, useZohoDeliveries, ZohoTag } from '../components/Zoho';
+import { BackPill } from '../components/BackPill';
 
 export type RecKey = 'deliveries' | 'issued' | 'returns' | 'transfers';
 type Row = { doc: Doc; ref: string; paper: string; who: string; where: string };
@@ -98,6 +99,8 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
   };
 
   return (
+    <>
+    <div className="backWrap"><BackPill /></div>
     <div className={`recPage ${key}`}>
       {modal}
       <header className="recHead">
@@ -153,6 +156,7 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
         </div>
       )}
     </div>
+    </>
   );
 }
 

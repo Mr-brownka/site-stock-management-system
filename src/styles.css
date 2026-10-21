@@ -1994,3 +1994,28 @@ body.colDrag, body.colDrag * { cursor: col-resize !important; user-select: none 
 .kpi.cons .kpiLabel .ic { color: #B54708; }
 .kpiUnit { font-size: 14px; color: #6A7470; font-family: var(--body); margin-left: 6px; }
 .cdKick { line-height: 1.5; display: block; }
+
+/* Back pill on every page */
+.backPill { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px 0 10px; border-radius: 99px; border: 0; background: rgba(18,23,22,.06); color: #3D4542; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; transition: background .15s, color .15s, transform .15s var(--spring); white-space: nowrap; }
+.backPill:hover { background: rgba(18,23,22,.1); color: var(--ink); }
+.backPill:hover .ic { transform: translateX(-2px); }
+.backPill .ic { transition: transform .15s var(--ease); }
+.page > .backPill { margin-bottom: -10px; }
+.backWrap { padding: 18px 24px 0; }
+.backWrap + .recPage { margin-top: 10px !important; }
+.top .backPill { margin-bottom: 6px; }
+.top.ok .backPill, .top.out .backPill, .top.in .backPill { background: rgba(255,255,255,.18); color: #fff; }
+/* Process rows: where to start */
+.startHere { margin-left: 10px; height: 22px; padding: 0 9px; border-radius: 99px; background: var(--accent); color: var(--ink); font-size: 11.5px; font-weight: 800; letter-spacing: .04em; display: inline-flex; align-items: center; vertical-align: 2px; box-shadow: 0 4px 10px rgba(252,167,45,.35); }
+.procRow.zoho .procDot { border: none; background: #E6EEFB; color: #1A56C4; }
+.procRow.zoho .procActs .zohoTag { margin-right: 52px; }
+/* The menu's resize handle */
+@media (min-width: 1024px) {
+  .shell:not(.mini) { grid-template-columns: var(--railW, 212px) minmax(0, 1fr) !important; }
+  .railGrip { position: absolute; top: 0; right: 0; bottom: 0; width: 8px; cursor: col-resize; z-index: 6; }
+  .railGrip::after { content: ''; position: absolute; top: 0; bottom: 0; left: 3px; width: 2px; background: transparent; transition: background .15s; }
+  .railGrip:hover::after, body.railDrag .railGrip::after { background: var(--accent); }
+  body.railDrag, body.railDrag * { cursor: col-resize !important; user-select: none !important; }
+  body.railDrag .shell { transition: none !important; }
+  .toasts { left: calc(50% + var(--railW, 212px) / 2) !important; }
+}

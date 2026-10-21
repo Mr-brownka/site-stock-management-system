@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useData } from '../lib/store';
+import { BackPill } from './BackPill';
 import { type Item } from '../lib/types';
 
 export const fmt = (n: number) => n.toLocaleString('en-GB', { maximumFractionDigits: 2 });
@@ -19,11 +20,11 @@ export function enterNext(e: KeyboardEvent<HTMLElement>) {
   }
 }
 
-export function Top({ kicker, title, sub, tone, onBack, right }: { kicker?: string; title: string; sub?: ReactNode; tone?: 'out' | 'in' | 'ok'; onBack?: () => void; right?: ReactNode }) {
+export function Top({ kicker, title, sub, tone, onBack, backLabel, right }: { kicker?: string; title: string; sub?: ReactNode; tone?: 'out' | 'in' | 'ok'; onBack?: () => void; backLabel?: string; right?: ReactNode }) {
   const { siteLabel } = useData();
   return (
     <header className={`top ${tone ?? ''}`}>
-      {onBack && <button className="back" onClick={onBack}>← Back</button>}
+      {onBack && <BackPill onClick={onBack} label={backLabel} />}
       <div className="kicker"><span>{kicker ?? siteLabel}</span>{right}</div>
       <h1>{title}</h1>
       {sub && <div className="sub">{sub}</div>}

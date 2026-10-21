@@ -27,7 +27,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     suggested.push({ id: 's-ent', group: 'Suggested', label: `Today’s entries (${entries})`, icon: 'list', run: () => { go('home'); signal('entries'); } });
 
     const pages: Cmd[] = [
-      { id: 'p-home', group: 'Pages', label: 'Check-in', hint: 'Today’s four steps and store balances', icon: 'checkin', run: to('home') },
+      { id: 'p-home', group: 'Pages', label: 'Dashboard', hint: 'Today’s four steps and store balances', icon: 'checkin', run: to('home') },
       ...STEPS.map((s) => ({ id: `p-${s.key}`, group: 'Pages' as const, label: `Step ${s.n} · ${s.label}`, hint: s.desc, icon: { deliveries: 'truck', issued: 'card', returns: 'back', transfers: 'swap' }[s.key], run: to(s.screen) })),
       { id: 'p-st', group: 'Pages', label: 'Stock take', hint: 'Print the sheet, enter counts, history', icon: 'box', run: to('stocktake') },
       { id: 'p-rep', group: 'Pages', label: 'Reports', hint: 'Excel and print', icon: 'report', run: to('reports') },

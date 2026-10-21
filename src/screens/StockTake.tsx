@@ -8,6 +8,7 @@ import { api } from '../lib/api';
 import { useData } from '../lib/store';
 import type { Item, StockTake as Take } from '../lib/types';
 import { Upload } from './Opening';
+import { BackPill } from '../components/BackPill';
 
 type View = 'home' | 'enter' | 'upload';
 const nice = (d: string) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
@@ -136,7 +137,7 @@ export function StockTake() {
   if (view === 'upload') return (
     <div className="entryPage">
       <header className="entryHead enter">
-        <button className="entryBack" onClick={() => setView('home')}><Icon name="chevL" size={16} />Stock take</button>
+        <BackPill label="Stock take" onClick={() => setView('home')} />
         <div className="entryTitle"><div><h1>New stock take · from a file</h1><p>Upload the count. Bohari matches each line to {site || 'the store'}’s item list, then you check it before saving.</p></div></div>
       </header>
       <Upload first={first} onPairs={async (pairs) => {
@@ -149,7 +150,7 @@ export function StockTake() {
   if (view === 'enter') return (
     <div className="entryPage stEnterPage">
       <header className="entryHead enter">
-        <button className="entryBack" onClick={() => setView('home')}><Icon name="chevL" size={16} />Stock take</button>
+        <BackPill label="Stock take" onClick={() => setView('home')} />
         <div className="entryTitle"><div><h1>{first ? 'First stock take' : 'New stock take'}</h1><p>{imported ? 'Numbers from your file are filled in. Check them, then save.' : 'Type each count as you go, or copy it from the sheet. Enter moves to the next item.'}</p></div></div>
       </header>
       <section className="panel stHeadBar">
@@ -218,6 +219,7 @@ export function StockTake() {
 
   return (
     <div className="page stHomePage">
+      <BackPill />
       <header className="pageHead enter">
         <div className="phText"><h1>{first ? 'First stock take' : 'Stock take'}</h1><span className="phLead">{first ? 'Count the store once. Every balance starts from this count.' : 'Every count of the store, newest first.'}</span></div>
       </header>

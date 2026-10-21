@@ -7,6 +7,7 @@ import { api } from '../lib/api';
 import { periodRange, type Period } from '../lib/dates';
 import { useData } from '../lib/store';
 import { useSignal } from '../lib/signals';
+import { BackPill } from '../components/BackPill';
 import { type Balance, type Line } from '../lib/types';
 import { subphaseRank } from '../lib/structure';
 
@@ -41,7 +42,7 @@ function usage(lines: Line[]): Map<number, Use> {
 }
 
 export function Dashboard({ embedded = false }: { embedded?: boolean }) {
-  const { day, balances, refresh, go, siteLabel, isLow, lowItems, docsToday, recent, daysLeft } = useData();
+  const { day, balances, refresh, siteLabel, isLow, lowItems, docsToday, recent, daysLeft } = useData();
   // Remember the last view; a link from another screen (low stock, balances after today) wins.
   const [prefs] = useState(() => {
     let p: { tab?: Tab; period?: Period; group?: 'none' | 'sub' } = {};
@@ -169,14 +170,11 @@ export function Dashboard({ embedded = false }: { embedded?: boolean }) {
 
   return (
     <div className={`dash ${embedded ? 'embedded' : ''}`} id="dash">
-      <div className="dashTop">
-        {embedded ? <div className="dashEmbHead"><h2>Store dashboard</h2><span className="small">What is in the store right now</span></div> : <div>
-          <button className="back" onClick={() => go('home')}>← Back to check-in</button>
+      {!embedded && <div className="dashTop"><div>
+          <BackPill />
           <div className="mono" style={{ fontSize: 11, letterSpacing: '.08em', color: '#B9C0BC' }}>{siteLabel}{api.mode === 'demo' ? ' · DEMO' : ''}</div>
-          <h1>Store dashboard</h1>
-        </div>}
-
-      </div>
+          <h1>All items</h1>
+        </div></div>}
 
       <div className="dashBody">
         <main className="dashMain" key={tab}>

@@ -8,6 +8,7 @@ import type { Line } from '../lib/types';
 import { Icon } from '../components/fx';
 import { fmt } from '../components/ui';
 import { toast } from '../components/feedback';
+import { BackPill } from '../components/BackPill';
 
 type P = 'day' | 'week' | 'month' | 'pick';
 const PERIODS: [P, string][] = [['day', 'Today'], ['week', 'This week'], ['month', 'This month'], ['pick', 'Pick dates']];
@@ -78,6 +79,7 @@ export function Consumption() {
 
   return (
     <div className="page consPage">
+      <BackPill />
       <header className="pageHead enter">
         <div className="phText"><h1>Consumption</h1><span className="phLead">What the site used {periodText}: issued minus what came back. Click an item to see its days.</span></div>
         <div className="phActions">

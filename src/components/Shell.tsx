@@ -1,3 +1,4 @@
+import type React from 'react';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
 import { STEPS, useData, type Screen } from '../lib/store';
@@ -13,7 +14,7 @@ import { isTrained } from '../lib/trainingPlan';
 
 const CHECKIN: Screen[] = ['home', 'dashboard', 'submitted'];
 const NAV: { screen: Screen; label: string; icon: string; match: Screen[] }[] = [
-  { screen: 'home', label: 'Check-in', icon: 'checkin', match: CHECKIN },
+  { screen: 'home', label: 'Dashboard', icon: 'checkin', match: CHECKIN },
   { screen: 'stocktake', label: 'Stock take', icon: 'box', match: ['stocktake'] },
   { screen: 'reports', label: 'Reports', icon: 'report', match: ['reports'] },
   { screen: 'corrections', label: 'Fix an error', icon: 'fix', match: ['corrections'] },
@@ -38,20 +39,32 @@ export function closeLabel(min: number): string {
 function crumbs(screen: Screen): string[] {
   const entry = RECORDS.find((r) => r.entry === screen);
   if (entry) return ['Records', entry.label, 'New entry'];
-  if (screen === 'submitted') return ['Check-in', 'Day submitted'];
-  if (CHECKIN.includes(screen)) return ['Check-in'];
+  if (screen === 'submitted') return ['Dashboard', 'Day submitted'];
+  if (CHECKIN.includes(screen)) return ['Dashboard'];
   const rec = RECORDS.find((r) => r.screen === screen);
   if (rec) return ['Records', rec.label];
   if (screen === 'reports') return ['Records', 'Reports'];
-  if (screen === 'consumption') return ['Records', 'Consumption'];
+  if (screen === 'consumption') return ['Dashboard', 'Consumption'];
   return [NAV.find((n) => n.match.includes(screen))?.label ?? ''];
 }
 
 const readRail = () => { try { return localStorage.getItem('ssms-rail') === 'mini'; } catch { return false; } };
+const readRailW = () => { try { const v = Number(localStorage.getItem('ssms-rail-w')); return v >= 180 && v <= 340 ? v : 212; } catch { return 212; } };
 
 export function AppShell({ screen, children }: { screen: Screen; children: ReactNode }) {
   const { user, site, go, signOut, openAdmin, stepState, submission, lowItems, balances, day, projectWeek, syncing, catchUp, endCatchUp } = useData();
   const [mini, setMini] = useState(readRail);
+  // The menu can be dragged wider or narrower by its right edge; each person's width is remembered.
+  const [railW, setRailW] = useState(readRailW);
+  const dragRail = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const x0 = e.clientX, w0 = railW;
+    document.body.classList.add('railDrag');
+    let w = w0;
+    const move = (ev: PointerEvent) => { w = Math.max(180, Math.min(340, w0 + ev.clientX - x0)); setRailW(w); };
+    const up = () => { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); document.body.classList.remove('railDrag'); try { localStorage.setItem('ssms-rail-w', String(w)); } catch { /* ignore */ } };
+    document.addEventListener('pointermove', move); document.addEventListener('pointerup', up);
+  };
   const [recOpen, setRecOpen] = useState(readRecOpen);
   const [userMenu, setUserMenu] = useState(false);
   const toggleRec = () => { const v = !recOpen; setRecOpen(v); try { localStorage.setItem('ssms-records', v ? 'open' : 'closed'); } catch { /* ignore */ } };
@@ -87,9 +100,10 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
   const initials = user.name.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 
   return (
-    <div className={`shell ${TABBAR.includes(screen) ? 'hasTab' : ''} ${mini ? 'mini' : ''}`}>
+    <div className={`shell ${TABBAR.includes(screen) ? 'hasTab' : ''} ${mini ? 'mini' : ''}`} style={mini ? undefined : ({ '--railW': `${railW}px` } as React.CSSProperties)}>
       <ZohoAutoSync />
       <aside className="rail" aria-label="Main menu">
+        {!mini && <span className="railGrip" role="separator" aria-orientation="vertical" aria-label="Drag to make the menu wider or narrower" title="Drag to resize · double-click to reset" onPointerDown={dragRail} onDoubleClick={() => { setRailW(212); try { localStorage.removeItem('ssms-rail-w'); } catch { /* ignore */ } }} />}
         <div className="railBrand comexBrand" title="Comex Builders Ltd">
           {mini ? <ComexLogo dark hatOnly width={44} /> : <ComexLogo dark width={172} />}
         </div>
@@ -111,9 +125,6 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
                 <span className="rsDot" aria-hidden="true" /><span className="rlText">{r.label}</span>
               </button>
             ))}
-            <button className="railLink railSub" title="Consumption" aria-current={screen === 'consumption' ? 'page' : undefined} onClick={() => go('consumption')}>
-              <Icon name="chart" size={17} /><span className="rlText">Consumption</span>
-            </button>
             <button className="railLink railSub" title="Reports" aria-current={screen === 'reports' ? 'page' : undefined} onClick={() => go('reports')}>
               <Icon name="report" size={17} /><span className="rlText">Reports</span>
             </button>
@@ -126,7 +137,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
         <div className={`railToday ${urgent ? 'urgent' : ''}`}>
           <Ring done={submission ? 4 : done} total={4} size={44} />
           <div className="rlText">
-            <b>{submission ? 'Day submitted' : done === 4 ? 'Ready to submit' : 'Today’s check-in'}</b>
+            <b>{submission ? 'Day submitted' : done === 4 ? 'Ready to submit' : 'Today’s entries'}</b>
             <span>{submission ? 'All four steps done' : closeLabel(min)}</span>
           </div>
         </div>
@@ -202,7 +213,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
           {NAV.map((n) => (
             <button key={n.screen} aria-current={n.match.includes(screen) ? 'page' : undefined} onClick={() => go(n.screen)}>
               <span className="tbIcon"><Icon name={n.icon} size={22} />{n.screen === 'home' && lowItems.length > 0 && <PulseDot />}</span>
-              {{ home: 'Check-in', corrections: 'Fix', stocktake: 'Stock take' }[n.screen as string] ?? n.label}
+              {{ home: 'Dashboard', corrections: 'Fix', stocktake: 'Stock take' }[n.screen as string] ?? n.label}
             </button>
           ))}
           <button onClick={() => signal('palette')}><span className="tbIcon"><Icon name="search" size={22} /></span>Search</button>

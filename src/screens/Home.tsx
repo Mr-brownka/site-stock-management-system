@@ -17,7 +17,7 @@ import { ask, toast } from '../components/feedback';
 import { ADD_NOUN } from '../components/StepShell';
 import type { StepKey, StepState } from '../lib/types';
 import { openRecords, useAddEntry } from '../components/AddEntry';
-import { useZohoDeliveries } from '../components/Zoho';
+import { useZohoDeliveries, ZohoTag } from '../components/Zoho';
 
 const STEP_ICON: Record<string, string> = { deliveries: 'truck', issued: 'card', returns: 'back', transfers: 'swap' };
 
@@ -69,7 +69,8 @@ export function Home() {
     const ds = docsToday.filter((d) => s.kinds.includes(d.kind));
     const lines = ds.reduce((a, d) => a + d.lines.length, 0);
     if (states[i] === 'done') return { text: 'Done', detail: `${ds.length} entr${ds.length === 1 ? 'y' : 'ies'} · ${lines} line${lines === 1 ? '' : 's'}`, cls: 'done' };
-    if (states[i] === 'none') return { text: catchUp ? 'None that day' : 'None today', detail: s.key === 'deliveries' && zohoOnly ? 'Come in from Zoho by themselves' : 'Nothing to enter', cls: 'none' };
+    if (s.key === 'deliveries' && zohoOnly) return { text: '', detail: ds.length ? `${ds.length} came in from Zoho today` : 'Received in Zoho · they appear here by themselves', cls: 'zoho' };
+    if (states[i] === 'none') return { text: catchUp ? 'None that day' : 'None today', detail: 'Nothing to enter', cls: 'none' };
     if (!submission && firstTodo?.key === s.key) return { text: 'Next', detail: ds.length ? `${ds.length} entered during the day` : s.desc, cls: 'next' };
     return { text: 'Not started', detail: ds.length ? `${ds.length} entered during the day` : s.desc, cls: '' };
   };
@@ -182,7 +183,7 @@ export function Home() {
       )}
       <section className="kpis" aria-label="Key figures">
         <button className="kpi enter" onClick={() => toDash({ tab: 'bal', filter: 'all', focus: true })}>
-          <span className="kpiLabel">Items in store</span>
+          <span className="kpiLabel">All items</span>
           <Num value={balances.filter((b) => b.balance > 0).length} className="kpiNum" />
           <span className="kpiFoot">Open balances <Icon name="arrow" size={13} /></span>
         </button>
@@ -192,9 +193,9 @@ export function Home() {
           <span className="kpiFoot">{lowItems.length ? `${outCount} finished` : 'All good'}</span>
         </button>
         <button className={`kpi enter ${weekUse.n ? 'cons' : ''}`} style={{ animationDelay: '.08s' }} onClick={() => go('consumption')}>
-          <span className="kpiLabel"><Icon name="chart" size={14} />Consumption · this week</span>
-          <span className="kpiNum">{weekUse.top ? <><Num value={weekUse.top.used} /><span className="kpiUnit">{weekUse.top.it?.unit}</span></> : '0'}</span>
-          <span className="kpiFoot">{weekUse.top ? `${weekUse.top.it?.name ?? 'Item'} · top of ${weekUse.n}` : 'Nothing used yet this week'} <Icon name="arrow" size={13} /></span>
+          <span className="kpiLabel"><Icon name="chart" size={14} />Consumption</span>
+          <span className="kpiNum">{weekUse.top ? <><Num value={weekUse.top.used} /><span className="kpiUnit">{weekUse.top.it?.unit} this week</span></> : '0'}</span>
+          <span className="kpiFoot">{weekUse.top ? (weekUse.top.it?.name ?? 'Item') : 'Nothing used yet this week'} <Icon name="arrow" size={13} /></span>
         </button>
         <button className="kpi enter" style={{ animationDelay: '.12s' }} onClick={() => go('stocktake')}>
           <span className="kpiLabel">Last stock take</span>
@@ -215,12 +216,12 @@ export function Home() {
             return (
               <div key={s.key} className={`procRow ${st.cls}`}>
                 <button className="procMain" onClick={() => openRecords(go, s.key)} title={`See ${s.label.toLowerCase()}`}>
-                  <span className="procDot">{st.cls === 'done' ? <Icon name="check" size={16} /> : st.cls === 'none' ? '–' : s.n}</span>
+                  <span className="procDot">{st.cls === 'done' ? <Icon name="check" size={16} /> : st.cls === 'none' || st.cls === 'zoho' ? '–' : s.n}</span>
                   <span className="procIc"><Icon name={STEP_ICON[s.key]} size={18} /></span>
-                  <span className="procText"><b>{s.label}</b><span>{st.detail}</span></span>
+                  <span className="procText"><b>{s.label}{!submission && !locked && firstTodo?.key === s.key && <span className="startHere">Start here</span>}</b><span>{st.detail}</span></span>
                 </button>
                 <span className="procActs">
-                  {states[i] === 'todo' && !submission
+                  {st.cls === 'zoho' ? <ZohoTag /> : states[i] === 'todo' && !submission
                     ? <button className="procNone" onClick={() => noneToday(s.key)} title={`Nothing for ${s.label.toLowerCase()} ${catchUp ? 'that day' : 'today'}`}>None today</button>
                     : states[i] === 'none' && !submission && !(s.key === 'deliveries' && zohoOnly)
                       ? <button className="stPill idle asBtn" onClick={() => markStep(s.key, 'todo')} title="Undo">{st.text}</button>
@@ -256,10 +257,6 @@ export function Home() {
               );
             })}
             <AlertButton />
-          </section>
-          <section className="panel tip enter" style={{ animationDelay: '.14s' }}>
-            <span><kbd>Ctrl</kbd> <kbd>K</kbd> finds any item, page or action.</span>
-            <button className="btn link" onClick={() => signal('palette')}>Try it</button>
           </section>
         </aside>
       </div>

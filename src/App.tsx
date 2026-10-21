@@ -16,6 +16,7 @@ import { Submitted } from './screens/Submitted';
 import { Transfers } from './screens/Transfers';
 import { exitTraining } from './lib/training';
 import { bootDone, bootGreet, forgetVisitor } from './lib/boot';
+import { recordScreen } from './lib/nav';
 
 // Screens used less often load on demand, so the first download is smaller.
 const Admin = lazy(() => import('./screens/Admin').then((m) => ({ default: m.Admin })));
@@ -49,6 +50,7 @@ const isAdminPath = () => location.pathname.replace(/\/+$/, '') === '/admin';
 export function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [screen, setScreen] = useState<Screen>(fromHash);
+  useEffect(() => { recordScreen(screen); }, [screen]);
   const [recovering, setRecovering] = useState(() => api.isRecovery());
   const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState('');

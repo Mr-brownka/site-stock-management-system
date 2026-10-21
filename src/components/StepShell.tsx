@@ -4,21 +4,18 @@ import type { Doc, StepKey } from '../lib/types';
 import { toast } from './feedback';
 import { useZohoDeliveries } from './Zoho';
 import { openRecords } from './AddEntry';
+import { BackPill } from './BackPill';
 
 export const ADD_NOUN: Record<StepKey, string> = { deliveries: 'a delivery', issued: 'a card', returns: 'a return', transfers: 'a transfer' };
 const NEW_TITLE: Record<StepKey, string> = { deliveries: 'New delivery', issued: 'New withdrawal card', returns: 'New return', transfers: 'New project transfer' };
-const LIST_NAME: Record<StepKey, string> = { deliveries: 'Deliveries', issued: 'Issued items', returns: 'Returned items', transfers: 'Project transfers' };
 
 /** The heading every entry page shares: where you came from, what you're entering, and for which day. */
 export function EntryHead({ step, title, sub, right }: { step: StepKey; title?: string; sub?: ReactNode; right?: ReactNode }) {
-  const { go, day, catchUp, submission } = useData();
+  const { day, catchUp, submission } = useData();
   const d = new Date(day + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
   return (
     <header className="entryHead enter">
-      <button className="entryBack" onClick={() => openRecords(go, step)}>
-        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-        {LIST_NAME[step]}
-      </button>
+      <BackPill />
       <div className="entryTitle">
         <div><h1>{title ?? NEW_TITLE[step]}</h1>{sub && <p>{sub}</p>}</div>
         <span className={`entryDay ${catchUp ? 'catch' : ''}`}>{catchUp ? 'Catch-up · ' : ''}{d}{submission ? ' · added after submitting' : ''}</span>
