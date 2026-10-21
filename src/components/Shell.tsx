@@ -3,7 +3,7 @@ import { api } from '../lib/api';
 import { STEPS, useData, type Screen } from '../lib/store';
 import { longDate, weekdayName } from '../lib/dates';
 import { signal, useSignal } from '../lib/signals';
-import { ComexLogo, CrateMark, SiteLogo } from './Brand';
+import { ComexLogo, SiteLogo } from './Brand';
 import { Icon, PulseDot, Ring, useMinutesToClose } from './fx';
 import { StartTraining } from './Training';
 import { CommandPalette } from './CommandPalette';
@@ -102,7 +102,6 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
           <div className="rlText"><b>{user.name}</b><span>{user.role === 'admin' ? 'Admin' : 'Storekeeper'}{site ? ` · ${site}` : ''}{api.mode === 'demo' ? ' · demo' : ''}</span></div>
           <button className="iconBtn sm rlText" onClick={signOut} title="Sign out" aria-label="Sign out"><Icon name="out" size={18} /></button>
         </div>
-        <div className="poweredBy rlText"><CrateMark size={18} tile="dark" /><span>Powered by <b>Site Stock</b></span></div>
         <button className="railCollapse" onClick={toggleRail} aria-label={mini ? 'Expand the menu' : 'Collapse the menu'} title={mini ? 'Expand the menu' : 'Collapse the menu'}><Icon name="panel" size={18} /><span className="rlText">Collapse menu</span></button>
       </aside>
 

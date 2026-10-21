@@ -52,10 +52,15 @@ export function useDraft(step: StepKey) {
   return draft;
 }
 
-/** The gold card on the check-in page: entries with details to confirm, and drafts. */
+/** "Sub-phase missing" first, what it belongs to second: the missing part is what the eye lands on. */
+const missingText = (labels: string[]) =>
+  labels.length === 1 ? `${labels[0]} missing` : labels.length === 2 ? `${labels[0]} and ${labels[1].toLowerCase()} missing` : `${labels.length} details missing`;
+
+/** One slim line on the check-in page per unfinished entry (the first shown, the rest behind "+ more"). */
 export function UnfinishedCard() {
   const { unconfirmed, drafts, refreshUnfinished, openDraft, go, itemById, startCatchUp, realToday, day } = useData();
   const [finishing, setFinishing] = useState<Doc | null>(null);
+  const [all, setAll] = useState(false);
   const n = unconfirmed.length + drafts.length;
   if (!n) return null;
   const openIt = (d: Draft) => {
@@ -69,27 +74,30 @@ export function UnfinishedCard() {
     if (!(await ask({ title: 'Discard this draft?', body: <p>{d.label}. Nothing from it was counted in stock, so nothing else changes.</p>, yes: 'Discard draft', tone: 'danger' }))) return;
     await api.deleteDraft(d.id); await refreshUnfinished(); toast('Draft discarded');
   };
+  const rows = [
+    ...unconfirmed.map((d) => {
+      const labels = labelsFor(d.kind, d.to_confirm ?? []);
+      const what = `${KIND_NAME[d.kind] ?? 'Entry'}${d.ref_no ? ` ${d.ref_no}` : ''} · ${d.lines.slice(0, 2).map((l) => { const it = itemById.get(l.item_id); return `${it?.name ?? 'Item'} ${fmt(l.qty)} ${it?.unit ?? ''}`.trim(); }).join(', ')}${d.lines.length > 2 ? '…' : ''} · ${shortDay(d.doc_date)}`;
+      return (
+        <div key={d.id} className="fbRow">
+          <span className="fbIc" aria-hidden="true">!</span>
+          <div className="fbText"><b className="fbMiss">{missingText(labels)}</b><span className="fbWhat">{labels.length > 2 ? `${labels.join(', ')} · ` : ''}{what}</span></div>
+          <button className="btn sm" onClick={() => setFinishing(d)}>{labels.length === 1 ? `Add ${labels[0].toLowerCase()}` : 'Fill in'}</button>
+        </div>
+      );
+    }),
+    ...drafts.map((d) => (
+      <div key={d.id} className="fbRow draft">
+        <span className="fbIc" aria-hidden="true"><Icon name="list" size={14} /></span>
+        <div className="fbText"><b className="fbMiss">Draft not finished</b><span className="fbWhat">{d.label} · {shortDay(d.doc_date)} · not counted in stock</span></div>
+        <span className="fbActs"><button className="btn link" onClick={() => discard(d)}>Discard</button><button className="btn sm" onClick={() => openIt(d)}>Finish</button></span>
+      </div>
+    )),
+  ];
   return (
-    <section className="panel finishCard enter" aria-label="Entries to finish">
-      <header className="fcHead">
-        <span className="fcIc" aria-hidden="true"><Icon name="list" size={20} /></span>
-        <div><b>{n} entr{n === 1 ? 'y' : 'ies'} to finish</b><span>Shown every time you open Bohari until they're done.</span></div>
-      </header>
-      {unconfirmed.map((d) => (
-        <div key={d.id} className="fcRow">
-          <span className="fcTag confirm">To confirm</span>
-          <div className="fcText"><b>{KIND_NAME[d.kind] ?? 'Entry'}{d.ref_no ? ` ${d.ref_no}` : ''} · {d.lines.slice(0, 2).map((l) => `${itemById.get(l.item_id)?.name ?? 'Item'} ${fmt(l.qty)}`).join(', ')}{d.lines.length > 2 ? '…' : ''}</b>
-            <span>{shortDay(d.doc_date)} · {labelsFor(d.kind, d.to_confirm ?? []).join(', ')} not filled in · counted in stock</span></div>
-          <button className="btn sm" onClick={() => setFinishing(d)}>Fill in</button>
-        </div>
-      ))}
-      {drafts.map((d) => (
-        <div key={d.id} className="fcRow">
-          <span className="fcTag draft">Draft</span>
-          <div className="fcText"><b>{d.label}</b><span>{shortDay(d.doc_date)} · not counted in stock yet</span></div>
-          <span className="fcActs"><button className="btn link" onClick={() => discard(d)}>Discard</button><button className="btn ghost sm" onClick={() => openIt(d)}>Finish</button></span>
-        </div>
-      ))}
+    <section className="finBar enter" aria-label="Entries to finish">
+      {all ? rows : rows[0]}
+      {n > 1 && <button className="fbMore" onClick={() => setAll(!all)}>{all ? 'Show less' : `+ ${n - 1} more to finish`}</button>}
       {finishing && createPortal(<FinishSheet doc={finishing} onClose={() => setFinishing(null)} />, document.body)}
     </section>
   );

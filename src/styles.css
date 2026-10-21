@@ -1454,3 +1454,33 @@ body:has(.trainBar) .topbar { top: 50px; }
 .tbOne { width: 108px !important; text-align: center !important; font-size: 18px; letter-spacing: .02em; }
 .mwcSide .tbOne { width: 100% !important; min-height: 38px; }
 @media (prefers-reduced-motion: reduce) { .input.miss, .select.miss, .mwcIn.miss { animation: none !important; } }
+
+/* Today's entries: a tinted band per category (green in, orange out, blue back in, purple transfers). */
+.entBand { --c: #1F7A4D; --bg: #E7F4EC; border-radius: 14px; overflow: hidden; border: 1px solid var(--bg); }
+.entBand.issued { --c: #B54708; --bg: #FEF0E1; }
+.entBand.returns { --c: #2E5AAC; --bg: #E8EFFB; }
+.entBand.transfers { --c: #6B46C1; --bg: #F1ECFB; }
+.entBand.has { border-color: var(--c); }
+.entBandHead { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--bg); border: 0; color: var(--c); font: inherit; text-align: left; cursor: pointer; }
+.entBandHead:hover { filter: brightness(.98); }
+.ebIc { width: 30px; height: 30px; border-radius: 9px; background: #fff; display: grid; place-items: center; flex: none; }
+.ebName { flex: 1; }
+.ebTag { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+.ebCount { min-width: 28px; height: 28px; padding: 0 6px; border-radius: 99px; background: #fff; display: grid; place-items: center; font-weight: 700; }
+.entBand.has .ebCount { background: var(--c); color: #fff; }
+.entBandBody { padding: 10px; display: flex; flex-direction: column; gap: 8px; background: #fff; }
+.sheet .entBand + .entBand { margin-top: 10px; }
+
+/* Entries to finish: one slim line each. What is missing is the first and boldest thing on the line. */
+.finBar { display: flex; flex-direction: column; border-radius: 12px; background: #FFF8EC; border: 1.5px solid var(--accent); overflow: hidden; }
+.fbRow { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 6px 8px 6px 12px; }
+.fbRow + .fbRow { border-top: 1px solid #F1D9AE; }
+.fbIc { width: 26px; height: 26px; flex: none; border-radius: 50%; background: var(--accent); color: var(--ink); display: grid; place-items: center; font-weight: 800; animation: ring 2.2s ease-out infinite; }
+.fbRow.draft .fbIc { background: #fff; border: 1.5px dashed #A9B1AD; animation: none; }
+.fbText { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.fbMiss { color: #7A3E00; font-size: 16px; }
+.fbWhat { color: #6B5A45; font-size: 14px; min-width: 0; }
+.fbActs { display: flex; align-items: center; gap: 6px; }
+.fbMore { border: 0; border-top: 1px solid #F1D9AE; background: transparent; padding: 8px 12px; text-align: left; font: inherit; font-weight: 600; color: #8A5000; cursor: pointer; }
+@media (max-width: 640px) { .fbText { flex-direction: column; gap: 0; } }
+@media (prefers-reduced-motion: reduce) { .fbIc { animation: none; } }

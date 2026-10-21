@@ -306,6 +306,14 @@ export function Home() {
 
 const KIND_LABEL: Record<string, string> = { delivery: 'Delivery', issue: 'Withdrawal card', return: 'Return', transfer_in: 'Transfer in', transfer_out: 'Transfer out', correction: 'Correction', opening: 'Stock take' };
 
+/** One colour and icon per category, so each is told apart at a glance. */
+const CAT: Record<string, { tag: string; icon: string }> = {
+  deliveries: { tag: 'Stock in', icon: 'M12 4v12M6 10l6 6 6-6M5 20h14' },
+  issued: { tag: 'Stock out', icon: 'M12 20V8M6 14l6-6 6 6M5 4h14' },
+  returns: { tag: 'Back in', icon: 'M9 14l-5-5 5-5M4 9h10a6 6 0 0 1 0 12h-3' },
+  transfers: { tag: 'In / out', icon: 'M4 8h14l-4-4M20 16H6l4 4' },
+};
+
 /** Today's entries, grouped by step, with the option to open the step. */
 function EntriesSheet({ onClose }: { onClose: () => void }) {
   const { docsToday, itemById, go, submission } = useData();
@@ -322,10 +330,16 @@ function EntriesSheet({ onClose }: { onClose: () => void }) {
         <header className="sheetHead"><div><span className="chip">Today</span><h3 id="entTitle">{list.length} entr{list.length === 1 ? 'y' : 'ies'} today</h3></div><button className="iconBtn" onClick={onClose} aria-label="Close"><Icon name="close" /></button></header>
         {STEPS.map((st) => {
           const ds = list.filter((d) => st.kinds.includes(d.kind));
+          const c = CAT[st.key];
           return (
-            <div key={st.key} className="entGroup">
-              <div className="between"><b>{st.label}</b><button className="btn link" onClick={() => { onClose(); go(st.screen); }}>Open step {st.n}</button></div>
-              {!ds.length && <div className="small muted">Nothing yet.</div>}
+            <div key={st.key} className={`entBand ${st.key} ${ds.length ? 'has' : ''}`}>
+              <button className="entBandHead" onClick={() => { onClose(); go(st.screen); }} aria-label={`${st.label}: ${ds.length} · open step ${st.n}`}>
+                <span className="ebIc" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16"><path d={c.icon} fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
+                <b className="ebName">{st.label}</b>
+                <span className="ebTag">{c.tag}</span>
+                <span className="ebCount mono">{ds.length}</span>
+              </button>
+              {ds.length > 0 && <div className="entBandBody">
               {ds.map((d) => {
                 const late = !!submission && d.created_at > submission.submitted_at;
                 return (
@@ -336,6 +350,7 @@ function EntriesSheet({ onClose }: { onClose: () => void }) {
                   </div>
                 );
               })}
+              </div>}
             </div>
           );
         })}

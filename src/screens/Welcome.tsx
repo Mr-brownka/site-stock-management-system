@@ -66,7 +66,7 @@ export function Welcome() {
       {plan.finished && !hasStock && <button className="btn link welAgain" disabled={busy} onClick={practise}>Practise once more</button>}
 
       <footer className="welFoot">
-        Powered by Site Stock · {preview
+        {preview
           ? <button className="btn link" onClick={() => go('home')}>Back to check-in</button>
           : <button className="btn link" onClick={signOut}>Sign out</button>}
       </footer>
