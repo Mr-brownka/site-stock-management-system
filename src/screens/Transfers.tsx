@@ -3,7 +3,7 @@ import { StepShell } from '../components/StepShell';
 import { checkLines, enterNext, LineEditor, Suggest, type LineDraft } from '../components/ui';
 import { api } from '../lib/api';
 import { useData } from '../lib/store';
-import { LaterBar, linesFromPayload, linesToPayload, useDraft } from '../components/Unfinished';
+import { focusMiss, LaterBar, linesFromPayload, linesToPayload, useDraft } from '../components/Unfinished';
 import { toast } from '../components/feedback';
 
 type Dir = 'out' | 'in';
@@ -14,6 +14,8 @@ function TransferForm({ done }: { done: () => void }) {
   const day = draft?.doc_date ?? today_;
   const p = (draft?.payload ?? {}) as Record<string, string>;
   const [later, setLater] = useState<string[] | null>(null);
+  const [flag, setFlag] = useState(false); // after a save attempt: highlight what is still empty
+  const miss = (empty: boolean) => (flag && empty ? 'miss' : '');
   const [dir, setDir] = useState<Dir | null>((p.dir as Dir) ?? null);
   const [sites, setSites] = useState<string[]>([]);
   const [people, setPeople] = useState<string[]>([]);
@@ -40,7 +42,8 @@ function TransferForm({ done }: { done: () => void }) {
 
   const save = async (confirmLater = false) => {
     const hard = checkLines(lines, { stock: dir === 'out' ? balanceOf : undefined });
-    if (hard) { setErr(hard); setLater(null); return; }
+    setFlag(true);
+    if (hard) { setErr(hard); setLater(null); focusMiss(); return; }
     const missing = [!site.trim() && 'party', !note.trim() && 'ref_no', !by.trim() && 'authorised_by'].filter(Boolean) as string[];
     if (missing.length && !confirmLater) { setErr(''); setLater(missing); return; }
     setBusy(true); setErr(''); setLater(null);
@@ -68,17 +71,17 @@ function TransferForm({ done }: { done: () => void }) {
         <button className="btn link" onClick={() => setDir(null)}>Change</button>
       </div>
       <div className="card pad stack">
-        <Suggest label={dir === 'out' ? 'Sent to (site)' : 'Received from (site)'} value={site} onChange={setSite} options={sites} placeholder="Start typing the site name" autoFocus glow={!site} />
+        <Suggest label={dir === 'out' ? 'Sent to (site)' : 'Received from (site)'} value={site} onChange={setSite} options={sites} placeholder="Start typing the site name" autoFocus glow={!site} inputClass={miss(!site.trim())} />
         <label className="field"><span>Transfer note no.</span>
-          <input data-nav className={`input ${site && !note ? 'next' : ''}`} value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={enterNext} placeholder="e.g. TN 112" />
+          <input data-nav className={`input ${site && !note ? 'next' : ''} ${miss(!note.trim())}`} value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={enterNext} placeholder="e.g. TN 112" />
         </label>
-        <Suggest label="Authorised by" value={by} onChange={setBy} options={people} glow={!!note && !by} />
+        <Suggest label="Authorised by" value={by} onChange={setBy} options={people} glow={!!note && !by} inputClass={miss(!by.trim())} />
         <label className="field"><span>Vehicle (optional)</span>
           <input data-nav className="input" value={vehicle} onChange={(e) => setVehicle(e.target.value)} onKeyDown={enterNext} placeholder="e.g. KDA 123A" />
         </label>
       </div>
       <div className="label">Items</div>
-      <LineEditor lines={lines} setLines={setLines} withSubphase={false} stockCheck={dir === 'out'} />
+      <LineEditor lines={lines} setLines={setLines} withSubphase={false} stockCheck={dir === 'out'} flag={flag} />
       {err && <div className="note err" role="alert">{err}</div>}
       {later && <LaterBar kind={dir === 'out' ? 'transfer_out' : 'transfer_in'} missing={later} busy={busy} onLater={() => save(true)} onCancel={() => setLater(null)} />}
       <button data-nav className="btn accent" disabled={busy} onClick={() => save()}>{busy ? 'Saving…' : 'Save transfer'}</button>

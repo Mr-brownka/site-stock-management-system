@@ -20,14 +20,24 @@ const KIND_NAME: Record<string, string> = { delivery: 'Delivery', issue: 'Card',
 const labelsFor = (kind: string, keys: string[]) => [...new Set(keys.map((k) => DETAIL_LABEL[kind]?.[k] ?? k))];
 export const shortDay = (d: string) => `${weekdayName(d).slice(0, 3)} ${niceDate(d).split(' ').slice(1).join(' ')}`;
 
+/** Brings the first gently highlighted box into view and puts the cursor in it. */
+export function focusMiss() {
+  requestAnimationFrame(() => {
+    const el = document.querySelector<HTMLElement>('.miss');
+    if (!el) return;
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    el.focus({ preventScroll: true });
+  });
+}
+
 /** Shown under a form when details are missing: save now and confirm them later, or keep it as a draft. */
 export function LaterBar({ kind, missing, busy, onLater, onCancel }: { kind: string; missing: string[]; busy: boolean; onLater: () => void; onCancel: () => void }) {
   return (
     <div className="laterBar" role="alert">
       <span className="lbIc" aria-hidden="true"><Icon name="clock" size={18} /></span>
-      <div className="lbText"><b>Missing: {labelsFor(kind, missing).join(', ')}.</b><span>Quantities are complete, so you can save now. It counts in stock, and Bohari reminds you to fill these in.</span></div>
+      <div className="lbText"><b>Missing: {labelsFor(kind, missing).join(', ')}.</b><span>They're highlighted in yellow on the form. Quantities are complete, so you can also save now: it counts in stock, and Bohari reminds you to fill these in.</span></div>
       <span className="lbActs">
-        <button className="btn ghost sm" onClick={onCancel}>Fill them in now</button>
+        <button className="btn ghost sm" onClick={() => { onCancel(); focusMiss(); }}>Fill them in now</button>
         <button className="btn sm" disabled={busy} onClick={onLater}>{busy ? 'Saving…' : 'Save · confirm later'}</button>
       </span>
     </div>

@@ -168,8 +168,8 @@ let lineKey = 1;
 export const newLine = (subphase = ''): LineDraft => ({ key: lineKey++, item: null, qty: '', subphase });
 
 /** Rows of item · quantity · unit (locked) · subphase. */
-export function LineEditor({ lines, setLines, withSubphase, stockCheck, subphaseLabel = 'Subphase' }: {
-  lines: LineDraft[]; setLines: (l: LineDraft[]) => void; withSubphase: boolean; stockCheck?: boolean; subphaseLabel?: string;
+export function LineEditor({ lines, setLines, withSubphase, stockCheck, subphaseLabel = 'Subphase', flag }: {
+  lines: LineDraft[]; setLines: (l: LineDraft[]) => void; withSubphase: boolean; stockCheck?: boolean; subphaseLabel?: string; flag?: boolean;
 }) {
   const { balanceOf, subphases } = useData();
   const patch = (k: number, p: Partial<LineDraft>) => setLines(lines.map((l) => (l.key === k ? { ...l, ...p } : l)));
@@ -179,22 +179,23 @@ export function LineEditor({ lines, setLines, withSubphase, stockCheck, subphase
         const q = Number(l.qty);
         const have = l.item ? balanceOf(l.item.id) : 0;
         const over = stockCheck && l.item && q > have;
+        const ms = lineMiss(lines, i, flag);
         return (
           <div className="lineCard" key={l.key}>
             <div className="full between"><span className="label">Item {i + 1}</span>{lines.length > 1 && <button type="button" className="x" onClick={() => setLines(lines.filter((x) => x.key !== l.key))}>Remove</button>}</div>
-            <div className="full"><ItemPicker item={l.item} onPick={(it) => patch(l.key, { item: it })} autoFocus={i > 0 && !l.item} glow /></div>
+            <div className="full"><ItemPicker item={l.item} onPick={(it) => patch(l.key, { item: it })} autoFocus={i > 0 && !l.item} glow inputClass={ms.item ? 'miss' : ''} /></div>
             <label className="field" style={{ gridColumn: '1 / 2' }}>
               <span>{stockCheck && l.item ? `In store: ${fmt(have)}` : ' '}</span>
             </label>
             <label className="field"><span>Qty</span>
-              <input data-nav className={`input num ${over ? 'bad' : l.item && !l.qty ? 'next' : ''}`} inputMode="decimal" value={l.qty} onKeyDown={enterNext}
+              <input data-nav className={`input num ${over ? 'bad' : l.item && !l.qty ? 'next' : ''} ${ms.qty ? 'miss' : ''}`} inputMode="decimal" value={l.qty} onKeyDown={enterNext}
                 onChange={(e) => patch(l.key, { qty: e.target.value.replace(/[^0-9.]/g, '') })} aria-invalid={!!over} />
             </label>
             <label className="field"><span>Unit</span><input className="input locked" value={l.item?.unit ?? ''} readOnly tabIndex={-1} aria-label="Unit (fixed)" /></label>
             {over && <div className="full hint bad">Only {fmt(have)} {l.item!.unit} in store. Check the quantity.</div>}
             {withSubphase && (
               <label className="field full"><span>{subphaseLabel}</span>
-                <select data-nav className="select" value={l.subphase} onChange={(e) => patch(l.key, { subphase: e.target.value })} onKeyDown={enterNext}>
+                <select data-nav className={`select ${ms.sub ? 'miss' : ''}`} value={l.subphase} onChange={(e) => patch(l.key, { subphase: e.target.value })} onKeyDown={enterNext}>
                   <option value="">Choose…</option>
                   {subphases.map((s) => <option key={s}>{s}</option>)}
                 </select>
@@ -225,26 +226,44 @@ export function checkLines(lines: LineDraft[], opts: { subphase?: boolean; stock
   return null;
 }
 
-/** Time as two boxes, hour then minute. Typing two digits in the hour jumps to the minute;
- *  two digits in the minute moves on to the next field. */
-export function TimeBoxes({ value, onChange, glow, label = 'Time', onDone }: { value: string; onChange: (v: string) => void; glow?: boolean; label?: string; onDone?: (el: HTMLElement) => void }) {
-  const [h, m] = (value || ':').split(':');
-  const hRef = useRef<HTMLInputElement>(null), mRef = useRef<HTMLInputElement>(null);
-  const set = (hh: string, mm: string) => onChange(hh || mm ? `${hh}:${mm}` : '');
-  const clamp = (v: string, max: number) => (v.length === 2 && Number(v) > max ? String(max) : v);
-  const hourGlow = glow && !h;
-  const minGlow = glow && !!h && h.length === 2 && !m;
+/** Reads a time the way people write it: 08:45, 8:45, 8.45, 845, 8:45pm, 8pm, 20:45.
+ *  Returns HH:MM (24-hour), or null when it isn't a time. */
+export function parseTime(raw: string): string | null {
+  const s = raw.trim().toLowerCase().replace(/\s+/g, '');
+  if (!s) return null;
+  const m = s.match(/^(\d{1,2})(?:[:.h]?(\d{2}))?(am|pm|a|p)?$/);
+  if (!m) return null;
+  let h = Number(m[1]);
+  const mm = Number(m[2] ?? 0);
+  if (m[3]) { if (h < 1 || h > 12) { if (h > 12 && h <= 23) { /* 20:45pm: already 24-hour */ } else return null; } else h = (h % 12) + (m[3][0] === 'p' ? 12 : 0); }
+  if (h > 23 || mm > 59) return null;
+  return `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+}
+
+/** Time in one box, shown as HH:MM. Accepts 8:45, 845 or 8:45pm and tidies it to 08:45 / 20:45. */
+export function TimeBoxes({ value, onChange, glow, label = 'Time', onDone, miss }: { value: string; onChange: (v: string) => void; glow?: boolean; label?: string; onDone?: (el: HTMLElement) => void; miss?: boolean }) {
+  const [raw, setRaw] = useState(value);
+  const [bad, setBad] = useState(false);
+  // Follow the value when the form sets or clears it, but not while a half-typed time is in the box.
+  useEffect(() => { if ((parseTime(raw) ?? '') !== value) setRaw(value); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+  const tidy = () => { const t = parseTime(raw); if (t) { setRaw(t); setBad(false); } else setBad(!!raw.trim()); };
   return (
     <div className="field timeBoxes">
       <span>{label}</span>
-      <div className="tbRow">
-        <input ref={hRef} data-nav className={`input num tbBox ${hourGlow ? 'next' : ''}`} inputMode="numeric" placeholder="HH" aria-label={`${label} hour`} value={h ?? ''} maxLength={2}
-          onChange={(e) => { const v = clamp(e.target.value.replace(/\D/g, '').slice(0, 2), 23); set(v, m ?? ''); if (v.length === 2) mRef.current?.focus(); }} />
-        <b>:</b>
-        <input ref={mRef} data-nav className={`input num tbBox ${minGlow ? 'next' : ''}`} inputMode="numeric" placeholder="MM" aria-label={`${label} minute`} value={m ?? ''} maxLength={2}
-          onChange={(e) => { const v = clamp(e.target.value.replace(/\D/g, '').slice(0, 2), 59); set(h ?? '', v); if (v.length === 2) { if (onDone) onDone(mRef.current!); else focusNext(mRef.current!); } }}
-          onKeyDown={(e) => { if (e.key === 'Backspace' && !m) hRef.current?.focus(); }} />
-      </div>
+      <input data-nav className={`input num tbOne ${glow && !raw ? 'next' : ''} ${bad ? 'bad' : ''} ${miss && !value ? 'miss' : ''}`} placeholder="HH:MM" aria-label={label} value={raw} maxLength={8} autoComplete="off"
+        onChange={(e) => { const v = e.target.value.replace(/[^0-9:.apmAPM ]/g, ''); setRaw(v); setBad(false); onChange(parseTime(v) ?? ''); }}
+        onBlur={tidy}
+        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); tidy(); if (onDone) onDone(e.currentTarget); else focusNext(e.currentTarget); } }} />
+      {bad && <span className="hint bad">Write it as HH:MM, e.g. 08:45 or 8:45pm</span>}
     </div>
   );
+}
+
+/** After a save attempt, which boxes on a line are still empty (highlighted gently). */
+export function lineMiss(lines: LineDraft[], i: number, flag?: boolean) {
+  const l = lines[i];
+  if (!flag) return { item: false, qty: false, sub: false };
+  const none = !lines.some((x) => x.item || x.qty);
+  return { item: (!l.item && !!l.qty) || (none && i === 0), qty: !!l.item && !(Number(l.qty) > 0), sub: !!l.item && !l.subphase };
 }

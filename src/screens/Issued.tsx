@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { StepShell } from '../components/StepShell';
-import { checkLines, enterNext, fmt, ItemPicker, newLine, Suggest, TimeBoxes, type LineDraft } from '../components/ui';
+import { checkLines, enterNext, fmt, ItemPicker, lineMiss, newLine, Suggest, TimeBoxes, type LineDraft } from '../components/ui';
 import { api } from '../lib/api';
 import { addDays } from '../lib/dates';
 import { useData } from '../lib/store';
-import { LaterBar, linesFromPayload, linesToPayload, useDraft } from '../components/Unfinished';
+import { focusMiss, LaterBar, linesFromPayload, linesToPayload, useDraft } from '../components/Unfinished';
 import { toast } from '../components/feedback';
 
 const ROWS = 7; // the paper card has seven item rows
@@ -17,6 +17,8 @@ function CardForm({ done, again }: { done: () => void; again: () => Promise<void
   const day = draft?.doc_date ?? today_;
   const p = (draft?.payload ?? {}) as Record<string, string>;
   const [later, setLater] = useState<string[] | null>(null);
+  const [flag, setFlag] = useState(false); // after a save attempt: highlight what is still empty
+  const miss = (empty: boolean) => (flag && empty ? 'miss' : '');
   const [known, setKnown] = useState<Map<string, string>>(new Map());
   const [acts, setActs] = useState<string[]>([]);
   const [people, setPeople] = useState<string[]>([]);
@@ -50,7 +52,8 @@ function CardForm({ done, again }: { done: () => void; again: () => Promise<void
   const save = async (stay: boolean, confirmLater = false) => {
     // Items, quantities and stock must be right; the other boxes can be confirmed later.
     const hard = dupe ? `Card ${code} was already entered on ${dupe}.` : checkLines(lines, { stock: balanceOf });
-    if (hard) { setErr(hard); setLater(null); return; }
+    setFlag(true);
+    if (hard) { setErr(hard); setLater(null); focusMiss(); return; }
     const missing = [!code.trim() && 'ref_no', !activity.trim() && 'activity', time.length !== 5 && 'doc_time', !gemba && 'gemba', !gemba && 'subphase', !to.trim() && 'party', !sup.trim() && 'supervisor'].filter(Boolean) as string[];
     if (missing.length && !confirmLater) { setErr(''); setLater(missing); return; }
     setBusy(stay ? 'again' : 'save'); setErr(''); setLater(null);
@@ -62,7 +65,7 @@ function CardForm({ done, again }: { done: () => void; again: () => Promise<void
       setStamped(true);
       if (stay) {
         await again();
-        setTimeout(() => { setStamped(false); setCode(''); setCardNo(''); setTime(''); setActivity(''); setGemba(''); setTo(''); setSup(''); setLines(blank()); setBusy(''); window.scrollTo({ top: 0, behavior: 'smooth' }); }, 700);
+        setTimeout(() => { setStamped(false); setFlag(false); setCode(''); setCardNo(''); setTime(''); setActivity(''); setGemba(''); setTo(''); setSup(''); setLines(blank()); setBusy(''); window.scrollTo({ top: 0, behavior: 'smooth' }); }, 700);
       } else setTimeout(done, 900);
     } catch (e) { setErr((e as Error).message); setBusy(''); }
   };
@@ -79,16 +82,16 @@ function CardForm({ done, again }: { done: () => void; again: () => Promise<void
 
   // The right-hand column of the item rows on the paper: Time, Gemba, Issued to, Date.
   const side: { label?: string; node?: JSX.Element }[] = [
-    { node: <TimeBoxes value={time} onChange={setTime} glow={!!activity.trim() && time.length < 5} /> },
+    { node: <TimeBoxes value={time} onChange={setTime} glow={!!activity.trim() && time.length < 5} miss={flag} /> },
     { label: 'Gemba' },
     { node: (
       <label className="field bare"><span className="sr">Gemba</span>
-        <select data-nav className={`select input mwcIn ${activity && time.length === 5 && !gemba ? 'next' : ''}`} value={gemba} onChange={(e) => setGemba(e.target.value)} onKeyDown={enterNext}>
+        <select data-nav className={`select input mwcIn ${activity && time.length === 5 && !gemba ? 'next' : ''} ${miss(!gemba)}`} value={gemba} onChange={(e) => setGemba(e.target.value)} onKeyDown={enterNext}>
           <option value="">Choose…</option>{subphases.map((s) => <option key={s}>{s}</option>)}
         </select>
       </label>) },
     { label: 'Issued to' },
-    { node: <Suggest bare label="Issued to" value={to} onChange={setTo} options={people} placeholder="Name" glow={!!gemba && !to} inputClass="mwcIn" /> },
+    { node: <Suggest bare label="Issued to" value={to} onChange={setTo} options={people} placeholder="Name" glow={!!gemba && !to} inputClass={`mwcIn ${miss(!to.trim())}`} /> },
     { label: 'Date' },
     { node: <div className="mwcDate mono">{dateText}</div> },
   ];
@@ -109,11 +112,11 @@ function CardForm({ done, again }: { done: () => void; again: () => Promise<void
         <div className="mwcHead vals">
           <div>
             <label className="field bare"><span className="sr">Code (red number)</span>
-              <input data-nav className={`input mwcIn mwcCode mono ${!code ? 'next' : ''} ${dupe ? 'bad' : ''}`} inputMode="numeric" value={code} autoFocus placeholder="5154"
+              <input data-nav className={`input mwcIn mwcCode mono ${!code ? 'next' : ''} ${dupe ? 'bad' : ''} ${miss(!code.trim())}`} inputMode="numeric" value={code} autoFocus placeholder="5154"
                 onChange={(e) => setCode(e.target.value.replace(/[^0-9A-Za-z-]/g, ''))} onKeyDown={enterNext} />
             </label>
           </div>
-          <div><Suggest bare label="Activity" value={activity} onChange={setActivity} options={acts} placeholder="e.g. Plaster" glow={!!code && !dupe && !activity} inputClass="mwcIn" /></div>
+          <div><Suggest bare label="Activity" value={activity} onChange={setActivity} options={acts} placeholder="e.g. Plaster" glow={!!code && !dupe && !activity} inputClass={`mwcIn ${miss(!activity.trim())}`} /></div>
           <div>
             <label className="field bare"><span className="sr">Card No</span>
               <input data-nav className="input mwcIn mono" value={cardNo} onChange={(e) => setCardNo(e.target.value)} onKeyDown={enterNext} placeholder="(optional)" />
@@ -130,15 +133,16 @@ function CardForm({ done, again }: { done: () => void; again: () => Promise<void
             const q = Number(l.qty) || 0;
             const have = l.item ? balanceOf(l.item.id) : 0;
             const over = !!l.item && q > have;
+            const ms = lineMiss(lines, i, flag);
             return [
               <div key={`n${l.key}`} className="mwcTd mwcN mono" style={{ gridRow: i + 2 }}>{i + 1}</div>,
               <div key={`i${l.key}`} className="mwcTd mwcItem" style={{ gridRow: i + 2 }}>
-                <ItemPicker bare label={`Item ${i + 1}`} item={l.item} onPick={(it) => patch(l.key, { item: it })} inputClass="mwcIn" placeholder={i === firstEmpty ? 'Item…' : ''} glow={headDone && i === firstEmpty} />
+                <ItemPicker bare label={`Item ${i + 1}`} item={l.item} onPick={(it) => patch(l.key, { item: it })} inputClass={`mwcIn ${ms.item ? 'miss' : ''}`} placeholder={i === firstEmpty ? 'Item…' : ''} glow={headDone && i === firstEmpty} />
                 {l.item && <span className={`mwcHave ${over ? 'bad' : ''}`}>{over ? `Only ${fmt(have)} in store` : `${fmt(have)} in store`}</span>}
               </div>,
               <div key={`q${l.key}`} className="mwcTd" style={{ gridRow: i + 2 }}>
                 <label className="field bare"><span className="sr">Qty for item {i + 1}</span>
-                  <input data-nav className={`input mwcIn num ${over ? 'bad' : l.item && !l.qty ? 'next' : ''}`} inputMode="decimal" value={l.qty} onKeyDown={enterNext}
+                  <input data-nav className={`input mwcIn num ${over ? 'bad' : l.item && !l.qty ? 'next' : ''} ${ms.qty ? 'miss' : ''}`} inputMode="decimal" value={l.qty} onKeyDown={enterNext}
                     onChange={(e) => patch(l.key, { qty: e.target.value.replace(/[^0-9.]/g, '') })} aria-invalid={over} />
                 </label>
               </div>,
@@ -151,7 +155,7 @@ function CardForm({ done, again }: { done: () => void; again: () => Promise<void
 
         <div className="mwcAppr">Approval</div>
         <div className="mwcFoot">
-          <div><span>SM/Supervisor :</span><Suggest bare label="SM / Supervisor" value={sup} onChange={setSup} options={sups} placeholder="Name" glow={used.some((l) => l.item && l.qty) && !sup} inputClass="mwcIn" /></div>
+          <div><span>SM/Supervisor :</span><Suggest bare label="SM / Supervisor" value={sup} onChange={setSup} options={sups} placeholder="Name" glow={used.some((l) => l.item && l.qty) && !sup} inputClass={`mwcIn ${miss(!sup.trim())}`} /></div>
           <div><span>Store keeper :</span><b>{user.name}</b></div>
         </div>
       </div>

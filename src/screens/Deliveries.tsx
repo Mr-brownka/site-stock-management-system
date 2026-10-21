@@ -5,7 +5,7 @@ import { Icon } from '../components/fx';
 import { checkLines, enterNext, fmt, newLine, Suggest, type LineDraft } from '../components/ui';
 import { api } from '../lib/api';
 import { addDays, niceDate } from '../lib/dates';
-import { LaterBar, linesFromPayload, linesToPayload, useDraft } from '../components/Unfinished';
+import { focusMiss, LaterBar, linesFromPayload, linesToPayload, useDraft } from '../components/Unfinished';
 import { toast } from '../components/feedback';
 import { useData } from '../lib/store';
 
@@ -21,6 +21,8 @@ function DeliveryForm({ done, again }: { done: () => void; again: () => Promise<
   const [vehicle, setVehicle] = useState(p.vehicle ?? '');
   const [lines, setLines] = useState<LineDraft[]>(() => linesFromPayload(draft?.payload.lines, itemById));
   const [later, setLater] = useState<string[] | null>(null);
+  const [flag, setFlag] = useState(false); // after a save attempt: highlight what is still empty
+  const miss = (empty: boolean) => (flag && empty ? 'miss' : '');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState('');
   useEffect(() => { api.remembered('supplier').then(setSuppliers); }, []);
@@ -38,7 +40,8 @@ function DeliveryForm({ done, again }: { done: () => void; again: () => Promise<
   const save = async (stay: boolean, confirmLater = false) => {
     // Quantities and duplicates must be right; other details can be confirmed later.
     const hard = dupe ? `${supplier} note ${note} was already entered on ${niceDate(dupe.date)}.` : checkLines(lines, {});
-    if (hard) { setErr(hard); setLater(null); return; }
+    setFlag(true);
+    if (hard) { setErr(hard); setLater(null); focusMiss(); return; }
     const missing = [!supplier.trim() && 'party', !note.trim() && 'ref_no', used.some((l) => !l.subphase) && 'subphase'].filter(Boolean) as string[];
     if (missing.length && !confirmLater) { setErr(''); setLater(missing); return; }
     setBusy(stay ? 'again' : 'save'); setErr(''); setLater(null);
@@ -47,7 +50,7 @@ function DeliveryForm({ done, again }: { done: () => void; again: () => Promise<
         used.map((l) => ({ item_id: l.item!.id, qty: Number(l.qty), subphase: l.subphase || null })));
       if (draft) await api.deleteDraft(draft.id).catch(() => undefined);
       if (missing.length || draft) refreshUnfinished();
-      if (stay) { await again(); setSupplier(''); setNote(''); setVehicle(''); setLines([newLine()]); setBusy(''); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+      if (stay) { await again(); setFlag(false); setSupplier(''); setNote(''); setVehicle(''); setLines([newLine()]); setBusy(''); window.scrollTo({ top: 0, behavior: 'smooth' }); }
       else done();
     } catch (e) { setErr((e as Error).message); setBusy(''); }
   };
@@ -72,11 +75,11 @@ function DeliveryForm({ done, again }: { done: () => void; again: () => Promise<
           <header className="panelHead"><b>Delivery note</b><span className="small muted">From the paper the driver hands over</span></header>
           <div className="formFields">
             <div className="span2">
-              <Suggest label="Supplier" value={supplier} onChange={setSupplier} options={suppliers} placeholder="Start typing the supplier name" autoFocus glow={!supplier} />
+              <Suggest label="Supplier" value={supplier} onChange={setSupplier} options={suppliers} placeholder="Start typing the supplier name" autoFocus glow={!supplier} inputClass={miss(!supplier.trim())} />
               {last && <span className="hint">Last delivery from {supplier.trim()}: {niceDate(last.date)} · {last.ref}</span>}
             </div>
             <label className="field"><span>Delivery note no.</span>
-              <input data-nav className={`input mono ${supplier && !note ? 'next' : ''} ${dupe ? 'bad' : ''}`} value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={enterNext} placeholder="e.g. DN 0421" />
+              <input data-nav className={`input mono ${supplier && !note ? 'next' : ''} ${dupe ? 'bad' : ''} ${miss(!note.trim())}`} value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={enterNext} placeholder="e.g. DN 0421" />
               {dupe && <span className="hint bad">Already entered on {niceDate(dupe.date)}</span>}
             </label>
             <label className="field"><span>Vehicle / driver <i className="muted" style={{ fontStyle: 'normal', fontWeight: 400 }}>(optional)</i></span>
@@ -88,7 +91,7 @@ function DeliveryForm({ done, again }: { done: () => void; again: () => Promise<
 
         <section className="panel" aria-label="Items received">
           <header className="panelHead"><b>Items received</b><span className="small muted keyHintInline">Enter moves to the next box</span></header>
-          <LineTable lines={lines} setLines={setLines} withSubphase effect="in" glowFirst={!!note.trim() && !lines[0]?.item} />
+          <LineTable lines={lines} setLines={setLines} withSubphase effect="in" glowFirst={!!note.trim() && !lines[0]?.item} flag={flag} />
         </section>
 
         {err && <div className="note err" role="alert">{err}</div>}

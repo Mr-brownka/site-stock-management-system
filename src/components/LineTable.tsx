@@ -1,11 +1,11 @@
-import { fmt, ItemPicker, newLine, enterNext, type LineDraft } from './ui';
+import { fmt, ItemPicker, lineMiss, newLine, enterNext, type LineDraft } from './ui';
 import { Icon } from './fx';
 import { useData } from '../lib/store';
 
 /** Item lines as an ERP table: # · item · unit · qty · subphase · in store after · remove.
  *  `effect` says whether the lines add to the store (deliveries) or take from it. */
-export function LineTable({ lines, setLines, withSubphase, effect = 'in', glowFirst }: {
-  lines: LineDraft[]; setLines: (l: LineDraft[]) => void; withSubphase?: boolean; effect?: 'in' | 'out'; glowFirst?: boolean;
+export function LineTable({ lines, setLines, withSubphase, effect = 'in', glowFirst, flag }: {
+  lines: LineDraft[]; setLines: (l: LineDraft[]) => void; withSubphase?: boolean; effect?: 'in' | 'out'; glowFirst?: boolean; flag?: boolean;
 }) {
   const { balanceOf, subphases } = useData();
   const patch = (k: number, p: Partial<LineDraft>) => setLines(lines.map((l) => (l.key === k ? { ...l, ...p } : l)));
@@ -24,21 +24,22 @@ export function LineTable({ lines, setLines, withSubphase, effect = 'in', glowFi
             const have = l.item ? balanceOf(l.item.id) : 0;
             const after = effect === 'in' ? have + q : have - q;
             const over = effect === 'out' && !!l.item && q > have;
+            const ms = lineMiss(lines, i, flag);
             return (
               <tr key={l.key} className={over ? 'bad' : ''}>
                 <td className="ltN mono">{i + 1}</td>
-                <td className="ltItem"><ItemPicker bare label={`Item ${i + 1}`} item={l.item} onPick={(it) => patch(l.key, { item: it })} autoFocus={i > 0 && !l.item} glow={glowFirst && i === 0 || i > 0} inputClass="sm" /></td>
+                <td className="ltItem"><ItemPicker bare label={`Item ${i + 1}`} item={l.item} onPick={(it) => patch(l.key, { item: it })} autoFocus={i > 0 && !l.item} glow={glowFirst && i === 0 || i > 0} inputClass={`sm ${ms.item ? 'miss' : ''}`} /></td>
                 <td className="ltU muted">{l.item?.unit ?? '–'}</td>
                 <td className="ltQ">
                   <label><span className="sr">Quantity for line {i + 1}</span>
-                    <input data-nav className={`input sm num ${over ? 'bad' : l.item && !l.qty ? 'next' : ''}`} inputMode="decimal" placeholder="0" value={l.qty} onKeyDown={enterNext}
+                    <input data-nav className={`input sm num ${over ? 'bad' : l.item && !l.qty ? 'next' : ''} ${ms.qty ? 'miss' : ''}`} inputMode="decimal" placeholder="0" value={l.qty} onKeyDown={enterNext}
                       onChange={(e) => patch(l.key, { qty: e.target.value.replace(/[^0-9.]/g, '') })} aria-invalid={over} />
                   </label>
                 </td>
                 {withSubphase && (
                   <td className="ltS">
                     <label><span className="sr">Subphase for line {i + 1}</span>
-                      <select data-nav className={`select input sm ${l.item && l.qty && !l.subphase ? 'next' : ''}`} value={l.subphase} onChange={(e) => patch(l.key, { subphase: e.target.value })} onKeyDown={enterNext}>
+                      <select data-nav className={`select input sm ${l.item && l.qty && !l.subphase ? 'next' : ''} ${ms.sub ? 'miss' : ''}`} value={l.subphase} onChange={(e) => patch(l.key, { subphase: e.target.value })} onKeyDown={enterNext}>
                         <option value="">Choose…</option>{subphases.map((s) => <option key={s}>{s}</option>)}
                       </select>
                     </label>

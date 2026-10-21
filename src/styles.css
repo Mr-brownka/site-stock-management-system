@@ -1447,3 +1447,10 @@ body:has(.trainBar) .topbar { top: 50px; }
 .fcActs { display: flex; align-items: center; gap: 10px; }
 .daKicker { font-size: 12px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #8A5000; }
 .finSummary { padding: 12px 14px; border-radius: 12px; background: #F4F6F5; font-size: 14px; }
+
+/* Gentle highlight on boxes still empty after a save attempt: soft yellow, one slow pulse, no red. */
+.input.miss, .select.miss, .mwcIn.miss { border-color: #E9B44C !important; background: #FFF8E6 !important; box-shadow: 0 0 0 3px rgba(252, 167, 45, .16) !important; animation: missPulse 1.8s ease-out 1 !important; }
+@keyframes missPulse { 0% { box-shadow: 0 0 0 0 rgba(252, 167, 45, .45); } 70% { box-shadow: 0 0 0 8px rgba(252, 167, 45, 0); } 100% { box-shadow: 0 0 0 3px rgba(252, 167, 45, .16); } }
+.tbOne { width: 108px !important; text-align: center !important; font-size: 18px; letter-spacing: .02em; }
+.mwcSide .tbOne { width: 100% !important; min-height: 38px; }
+@media (prefers-reduced-motion: reduce) { .input.miss, .select.miss, .mwcIn.miss { animation: none !important; } }
