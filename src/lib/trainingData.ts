@@ -26,7 +26,7 @@ export function buildAstanaTraining(allItems: Item[], user: { email: string; nam
   let nextLine = 1, seq = 1;
   const bal = new Map<number, number>();
   const id = () => `t${(seq++).toString(36)}${Math.floor(R() * 1e6).toString(36)}`;
-  const add = (d: DocInput, lines: [string, number, string?][], at: string, returnOf?: Map<number, number>): Doc | null => {
+  const add = (d: DocInput & Partial<Pick<Doc, 'source' | 'zoho_grn' | 'zoho_po'>>, lines: [string, number, string?][], at: string, returnOf?: Map<number, number>): Doc | null => {
     const ls: Line[] = [];
     const docId = id();
     for (const [n, q0, sub] of lines) {
@@ -117,7 +117,9 @@ export function buildAstanaTraining(allItems: Item[], user: { email: string; nam
     for (const [n] of due) { const [, s] = supplierOf(n); groups.set(s, [...(groups.get(s) ?? []), [n, deliverySize[n] ?? 50]]); }
     if (!isToday) for (const [s, ls] of groups) {
       const code = supplierOf(ls[0][0])[2];
-      add({ kind: 'delivery', doc_date: day, ref_no: `${code}-${String(2200 + dn++).padStart(5, '0')}`, party: s, vehicle: `KC${String.fromCharCode(65 + between(0, 25))} ${between(100, 999)}${String.fromCharCode(65 + between(0, 25))}` }, ls.map(([n, q]) => [n, q]), iso(day, `0${between(7, 9)}:${between(10, 55)}`));
+      // Like the real stores: deliveries are received in Zoho and come into Bohari by themselves.
+      const grn = `GRN-${String(103000 + dn).padStart(6, '0')}`;
+      add({ kind: 'delivery', doc_date: day, source: 'zoho', zoho_grn: grn, zoho_po: `PO-${String(8800 + dn).padStart(5, '0')}`, ref_no: `${code}-${String(2200 + dn++).padStart(5, '0')}`, party: s, vehicle: `KC${String.fromCharCode(65 + between(0, 25))} ${between(100, 999)}${String.fromCharCode(65 + between(0, 25))}` }, ls.map(([n, q]) => [n, q]), iso(day, `0${between(7, 9)}:${between(10, 55)}`));
     }
 
     // Withdrawal cards through the day.

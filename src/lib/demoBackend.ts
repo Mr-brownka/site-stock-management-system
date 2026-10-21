@@ -2,7 +2,7 @@
 // before Supabase is connected. Nothing leaves the phone.
 import ITEMS from '../data/items.json';
 import { addDays, today, weekday } from './dates';
-import { delta, type Backend, type Balance, type CorrectionRequest, type Doc, type DocInput, type Draft, type Field, type Item, type Line, type LineInput, type Profile, type SiteDoc, type SiteInfo, type StockTake, type Submission } from './types';
+import { delta, type Backend, type Balance, type CorrectionRequest, type Doc, type DocInput, type Draft, type Field, type Item, type Line, type LineInput, type Profile, type SiteDoc, type SiteInfo, type StockTake, type Submission, type ZohoStatus } from './types';
 
 const KEY = 'ssms-demo-v4';
 const SITE = 'site-reveal';
@@ -96,7 +96,7 @@ function load(key: string, make: () => Store): Store {
   return make();
 }
 
-export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'demo' | 'training' } = {}): Backend {
+export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'demo' | 'training'; zohoStatus?: () => Promise<ZohoStatus | null> } = {}): Backend {
   const key = opts.key ?? KEY;
   // eslint-disable-next-line prefer-const
   let s = load(key, opts.seed ?? seed);
@@ -167,9 +167,14 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
       const st = s.sites.find((x) => x.id === SITE);
       return { name: st?.alert_name ?? 'Site admin', phone: st?.alert_phone ?? null, sent_at: st?.alert_sent_at ?? null, sent_by: st?.alert_sent_by ?? null };
     },
-    async zohoStatus() { return null; },
+    // Training mirrors the person's real Zoho connection, so practice looks like their real store
+    // (deliveries come from Zoho, nothing to type). The practice copy itself never talks to Zoho.
+    async zohoStatus() {
+      const real = await opts.zohoStatus?.().catch(() => null);
+      return real?.connected ? { ...real, last_sync_at: new Date().toISOString(), last_error: null } : null;
+    },
     async zohoConnect() { throw new Error('Zoho connects in the live app only, not the demo.'); },
-    async zohoSync() { return { connected: false }; },
+    async zohoSync() { return (await this_.zohoStatus())?.connected ? { connected: true, imported: 0, pending: 0 } : { connected: false }; },
     async sendMail() { await new Promise((r) => setTimeout(r, 600)); return { ok: true, from: 'demo@comex.co.ke' }; },
     async zohoDisconnect() { /* demo */ },
     async checkDelivery(docId) { s.docs = s.docs.map((d) => (d.id === docId ? { ...d, checked_at: new Date().toISOString() } : d)); save(); },
