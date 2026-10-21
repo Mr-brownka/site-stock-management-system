@@ -5,16 +5,22 @@ import { Icon } from '../components/fx';
 import { checkLines, enterNext, fmt, newLine, Suggest, type LineDraft } from '../components/ui';
 import { api } from '../lib/api';
 import { addDays, niceDate } from '../lib/dates';
+import { LaterBar, linesFromPayload, linesToPayload, useDraft } from '../components/Unfinished';
+import { toast } from '../components/feedback';
 import { useData } from '../lib/store';
 
 function DeliveryForm({ done, again }: { done: () => void; again: () => Promise<void> }) {
-  const { day, user, docsToday, itemById, go } = useData();
+  const { day: today_, user, docsToday, itemById, go, refreshUnfinished } = useData();
+  const draft = useDraft('deliveries');
+  const day = draft?.doc_date ?? today_;
+  const p = (draft?.payload ?? {}) as Record<string, string>;
   const [suppliers, setSuppliers] = useState<string[]>([]);
   const [past, setPast] = useState<{ party: string; ref: string; date: string }[]>([]);
-  const [supplier, setSupplier] = useState('');
-  const [note, setNote] = useState('');
-  const [vehicle, setVehicle] = useState('');
-  const [lines, setLines] = useState<LineDraft[]>([newLine()]);
+  const [supplier, setSupplier] = useState(p.supplier ?? '');
+  const [note, setNote] = useState(p.note ?? '');
+  const [vehicle, setVehicle] = useState(p.vehicle ?? '');
+  const [lines, setLines] = useState<LineDraft[]>(() => linesFromPayload(draft?.payload.lines, itemById));
+  const [later, setLater] = useState<string[] | null>(null);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState('');
   useEffect(() => { api.remembered('supplier').then(setSuppliers); }, []);
@@ -29,16 +35,29 @@ function DeliveryForm({ done, again }: { done: () => void; again: () => Promise<
   const linesOk = used.length > 0 && !checkLines(lines, { subphase: true });
   const todays = docsToday.filter((d) => d.kind === 'delivery');
 
-  const save = async (stay: boolean) => {
-    const problem = !supplier.trim() ? 'Enter the supplier.' : !note.trim() ? 'Enter the delivery note number.'
-      : dupe ? `${supplier} note ${note} was already entered on ${niceDate(dupe.date)}.` : checkLines(lines, { subphase: true });
-    if (problem) { setErr(problem); return; }
-    setBusy(stay ? 'again' : 'save'); setErr('');
+  const save = async (stay: boolean, confirmLater = false) => {
+    // Quantities and duplicates must be right; other details can be confirmed later.
+    const hard = dupe ? `${supplier} note ${note} was already entered on ${niceDate(dupe.date)}.` : checkLines(lines, {});
+    if (hard) { setErr(hard); setLater(null); return; }
+    const missing = [!supplier.trim() && 'party', !note.trim() && 'ref_no', used.some((l) => !l.subphase) && 'subphase'].filter(Boolean) as string[];
+    if (missing.length && !confirmLater) { setErr(''); setLater(missing); return; }
+    setBusy(stay ? 'again' : 'save'); setErr(''); setLater(null);
     try {
-      await api.saveDocument({ kind: 'delivery', doc_date: day, ref_no: note.trim(), party: supplier.trim(), vehicle: vehicle.trim() || null },
-        used.map((l) => ({ item_id: l.item!.id, qty: Number(l.qty), subphase: l.subphase })));
+      await api.saveDocument({ kind: 'delivery', doc_date: day, ref_no: note.trim() || null, party: supplier.trim() || null, vehicle: vehicle.trim() || null, ...(missing.length ? { to_confirm: missing } : {}) },
+        used.map((l) => ({ item_id: l.item!.id, qty: Number(l.qty), subphase: l.subphase || null })));
+      if (draft) await api.deleteDraft(draft.id).catch(() => undefined);
+      if (missing.length || draft) refreshUnfinished();
       if (stay) { await again(); setSupplier(''); setNote(''); setVehicle(''); setLines([newLine()]); setBusy(''); window.scrollTo({ top: 0, behavior: 'smooth' }); }
       else done();
+    } catch (e) { setErr((e as Error).message); setBusy(''); }
+  };
+  const saveDraft = async () => {
+    if (!supplier.trim() && !note.trim() && !used.length) { setErr('Nothing to keep yet.'); return; }
+    setBusy('draft');
+    try {
+      if (draft) await api.deleteDraft(draft.id).catch(() => undefined);
+      await api.saveDraft({ step: 'deliveries', doc_date: day, label: `Delivery · ${supplier.trim() || 'supplier not filled in'}${note.trim() ? ` · ${note.trim()}` : ''}`, payload: { supplier, note, vehicle, lines: linesToPayload(lines) } });
+      await refreshUnfinished(); toast('Saved as a draft · not counted in stock yet'); go('home');
     } catch (e) { setErr((e as Error).message); setBusy(''); }
   };
 
@@ -73,8 +92,10 @@ function DeliveryForm({ done, again }: { done: () => void; again: () => Promise<
         </section>
 
         {err && <div className="note err" role="alert">{err}</div>}
+        {later && <LaterBar kind="delivery" missing={later} busy={!!busy} onLater={() => save(false, true)} onCancel={() => setLater(null)} />}
         <div className="actionBar">
           <button className="btn ghost sm" onClick={() => go('home')}>Cancel</button>
+          <button className="btn link" disabled={!!busy} onClick={saveDraft}>{busy === 'draft' ? 'Saving…' : 'Save as draft'}</button>
           <span className="abGrow" />
           <button data-nav className="btn ghost sm" disabled={!!busy} onClick={() => save(true)}>{busy === 'again' ? 'Saving…' : 'Save & add another'}</button>
           <button className="btn accent sm" disabled={!!busy} onClick={() => save(false)}>{busy === 'save' ? 'Saving…' : 'Save delivery'}</button>
@@ -112,6 +133,6 @@ export function Deliveries() {
     <StepShell step="deliveries" question="Did any deliveries arrive today?" hint="Count every delivery note received at the store."
       another="Was there another delivery?" formTitle="New delivery"
       renderForm={(done, again) => <DeliveryForm done={done} again={again} />}
-      docTitle={(d) => `${d.party} · ${d.ref_no}`} />
+      docTitle={(d) => `${d.party ?? '(supplier to confirm)'} · ${d.ref_no ?? '(note to confirm)'}`} />
   );
 }

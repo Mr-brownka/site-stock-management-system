@@ -5,7 +5,11 @@
 import { addDays } from './dates';
 import type { WeekInfo } from './types';
 
-export const weekStart = (d: string) => addDays(d, -((new Date(d + 'T00:00:00Z').getUTCDay() + 6) % 7));
+// Work weeks run Monday to Saturday. Sunday is not a working day: it belongs to the week that starts the next day.
+export const weekStart = (d: string) => {
+  const wd = new Date(d + 'T00:00:00Z').getUTCDay();
+  return wd === 0 ? addDays(d, 1) : addDays(d, -(wd - 1));
+};
 
 export function projectWeekNo(day: string, info: WeekInfo, entryDays: string[]): number | null {
   if (!info.anchorNo || !info.anchorDate) return null;

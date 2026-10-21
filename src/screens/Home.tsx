@@ -7,6 +7,7 @@ import { Dashboard } from './Dashboard';
 import { fmt } from '../components/ui';
 import { longDate, niceDate, today, weekday, weekdayName } from '../lib/dates';
 import { DayStrip, type DayCell } from '../components/DayStrip';
+import { UnfinishedCard } from '../components/Unfinished';
 import { TRAINING_DAYS } from '../lib/trainingPlan';
 import { resetDemo } from '../lib/demoBackend';
 import { STEPS, useData } from '../lib/store';
@@ -18,7 +19,7 @@ const STEP_ICON: Record<string, string> = { deliveries: 'truck', issued: 'card',
 
 export function Home() {
   const { day, user, balances, docsToday, stepState, submission, refresh, go, signOut, lowItems, daysLeft, itemById,
-    realToday, catchUp, pendingDays, startCatchUp, endCatchUp, closeDay, refreshPending } = useData();
+    realToday, catchUp, pendingDays, startCatchUp, endCatchUp, closeDay, refreshPending, drafts } = useData();
   const locked = !catchUp && pendingDays.length > 0;
   const [runTotal, setRunTotal] = useState(0);
   const [askDay, setAskDay] = useState<{ day: string; holiday: string | null } | null>(null);
@@ -83,6 +84,14 @@ export function Home() {
   };
 
   const submit = async () => {
+    const open = drafts.filter((d) => d.doc_date === day);
+    if (open.length) {
+      await ask({ title: `${catchUp ? wd : 'Today'} can't be submitted yet`, body: <>
+        <p>{open.length} draft{open.length === 1 ? ' isn’t' : 's aren’t'} finished: {open.map((d) => d.label).join(', ')}.</p>
+        <p>Finish {open.length === 1 ? 'it' : 'them'} or discard {open.length === 1 ? 'it' : 'them'} from the list at the top first. Details still to confirm don’t block submitting.</p></>,
+        yes: 'OK', no: 'Close' });
+      return;
+    }
     const lines = docsToday.reduce((a, d) => a + d.lines.length, 0);
     const ok = await ask({
       title: `Submit ${new Date(day + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'long', timeZone: 'UTC' })}’s register?`,
@@ -180,6 +189,7 @@ export function Home() {
           ))}
         </section>
       )}
+      <UnfinishedCard />
       <section className="kpis" aria-label="Key figures">
         <button className="kpi enter" onClick={() => toDash({ tab: 'bal', filter: 'all' })}>
           <span className="kpiLabel">Items in store</span>

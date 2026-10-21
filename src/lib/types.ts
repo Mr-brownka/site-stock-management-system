@@ -19,6 +19,8 @@ export interface DocInput {
   vehicle?: string | null;
   card_no?: string | null;
   reason?: string | null;
+  /** Details left out on purpose, to fill in later (e.g. 'subphase', 'ref_no'). */
+  to_confirm?: string[];
 }
 
 export interface LineInput {
@@ -87,7 +89,13 @@ export interface User {
   trainingWaived?: boolean;
 }
 
-export interface SiteInfo {
+/** How a project is built: decides the sub-phases (floors) offered on forms. */
+export interface Structure { basements: number; has_ground: boolean; floors: number | null; roof_name: string | null }
+
+/** An unfinished entry: kept, but not counted in stock until finished. */
+export interface Draft { id: string; step: StepKey; doc_date: string; label: string; payload: Record<string, unknown>; created_at: string }
+
+export interface SiteInfo extends Partial<Structure> {
   id: string;
   name: string;
   company: string;
@@ -169,7 +177,8 @@ export interface AdminApi {
   setChecklist(siteId: string, itemIds: number[]): Promise<void>;
   setProjectWeek(siteId: string, week: number): Promise<void>;
   sites(): Promise<SiteInfo[]>;
-  addSite(name: string): Promise<void>;
+  addSite(name: string, structure?: Structure): Promise<void>;
+  setStructure(id: string, structure: Structure): Promise<void>;
   renameSite(id: string, name: string): Promise<void>;
   corrections(): Promise<CorrectionRequest[]>;
   decide(id: string, approve: boolean, note?: string): Promise<void>;
@@ -197,7 +206,13 @@ export interface Backend {
   myCorrections(): Promise<CorrectionRequest[]>;
   admin: AdminApi;
   /** The signed-in person's company and site, e.g. Comex Builders / Reveal. */
-  siteName(): Promise<{ company: string; site: string }>;
+  siteName(): Promise<{ company: string; site: string; structure?: Structure | null }>;
+  /** Entries saved with details still to confirm, newest first. */
+  unconfirmed(): Promise<Doc[]>;
+  confirmDetails(docId: string, fields: Record<string, string>): Promise<void>;
+  drafts(): Promise<Draft[]>;
+  saveDraft(d: Omit<Draft, 'id' | 'created_at'>): Promise<void>;
+  deleteDraft(id: string): Promise<void>;
   items(): Promise<Item[]>;
   addItem(name: string, unit: string): Promise<Item>;
   remembered(field: Field): Promise<string[]>;

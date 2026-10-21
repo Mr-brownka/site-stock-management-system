@@ -4,7 +4,8 @@ import { api } from './api';
 import { projectWeekNo } from './projectWeek';
 import { addDays, today, weekday } from './dates';
 import { holidayName } from './holidays';
-import type { Balance, Doc, Item, StepKey, StepState, Submission, User, WeekInfo } from './types';
+import type { Balance, Doc, Draft, Item, StepKey, StepState, Structure, Submission, User, WeekInfo } from './types';
+import { subphasesFor } from './structure';
 
 export const STEPS: { key: StepKey; n: number; label: string; desc: string; kinds: Doc['kind'][]; screen: Screen }[] = [
   { key: 'deliveries', n: 1, label: 'Deliveries', desc: 'Supplier, delivery note, items received', kinds: ['delivery'], screen: 'deliveries' },
@@ -58,6 +59,15 @@ interface Data {
   endCatchUp: () => void;
   closeDay: (day: string, reason: string) => Promise<void>;
   refreshPending: () => Promise<{ day: string; holiday: string | null }[]>;
+  /** Floors of this project (from its structure), for sub-phase / gemba lists. */
+  subphases: string[];
+  /** Entries with details still to confirm, and drafts not yet finished. */
+  unconfirmed: Doc[];
+  drafts: Draft[];
+  refreshUnfinished: () => Promise<void>;
+  /** A draft the user chose to finish; the matching form picks it up once. */
+  draftToOpen: Draft | null;
+  openDraft: (d: Draft | null) => void;
 }
 
 const Ctx = createContext<Data | null>(null);
@@ -81,6 +91,7 @@ export function DataProvider({ user, go, signOut, openAdmin, children }: { user:
   const catchUp = day !== realToday;
   const [site, setSite] = useState('');
   const [company, setCompany] = useState('');
+  const [structure, setStructure] = useState<Structure | null>(null);
   const [items, setItems] = useState<Item[] | null>(null);
   const [balances, setBalances] = useState<Balance[]>([]);
   const [docsToday, setDocs] = useState<Doc[]>([]);
@@ -133,7 +144,7 @@ export function DataProvider({ user, go, signOut, openAdmin, children }: { user:
       api.items().then((it) => { tick('Counting balances…'); return it; }),
       refreshRef.current().then(() => tick('Checking today’s entries…')),
     ])
-      .then(([s, it]) => { setSite(s.site); setCompany(s.company); setItems(it); rememberVisitor(user.name, s.site); setSyncing(false); bootDone(); })
+      .then(([s, it]) => { setSite(s.site); setCompany(s.company); setStructure(s.structure ?? null); setItems(it); rememberVisitor(user.name, s.site); setSyncing(false); bootDone(); })
       .catch((e) => { setSyncing(false); if (cached) return; setError(e.message || String(e)); bootDone({ quick: true }); });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -207,6 +218,17 @@ export function DataProvider({ user, go, signOut, openAdmin, children }: { user:
     return list;
   }, [realToday]);
   useEffect(() => { refreshPending(); }, [refreshPending]);
+  const [unconfirmed, setUnconfirmed] = useState<Doc[]>([]);
+  const [drafts, setDrafts] = useState<Draft[]>([]);
+  const [draftToOpen, openDraft] = useState<Draft | null>(null);
+  const refreshUnfinished = useCallback(async () => {
+    if (api.mode === 'training') return;
+    const [u, d] = await Promise.all([api.unconfirmed().catch(() => []), api.drafts().catch(() => [])]);
+    setUnconfirmed(u); setDrafts(d);
+  }, []);
+  useEffect(() => { refreshUnfinished(); }, [refreshUnfinished]);
+  const subphases = useMemo(() => subphasesFor(structure), [structure]);
+
   const startCatchUp = useCallback((d: string) => setWorkDay(d), []);
   const endCatchUp = useCallback(() => setWorkDay(realToday), [realToday]);
   const closeDay = useCallback(async (d: string, reason: string) => {
@@ -227,6 +249,7 @@ export function DataProvider({ user, go, signOut, openAdmin, children }: { user:
     stepState, markStep, refresh, addItem, go, signOut, openAdmin, recent, avgUse, isLow, daysLeft, lowItems,
     projectWeek: projectWeekNo(day, weekInfo, entryDays), weekInfo, refreshWeek, syncing,
     realToday, catchUp, pendingDays, startCatchUp, endCatchUp, closeDay, refreshPending,
+    subphases, unconfirmed, drafts, refreshUnfinished, draftToOpen, openDraft,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

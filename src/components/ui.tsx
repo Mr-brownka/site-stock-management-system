@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useData } from '../lib/store';
-import { SUBPHASES, type Item } from '../lib/types';
+import { type Item } from '../lib/types';
 
 export const fmt = (n: number) => n.toLocaleString('en-GB', { maximumFractionDigits: 2 });
 
@@ -171,7 +171,7 @@ export const newLine = (subphase = ''): LineDraft => ({ key: lineKey++, item: nu
 export function LineEditor({ lines, setLines, withSubphase, stockCheck, subphaseLabel = 'Subphase' }: {
   lines: LineDraft[]; setLines: (l: LineDraft[]) => void; withSubphase: boolean; stockCheck?: boolean; subphaseLabel?: string;
 }) {
-  const { balanceOf } = useData();
+  const { balanceOf, subphases } = useData();
   const patch = (k: number, p: Partial<LineDraft>) => setLines(lines.map((l) => (l.key === k ? { ...l, ...p } : l)));
   return (
     <div className="lines">
@@ -196,7 +196,7 @@ export function LineEditor({ lines, setLines, withSubphase, stockCheck, subphase
               <label className="field full"><span>{subphaseLabel}</span>
                 <select data-nav className="select" value={l.subphase} onChange={(e) => patch(l.key, { subphase: e.target.value })} onKeyDown={enterNext}>
                   <option value="">Choose…</option>
-                  {SUBPHASES.map((s) => <option key={s}>{s}</option>)}
+                  {subphases.map((s) => <option key={s}>{s}</option>)}
                 </select>
               </label>
             )}

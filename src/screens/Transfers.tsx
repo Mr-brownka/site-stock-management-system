@@ -1,21 +1,27 @@
 import { useEffect, useState } from 'react';
 import { StepShell } from '../components/StepShell';
-import { checkLines, enterNext, LineEditor, newLine, Suggest, type LineDraft } from '../components/ui';
+import { checkLines, enterNext, LineEditor, Suggest, type LineDraft } from '../components/ui';
 import { api } from '../lib/api';
 import { useData } from '../lib/store';
+import { LaterBar, linesFromPayload, linesToPayload, useDraft } from '../components/Unfinished';
+import { toast } from '../components/feedback';
 
 type Dir = 'out' | 'in';
 
 function TransferForm({ done }: { done: () => void }) {
-  const { day, balanceOf } = useData();
-  const [dir, setDir] = useState<Dir | null>(null);
+  const { day: today_, balanceOf, itemById, refreshUnfinished, go } = useData();
+  const draft = useDraft('transfers');
+  const day = draft?.doc_date ?? today_;
+  const p = (draft?.payload ?? {}) as Record<string, string>;
+  const [later, setLater] = useState<string[] | null>(null);
+  const [dir, setDir] = useState<Dir | null>((p.dir as Dir) ?? null);
   const [sites, setSites] = useState<string[]>([]);
   const [people, setPeople] = useState<string[]>([]);
-  const [site, setSite] = useState('');
-  const [note, setNote] = useState('');
-  const [by, setBy] = useState('');
-  const [vehicle, setVehicle] = useState('');
-  const [lines, setLines] = useState<LineDraft[]>([newLine()]);
+  const [site, setSite] = useState(p.site ?? '');
+  const [note, setNote] = useState(p.note ?? '');
+  const [by, setBy] = useState(p.by ?? '');
+  const [vehicle, setVehicle] = useState(p.vehicle ?? '');
+  const [lines, setLines] = useState<LineDraft[]>(() => linesFromPayload(draft?.payload.lines, itemById));
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   useEffect(() => { api.remembered('site').then(setSites); api.remembered('authorised_by').then(setPeople); }, []);
@@ -32,16 +38,27 @@ function TransferForm({ done }: { done: () => void }) {
     );
   }
 
-  const save = async () => {
-    const problem = !site.trim() ? 'Enter the other site.' : !note.trim() ? 'Enter the transfer note number.' : !by.trim() ? 'Enter who authorised it.'
-      : checkLines(lines, { stock: dir === 'out' ? balanceOf : undefined });
-    if (problem) { setErr(problem); return; }
-    setBusy(true); setErr('');
+  const save = async (confirmLater = false) => {
+    const hard = checkLines(lines, { stock: dir === 'out' ? balanceOf : undefined });
+    if (hard) { setErr(hard); setLater(null); return; }
+    const missing = [!site.trim() && 'party', !note.trim() && 'ref_no', !by.trim() && 'authorised_by'].filter(Boolean) as string[];
+    if (missing.length && !confirmLater) { setErr(''); setLater(missing); return; }
+    setBusy(true); setErr(''); setLater(null);
     try {
-      await api.saveDocument({ kind: dir === 'out' ? 'transfer_out' : 'transfer_in', doc_date: day, ref_no: note.trim(), party: site.trim(), authorised_by: by.trim(), vehicle: vehicle.trim() || null },
+      await api.saveDocument({ kind: dir === 'out' ? 'transfer_out' : 'transfer_in', doc_date: day, ref_no: note.trim() || null, party: site.trim() || null, authorised_by: by.trim() || null, vehicle: vehicle.trim() || null, ...(missing.length ? { to_confirm: missing } : {}) },
         lines.filter((l) => l.item).map((l) => ({ item_id: l.item!.id, qty: Number(l.qty) })));
+      if (draft) await api.deleteDraft(draft.id).catch(() => undefined);
+      if (missing.length || draft) refreshUnfinished();
       done();
     } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+  };
+  const saveDraft = async () => {
+    setBusy(true);
+    try {
+      if (draft) await api.deleteDraft(draft.id).catch(() => undefined);
+      await api.saveDraft({ step: 'transfers', doc_date: day, label: `Transfer ${dir === 'out' ? 'to' : 'from'} ${site.trim() || '(site not filled in)'}`, payload: { dir: dir ?? '', site, note, by, vehicle, lines: linesToPayload(lines) } });
+      await refreshUnfinished(); toast('Saved as a draft · not counted in stock yet'); go('home');
+    } catch (e) { setErr((e as Error).message); setBusy(false); }
   };
 
   return (
@@ -63,7 +80,9 @@ function TransferForm({ done }: { done: () => void }) {
       <div className="label">Items</div>
       <LineEditor lines={lines} setLines={setLines} withSubphase={false} stockCheck={dir === 'out'} />
       {err && <div className="note err" role="alert">{err}</div>}
-      <button data-nav className="btn accent" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save transfer'}</button>
+      {later && <LaterBar kind={dir === 'out' ? 'transfer_out' : 'transfer_in'} missing={later} busy={busy} onLater={() => save(true)} onCancel={() => setLater(null)} />}
+      <button data-nav className="btn accent" disabled={busy} onClick={() => save()}>{busy ? 'Saving…' : 'Save transfer'}</button>
+      <button className="btn link" disabled={busy} onClick={saveDraft}>Save as draft</button>
     </div>
   );
 }
@@ -73,6 +92,6 @@ export function Transfers() {
     <StepShell step="transfers" question="Were materials moved to or from another site today?" another="Was there another transfer?" formTitle="New transfer"
       renderForm={(done) => <TransferForm done={done} />}
       docTone={(d) => (d.kind === 'transfer_out' ? 'out' : 'in')}
-      docTitle={(d) => `${d.kind === 'transfer_out' ? '↗ Sent to' : '↙ Received from'} ${d.party} · ${d.ref_no}`} />
+      docTitle={(d) => `${d.kind === 'transfer_out' ? '↗ Sent to' : '↙ Received from'} ${d.party ?? '(site to confirm)'} · ${d.ref_no ?? '(note to confirm)'}`} />
   );
 }

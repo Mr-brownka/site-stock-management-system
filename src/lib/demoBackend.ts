@@ -2,7 +2,7 @@
 // before Supabase is connected. Nothing leaves the phone.
 import ITEMS from '../data/items.json';
 import { addDays, today, weekday } from './dates';
-import { delta, type Backend, type Balance, type CorrectionRequest, type Doc, type DocInput, type Field, type Item, type Line, type LineInput, type Profile, type SiteDoc, type SiteInfo, type StockTake, type Submission } from './types';
+import { delta, type Backend, type Balance, type CorrectionRequest, type Doc, type DocInput, type Draft, type Field, type Item, type Line, type LineInput, type Profile, type SiteDoc, type SiteInfo, type StockTake, type Submission } from './types';
 
 const KEY = 'ssms-demo-v4';
 const SITE = 'site-reveal';
@@ -25,6 +25,7 @@ export interface Store {
   checklist?: Record<string, number[]>;
   stockTakes?: StockTake[];
   trainingDays?: string[];
+  drafts?: Draft[];
 }
 
 const BASE_ITEMS: Item[] = (ITEMS as [string, string][]).map(([name, unit], i) => ({ id: i + 1, name, unit }));
@@ -121,7 +122,8 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
       async profiles() { return s.profiles; },
       async setProfile(id, patch) { s.profiles = s.profiles.map((p) => (p.id === id ? { ...p, ...patch, decided_at: new Date().toISOString() } : p)); save(); },
       async sites() { return s.sites; },
-      async addSite(name) { s.sites.push({ id: uid(), name, company: 'Comex Builders' }); save(); },
+      async addSite(name, structure) { s.sites.push({ id: uid(), name, company: 'Comex Builders', ...(structure ?? {}) }); save(); },
+      async setStructure(id, structure) { s.sites = s.sites.map((x) => (x.id === id ? { ...x, ...structure } : x)); save(); },
       async renameSite(id, name) { s.sites = s.sites.map((x) => (x.id === id ? { ...x, name } : x)); save(); },
       async corrections() { return s.corrections; },
       async decide(id, approve, note) {
@@ -152,7 +154,27 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
     async sendPasswordReset() { /* demo: nothing to send */ },
     isRecovery() { return false; },
     async setPassword() { /* demo */ },
-    async siteName() { return s.meta ? { company: s.meta.company, site: s.meta.site } : { company: 'Demo Builders', site: 'Demo site' }; },
+    async siteName() {
+      const st = s.sites.find((x) => x.id === SITE);
+      const structure = st?.floors ? { basements: st.basements ?? 0, has_ground: st.has_ground ?? true, floors: st.floors, roof_name: st.roof_name ?? null } : null;
+      return s.meta ? { company: s.meta.company, site: s.meta.site, structure } : { company: 'Demo Builders', site: 'Demo site', structure };
+    },
+    async unconfirmed() { return s.docs.filter((d) => d.to_confirm?.length).sort((a, b) => b.doc_date.localeCompare(a.doc_date)); },
+    async confirmDetails(docId, fields) {
+      const d = s.docs.find((x) => x.id === docId);
+      if (!d) throw new Error('Entry not found');
+      for (const [k, v] of Object.entries(fields)) {
+        if (!d.to_confirm?.includes(k)) throw new Error(`${k} was not left to confirm`);
+        if (!v.trim()) continue;
+        if (k === 'subphase') d.lines = d.lines.map((l) => (l.subphase ? l : { ...l, subphase: v }));
+        else (d as unknown as Record<string, unknown>)[k] = v;
+        d.to_confirm = d.to_confirm.filter((x) => x !== k);
+      }
+      save();
+    },
+    async drafts() { return s.drafts ?? []; },
+    async saveDraft(d) { s.drafts = [...(s.drafts ?? []), { ...d, id: uid(), created_at: new Date().toISOString() }]; save(); },
+    async deleteDraft(id) { s.drafts = (s.drafts ?? []).filter((x) => x.id !== id); save(); },
     async items() { return wait(allItems().slice().sort((a, b) => a.name.localeCompare(b.name))); },
     async addItem(name, unit) {
       const it = { id: 900000 + s.extraItems.length, name, unit };

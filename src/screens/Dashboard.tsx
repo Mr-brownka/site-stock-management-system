@@ -7,7 +7,8 @@ import { api } from '../lib/api';
 import { periodRange, type Period } from '../lib/dates';
 import { useData } from '../lib/store';
 import { useSignal } from '../lib/signals';
-import { SUBPHASES, type Balance, type Line } from '../lib/types';
+import { type Balance, type Line } from '../lib/types';
+import { subphaseRank } from '../lib/structure';
 
 type Tab = 'cons' | 'bal';
 type Filter = 'all' | 'low' | 'today';
@@ -105,7 +106,9 @@ export function Dashboard({ embedded = false }: { embedded?: boolean }) {
 
   const groups = useMemo(() => {
     if (group !== 'sub') return [];
-    const names = [...SUBPHASES, NO_SUB];
+    const seen = new Set<string>();
+    for (const u of use.values()) for (const k of u.bySub.keys()) seen.add(k);
+    const names = [...[...seen].filter((n) => n !== NO_SUB).sort((a, b) => subphaseRank(a) - subphaseRank(b) || a.localeCompare(b)), NO_SUB];
     return names.map((name) => ({
       name,
       rows: shown.map((b) => ({ b, v: use.get(b.item_id)?.bySub.get(name) ?? 0 })).filter((r) => r.v > 0),

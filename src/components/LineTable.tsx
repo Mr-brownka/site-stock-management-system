@@ -1,14 +1,13 @@
 import { fmt, ItemPicker, newLine, enterNext, type LineDraft } from './ui';
 import { Icon } from './fx';
 import { useData } from '../lib/store';
-import { SUBPHASES } from '../lib/types';
 
 /** Item lines as an ERP table: # · item · unit · qty · subphase · in store after · remove.
  *  `effect` says whether the lines add to the store (deliveries) or take from it. */
 export function LineTable({ lines, setLines, withSubphase, effect = 'in', glowFirst }: {
   lines: LineDraft[]; setLines: (l: LineDraft[]) => void; withSubphase?: boolean; effect?: 'in' | 'out'; glowFirst?: boolean;
 }) {
-  const { balanceOf } = useData();
+  const { balanceOf, subphases } = useData();
   const patch = (k: number, p: Partial<LineDraft>) => setLines(lines.map((l) => (l.key === k ? { ...l, ...p } : l)));
   const add = () => setLines([...lines, newLine(lines[lines.length - 1]?.subphase ?? '')]);
   const used = lines.filter((l) => l.item || l.qty);
@@ -40,7 +39,7 @@ export function LineTable({ lines, setLines, withSubphase, effect = 'in', glowFi
                   <td className="ltS">
                     <label><span className="sr">Subphase for line {i + 1}</span>
                       <select data-nav className={`select input sm ${l.item && l.qty && !l.subphase ? 'next' : ''}`} value={l.subphase} onChange={(e) => patch(l.key, { subphase: e.target.value })} onKeyDown={enterNext}>
-                        <option value="">Choose…</option>{SUBPHASES.map((s) => <option key={s}>{s}</option>)}
+                        <option value="">Choose…</option>{subphases.map((s) => <option key={s}>{s}</option>)}
                       </select>
                     </label>
                   </td>

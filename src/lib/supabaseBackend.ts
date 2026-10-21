@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { AdminApi, Backend, Balance, CorrectionRequest, Doc, DocInput, Field, Item, Line, LineInput, Profile, SiteDoc, SiteInfo, StockTake, Submission, User } from './types';
+import type { AdminApi, Backend, Balance, CorrectionRequest, Doc, DocInput, Draft, Field, Item, Line, LineInput, Profile, SiteDoc, SiteInfo, StockTake, Submission, User } from './types';
 
 const PAGE = 1000;
 
@@ -53,16 +53,21 @@ function adminApi(sb: SupabaseClient): AdminApi {
       if (error) fail(error);
     },
     async sites() {
-      const { data, error } = await sb.from('sites').select('id, name, created_at, week_anchor_no, week_anchor_date, companies(name)').order('created_at');
+      const { data, error } = await sb.from('sites').select('id, name, created_at, week_anchor_no, week_anchor_date, basements, has_ground, floors, roof_name, companies(name)').order('created_at');
       if (error) fail(error);
       return (data ?? []).map((r: Record<string, unknown>) => {
         const c = r.companies as { name?: string } | { name?: string }[] | null;
-        return { id: String(r.id), name: String(r.name), company: (Array.isArray(c) ? c[0]?.name : c?.name) ?? '', week_anchor_no: (r.week_anchor_no as number) ?? null, week_anchor_date: (r.week_anchor_date as string) ?? null };
+        return { id: String(r.id), name: String(r.name), company: (Array.isArray(c) ? c[0]?.name : c?.name) ?? '', week_anchor_no: (r.week_anchor_no as number) ?? null, week_anchor_date: (r.week_anchor_date as string) ?? null,
+          basements: (r.basements as number) ?? 0, has_ground: (r.has_ground as boolean) ?? true, floors: (r.floors as number) ?? null, roof_name: (r.roof_name as string) ?? null };
       });
     },
-    async addSite(name) {
+    async addSite(name, structure) {
       const { data: one } = await sb.from('sites').select('company_id').limit(1).single();
-      const { error } = await sb.from('sites').insert({ name, company_id: one?.company_id });
+      const { error } = await sb.from('sites').insert({ name, company_id: one?.company_id, ...(structure ?? {}) });
+      if (error) fail(error);
+    },
+    async setStructure(id, structure) {
+      const { error } = await sb.from('sites').update(structure).eq('id', id);
       if (error) fail(error);
     },
     async renameSite(id, name) {
@@ -186,10 +191,12 @@ export function supabaseBackend(url: string, key: string): Backend {
     async siteName() {
       const { data: u } = await sb.auth.getUser();
       const { data: p } = await sb.from('profiles').select('site_id').eq('id', u.user?.id ?? '').maybeSingle();
-      const { data } = await sb.from('sites').select('name, companies(name)').eq('id', p?.site_id ?? '').maybeSingle();
+      const { data } = await sb.from('sites').select('name, basements, has_ground, floors, roof_name, companies(name)').eq('id', p?.site_id ?? '').maybeSingle();
       const c = (data as { companies?: { name?: string } | { name?: string }[] } | null)?.companies;
       const company = Array.isArray(c) ? c[0]?.name : c?.name;
-      return { company: company ?? '', site: data?.name ?? 'Site store' };
+      const st = data as { basements?: number; has_ground?: boolean; floors?: number | null; roof_name?: string | null } | null;
+      return { company: company ?? '', site: data?.name ?? 'Site store',
+        structure: st?.floors ? { basements: st.basements ?? 0, has_ground: st.has_ground ?? true, floors: st.floors, roof_name: st.roof_name ?? null } : null };
     },
 
     async signUp(input) {
@@ -248,6 +255,30 @@ export function supabaseBackend(url: string, key: string): Backend {
         await sb.from('documents').delete().eq('id', data.id);
         fail(e2);
       }
+    },
+
+    async unconfirmed() {
+      const { data, error } = await sb.from('documents').select('*, movements(*)').eq('site_id', await mySite()).neq('to_confirm', '{}').order('doc_date', { ascending: false }).limit(100);
+      if (error) fail(error);
+      return (data ?? []).map((r: Record<string, unknown>) => ({ ...(r as unknown as Doc), lines: ((r.movements as Record<string, unknown>[]) ?? []).map(toLine) }));
+    },
+    async confirmDetails(docId, fields) {
+      const { error } = await sb.rpc('confirm_details', { doc: docId, fields });
+      if (error) fail(error);
+    },
+    async drafts() {
+      const { data, error } = await sb.from('drafts').select('*').eq('site_id', await mySite()).order('created_at');
+      if (error) fail(error);
+      // The table calls the label `title`.
+      return (data ?? []).map(({ title, ...r }) => ({ ...r, label: title ?? '' })) as Draft[];
+    },
+    async saveDraft({ label, ...d }) {
+      const { error } = await sb.from('drafts').insert({ ...d, title: label });
+      if (error) fail(error);
+    },
+    async deleteDraft(id) {
+      const { error } = await sb.from('drafts').delete().eq('id', id);
+      if (error) fail(error);
     },
 
     async removeDocument(id) {

@@ -4,26 +4,31 @@ import { checkLines, enterNext, fmt, ItemPicker, newLine, Suggest, TimeBoxes, ty
 import { api } from '../lib/api';
 import { addDays } from '../lib/dates';
 import { useData } from '../lib/store';
-import { SUBPHASES } from '../lib/types';
+import { LaterBar, linesFromPayload, linesToPayload, useDraft } from '../components/Unfinished';
+import { toast } from '../components/feedback';
 
 const ROWS = 7; // the paper card has seven item rows
 const blank = () => Array.from({ length: ROWS }, () => newLine());
 
 /** The Material Withdrawal Card, laid out box for box like the paper one (Ref: FM-5/CB/IMS/SOP/PMD). */
 function CardForm({ done, again }: { done: () => void; again: () => Promise<void> }) {
-  const { day, user, balanceOf, docsToday, projectWeek, company } = useData();
+  const { day: today_, user, balanceOf, docsToday, projectWeek, company, subphases, itemById, refreshUnfinished, go } = useData();
+  const draft = useDraft('issued');
+  const day = draft?.doc_date ?? today_;
+  const p = (draft?.payload ?? {}) as Record<string, string>;
+  const [later, setLater] = useState<string[] | null>(null);
   const [known, setKnown] = useState<Map<string, string>>(new Map());
   const [acts, setActs] = useState<string[]>([]);
   const [people, setPeople] = useState<string[]>([]);
   const [sups, setSups] = useState<string[]>([]);
-  const [code, setCode] = useState('');
-  const [cardNo, setCardNo] = useState('');
-  const [time, setTime] = useState('');
-  const [activity, setActivity] = useState('');
-  const [gemba, setGemba] = useState('');
-  const [to, setTo] = useState('');
-  const [sup, setSup] = useState('');
-  const [lines, setLines] = useState<LineDraft[]>(blank);
+  const [code, setCode] = useState(p.code ?? '');
+  const [cardNo, setCardNo] = useState(p.cardNo ?? '');
+  const [time, setTime] = useState(p.time ?? '');
+  const [activity, setActivity] = useState(p.activity ?? '');
+  const [gemba, setGemba] = useState(p.gemba ?? '');
+  const [to, setTo] = useState(p.to ?? '');
+  const [sup, setSup] = useState(p.sup ?? '');
+  const [lines, setLines] = useState<LineDraft[]>(() => (draft ? linesFromPayload(draft.payload.lines, itemById, ROWS) : blank()));
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState('');
   const [stamped, setStamped] = useState(false);
@@ -42,22 +47,33 @@ function CardForm({ done, again }: { done: () => void; again: () => Promise<void
   const headDone = !!code && !dupe && time.length === 5 && !!activity.trim() && !!gemba && !!to.trim();
   const dateText = new Date(day + 'T00:00:00Z').toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'UTC' }).replace(/\//g, '.');
 
-  const save = async (stay: boolean) => {
-    const withGemba = lines.map((l) => ({ ...l, subphase: gemba }));
-    const problem = !code.trim() ? 'Enter the code (the red number on the card).' : dupe ? `Card ${code} was already entered on ${dupe}.`
-      : !activity.trim() ? 'Enter the activity.' : time.length !== 5 ? 'Enter the time written on the card (hour, then minute).'
-      : !gemba ? 'Choose the gemba (floor).' : !to.trim() ? 'Enter who it was issued to.'
-      : checkLines(withGemba, { stock: balanceOf }) ?? (!sup.trim() ? 'Enter the SM / supervisor.' : null);
-    if (problem) { setErr(problem); return; }
-    setBusy(stay ? 'again' : 'save'); setErr('');
+  const save = async (stay: boolean, confirmLater = false) => {
+    // Items, quantities and stock must be right; the other boxes can be confirmed later.
+    const hard = dupe ? `Card ${code} was already entered on ${dupe}.` : checkLines(lines, { stock: balanceOf });
+    if (hard) { setErr(hard); setLater(null); return; }
+    const missing = [!code.trim() && 'ref_no', !activity.trim() && 'activity', time.length !== 5 && 'doc_time', !gemba && 'gemba', !gemba && 'subphase', !to.trim() && 'party', !sup.trim() && 'supervisor'].filter(Boolean) as string[];
+    if (missing.length && !confirmLater) { setErr(''); setLater(missing); return; }
+    setBusy(stay ? 'again' : 'save'); setErr(''); setLater(null);
     try {
-      await api.saveDocument({ kind: 'issue', doc_date: day, doc_time: time, ref_no: code.trim(), card_no: cardNo.trim() || null, party: to.trim(), activity: activity.trim(), gemba, supervisor: sup.trim() },
-        used.map((l) => ({ item_id: l.item!.id, qty: Number(l.qty), subphase: gemba })));
+      await api.saveDocument({ kind: 'issue', doc_date: day, doc_time: time.length === 5 ? time : null, ref_no: code.trim() || null, card_no: cardNo.trim() || null, party: to.trim() || null, activity: activity.trim() || null, gemba: gemba || null, supervisor: sup.trim() || null, ...(missing.length ? { to_confirm: missing } : {}) },
+        used.map((l) => ({ item_id: l.item!.id, qty: Number(l.qty), subphase: gemba || null })));
+      if (draft) await api.deleteDraft(draft.id).catch(() => undefined);
+      if (missing.length || draft) refreshUnfinished();
       setStamped(true);
       if (stay) {
         await again();
         setTimeout(() => { setStamped(false); setCode(''); setCardNo(''); setTime(''); setActivity(''); setGemba(''); setTo(''); setSup(''); setLines(blank()); setBusy(''); window.scrollTo({ top: 0, behavior: 'smooth' }); }, 700);
       } else setTimeout(done, 900);
+    } catch (e) { setErr((e as Error).message); setBusy(''); }
+  };
+
+  const saveDraft = async () => {
+    if (!code.trim() && !activity.trim() && !used.length) { setErr('Nothing to keep yet.'); return; }
+    setBusy('draft');
+    try {
+      if (draft) await api.deleteDraft(draft.id).catch(() => undefined);
+      await api.saveDraft({ step: 'issued', doc_date: day, label: `Card ${code.trim() || '(code not filled in)'}${activity.trim() ? ` · ${activity.trim()}` : ''}`, payload: { code, cardNo, time, activity, gemba, to, sup, lines: linesToPayload(lines) } });
+      await refreshUnfinished(); toast('Saved as a draft · not counted in stock yet'); go('home');
     } catch (e) { setErr((e as Error).message); setBusy(''); }
   };
 
@@ -68,7 +84,7 @@ function CardForm({ done, again }: { done: () => void; again: () => Promise<void
     { node: (
       <label className="field bare"><span className="sr">Gemba</span>
         <select data-nav className={`select input mwcIn ${activity && time.length === 5 && !gemba ? 'next' : ''}`} value={gemba} onChange={(e) => setGemba(e.target.value)} onKeyDown={enterNext}>
-          <option value="">Choose…</option>{SUBPHASES.map((s) => <option key={s}>{s}</option>)}
+          <option value="">Choose…</option>{subphases.map((s) => <option key={s}>{s}</option>)}
         </select>
       </label>) },
     { label: 'Issued to' },
@@ -141,8 +157,10 @@ function CardForm({ done, again }: { done: () => void; again: () => Promise<void
       </div>
 
       {err && <div className="note err" role="alert">{err}</div>}
+      {later && <LaterBar kind="issue" missing={later} busy={!!busy} onLater={() => save(false, true)} onCancel={() => setLater(null)} />}
       <div className="actionBar">
         <span className="small muted">Copy the card exactly as written. Units come with the item.</span>
+        <button className="btn link" disabled={!!busy} onClick={saveDraft}>{busy === 'draft' ? 'Saving…' : 'Save as draft'}</button>
         <span className="abGrow" />
         <button data-nav className="btn ghost sm" disabled={!!busy} onClick={() => save(true)}>{busy === 'again' ? 'Saving…' : 'Save & next card'}</button>
         <button className="btn accent sm" disabled={!!busy} onClick={() => save(false)}>{busy === 'save' ? 'Saving…' : 'Save card'}</button>
@@ -156,6 +174,6 @@ export function Issued() {
     <StepShell step="issued" question="Were materials issued to production today?" hint="One entry per Material Withdrawal Card. Cards can also be entered during the day."
       another="Was there another card?" formTitle="New withdrawal card" docTone={() => 'out'}
       renderForm={(done, again) => <CardForm done={done} again={again} />}
-      docTitle={(d) => `Card ${d.ref_no} · ${d.activity}, ${d.gemba} · ${d.party}`} />
+      docTitle={(d) => `Card ${d.ref_no ?? '(code to confirm)'} · ${d.activity ?? '…'}, ${d.gemba ?? 'gemba to confirm'} · ${d.party ?? '…'}`} />
   );
 }

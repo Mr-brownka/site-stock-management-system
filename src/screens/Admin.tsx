@@ -4,10 +4,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fmt } from '../components/ui';
 import { api } from '../lib/api';
 import { addDays, niceDate, today, weekday } from '../lib/dates';
-import type { Balance, CorrectionRequest, Item, Profile, Role, SiteDoc, SiteInfo, User } from '../lib/types';
+import type { Balance, CorrectionRequest, Item, Profile, Role, SiteDoc, SiteInfo, Structure, User } from '../lib/types';
 import { ask, toast } from '../components/feedback';
 import { StartTraining } from '../components/Training';
 import { TRAINING_DAYS } from '../lib/trainingPlan';
+import { describeStructure, subphasesFor } from '../lib/structure';
 
 type Sec = 'overview' | 'people' | 'corr' | 'sites' | 'items' | 'reorder' | 'log';
 const ROLE_LABEL: Record<Role, string> = { store: 'Storekeeper', assistant: 'Assistant', admin: 'Admin' };
@@ -307,6 +308,8 @@ function Sites({ d, busy, act }: { d: Data; busy: string; act: Act }) {
   const [lists, setLists] = useState<Record<string, number[]>>({});
   const [open, setOpen] = useState<string | null>(null);
   const [weeks, setWeeks] = useState<Record<string, string>>({});
+  const [build, setBuild] = useState<string | null>(null);
+  const [newSt, setNewSt] = useState<Structure>({ basements: 0, has_ground: true, floors: null, roof_name: null });
   useEffect(() => { Promise.all(d.sites.map((s) => api.admin.checklist(s.id).then((ids) => [s.id, ids] as const))).then((x) => setLists(Object.fromEntries(x))); }, [d.sites]);
   return (
     <div className="stack" style={{ gap: 14 }}>
@@ -331,6 +334,15 @@ function Sites({ d, busy, act }: { d: Data; busy: string; act: Act }) {
                   </span>
                 </div>
                 <div className="siteWeek">
+                  <span className="label">Building</span>
+                  <span>{describeStructure(s)}</span>
+                  <button className="btn link" onClick={() => setBuild(build === s.id ? null : s.id)}>{build === s.id ? 'Close' : 'Edit floors'}</button>
+                </div>
+                {build === s.id && (
+                  <StructureFields value={structOf(s)} busy={!!busy} saveLabel="Save floors"
+                    onSave={(st) => act(`b${s.id}`, async () => { await api.admin.setStructure(s.id, st); setBuild(null); })} />
+                )}
+                <div className="siteWeek">
                   <span className="label">Stock take list</span>
                   <span>{lists[s.id] ? <><b>{lists[s.id].length}</b> items listed (no quantities)</> : '…'}</span>
                   <button className="btn link" onClick={() => setOpen(open === s.id ? null : s.id)}>{open === s.id ? 'Close' : 'Edit list'}</button>
@@ -341,8 +353,12 @@ function Sites({ d, busy, act }: { d: Data; busy: string; act: Act }) {
           );
         })}
       </div>
-      <div className="row"><input className="input" style={{ width: 260 }} placeholder="New site name" value={add} onChange={(e) => setAdd(e.target.value)} />
-        <button className="btn accent admSm" disabled={!add.trim() || !!busy} onClick={() => act('add', async () => { await api.admin.addSite(add.trim()); setAdd(''); })}>+ Add site</button></div>
+      <div className="card pad stack" style={{ gap: 12 }}>
+        <b>Register a new site</b>
+        <input className="input" style={{ maxWidth: 360 }} placeholder="Site name" value={add} onChange={(e) => setAdd(e.target.value)} aria-label="New site name" />
+        <StructureFields value={newSt} busy={!!busy || !add.trim()} saveLabel="+ Add site" onChange={setNewSt}
+          onSave={(st) => act('add', async () => { await api.admin.addSite(add.trim(), st); setAdd(''); setNewSt({ basements: 0, has_ground: true, floors: null, roof_name: null }); })} />
+      </div>
       <div className="small muted">Each site has its own store, balances and team. The company name shows above the site name everywhere.</div>
     </div>
   );
@@ -491,6 +507,31 @@ function Log({ d, siteName, person, itemById }: { d: Data; siteName: Map<string,
       </div>
       <div className="card" style={{ overflow: 'hidden' }}><EventRows list={list.slice(0, 200)} /></div>
       <div className="small muted">Last 14 days of entries, plus every sign-up and correction.</div>
+    </div>
+  );
+}
+
+const structOf = (s: SiteInfo): Structure => ({ basements: s.basements ?? 0, has_ground: s.has_ground ?? true, floors: s.floors ?? null, roof_name: s.roof_name ?? null });
+
+/** How the project is built: basements, ground floor, floors above ground, and the roof. Decides the floors on every form. */
+function StructureFields({ value, onSave, onChange, busy, saveLabel }: { value: Structure; onSave: (s: Structure) => void; onChange?: (s: Structure) => void; busy: boolean; saveLabel: string }) {
+  const [v, setV] = useState<Structure>(value);
+  const set = (p: Partial<Structure>) => { const n = { ...v, ...p }; setV(n); onChange?.(n); };
+  const list = subphasesFor(v.floors ? v : null);
+  return (
+    <div className="structBox">
+      <div className="structQs">
+        <label className="field"><span>How many basements?</span>
+          <input className="input num" inputMode="numeric" value={String(v.basements)} onChange={(e) => set({ basements: Number(e.target.value.replace(/\D/g, '') || 0) })} /></label>
+        <label className="field"><span>Is there a ground floor?</span>
+          <select className="select input" value={v.has_ground ? 'yes' : 'no'} onChange={(e) => set({ has_ground: e.target.value === 'yes' })}><option value="yes">Yes</option><option value="no">No</option></select></label>
+        <label className="field"><span>Floors above ground</span>
+          <input className="input num" inputMode="numeric" placeholder="e.g. 16" value={v.floors ?? ''} onChange={(e) => set({ floors: e.target.value ? Number(e.target.value.replace(/\D/g, '')) : null })} /></label>
+        <label className="field"><span>Top of the building</span>
+          <input className="input" placeholder="e.g. Rooftop terrace (or leave empty)" value={v.roof_name ?? ''} onChange={(e) => set({ roof_name: e.target.value || null })} /></label>
+      </div>
+      <div className="small muted">{v.floors ? <>Forms will offer <b>{list.length - 1}</b> levels: {list[1]} up to {list[list.length - 1]}.</> : 'Enter the floors to see the levels the forms will offer.'}</div>
+      <button className="btn accent admSm" style={{ alignSelf: 'flex-start' }} disabled={busy || !v.floors} onClick={() => onSave(v)}>{saveLabel}</button>
     </div>
   );
 }

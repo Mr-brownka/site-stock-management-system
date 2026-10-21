@@ -69,7 +69,7 @@ export function StepShell({ step, question, hint, another, formTitle, tone, rend
             {!docs.length && stepState(step) === 'none' && <div className="note info enter">Nothing recorded for this step today.</div>}
             {docs.map((d, i) => (
               <div key={d.id} className={`sumCard ${docTone?.(d) ?? ''}`} style={{ animationDelay: `${i * 0.06}s` }}>
-                <div className="between"><b>{docTitle(d)}{isLate(d) && <span className="pill late">Added</span>}</b>{!locked && <button className="btn link" disabled={busy === d.id} onClick={() => remove(d)}>Remove</button>}</div>
+                <div className="between"><b>{docTitle(d)}{isLate(d) && <span className="pill late">Added</span>}{!!d.to_confirm?.length && <span className="fcTag confirm" style={{ marginLeft: 8, height: 22 }}>To confirm</span>}</b>{!locked && <button className="btn link" disabled={busy === d.id} onClick={() => remove(d)}>Remove</button>}</div>
                 {d.lines.map((l) => {
                   const it = itemById.get(l.item_id);
                   return <div className="ln" key={l.id}><span>{it?.name ?? 'Item'}{l.subphase ? <span className="muted"> · {l.subphase}</span> : null}</span><span className="mono">{fmt(l.qty)} {it?.unit}</span></div>;

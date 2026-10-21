@@ -1423,3 +1423,27 @@ body:has(.trainBar) .topbar { top: 50px; }
 .daChoice.dark small { color: #C9D0CD; }
 .dayAsk .btn.link { align-self: center; }
 @media (max-width: 640px) { .catchBar { padding: 10px 16px; font-size: 14px; flex-wrap: wrap; } .dsDay { flex: 1 1 90px; padding: 8px 10px; } .dsDay b { font-size: 15px; } }
+.structBox { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 12px; background: #F6F7F6; border: 1px solid var(--line-2); }
+.structQs { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+
+/* ════════════════════ To confirm · drafts ════════════════════ */
+.laterBar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 14px 16px; border-radius: 14px; background: #FFF8EC; border: 1.5px solid var(--accent); animation: cardIn .3s var(--spring) both; }
+.laterBar .lbIc { width: 36px; height: 36px; flex: none; border-radius: 10px; background: var(--accent); color: var(--ink); display: grid; place-items: center; }
+.laterBar .lbText { flex: 1 1 280px; display: flex; flex-direction: column; gap: 2px; color: #5E3700; }
+.laterBar .lbActs { display: flex; gap: 8px; flex-wrap: wrap; }
+.finishCard { margin-bottom: 16px; overflow: hidden; border: 1.5px solid var(--accent); box-shadow: 0 0 0 5px rgba(252,167,45,.14); }
+.fcHead { display: flex; align-items: center; gap: 14px; padding: 14px 20px; background: #FFF8EC; border-bottom: 1px solid #F1D9AE; }
+.fcHead div { display: flex; flex-direction: column; gap: 2px; }
+.fcHead b { font-size: 18px; }
+.fcHead span:not(.fcIc) { color: #5E3700; font-size: 14px; }
+.fcIc { width: 40px; height: 40px; flex: none; border-radius: 12px; background: var(--accent); color: var(--ink); display: grid; place-items: center; }
+.fcRow { display: flex; align-items: center; gap: 14px; padding: 12px 20px; border-bottom: 1px solid var(--line-2); flex-wrap: wrap; }
+.fcRow:last-of-type { border-bottom: 0; }
+.fcTag { flex: none; height: 26px; padding: 0 10px; border-radius: 99px; display: inline-flex; align-items: center; font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.fcTag.confirm { background: #FFF4DE; border: 1.5px dashed #E58227; color: #8A5000; }
+.fcTag.draft { background: #F1F3F2; border: 1.5px dashed var(--field); color: var(--ink-2); }
+.fcText { flex: 1 1 260px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.fcText span { color: var(--muted); font-size: 14px; }
+.fcActs { display: flex; align-items: center; gap: 10px; }
+.daKicker { font-size: 12px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #8A5000; }
+.finSummary { padding: 12px 14px; border-radius: 12px; background: #F4F6F5; font-size: 14px; }

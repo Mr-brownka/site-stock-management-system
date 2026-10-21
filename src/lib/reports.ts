@@ -1,6 +1,7 @@
 // Every store report, built from the same entries the check-in saves.
 import { addDays, eachDay, weekday } from './dates';
-import { delta, SUBPHASES, type Balance, type CorrectionRequest, type Doc, type Item, type Line, type Submission } from './types';
+import { subphaseRank } from './structure';
+import { delta, type Balance, type CorrectionRequest, type Doc, type Item, type Line, type Submission } from './types';
 
 export interface Col { key: string; label: string; num?: boolean; total?: boolean }
 export type Row = Record<string, string | number | null>;
@@ -135,7 +136,7 @@ export const REPORTS: Def[] = [
         const k = `${sub ?? 'No subphase'}|${l.item_id}`;
         agg.set(k, (agg.get(k) ?? 0) + v);
       }
-      const order = (s: string) => { const i = SUBPHASES.indexOf(s); return i < 0 ? 99 : i; };
+      const order = subphaseRank;
       const rows = [...agg].filter(([, v]) => v > 0).map(([k, v]) => { const [sub, id] = k.split('|'); return { sub, item: nm(c, Number(id)), unit: un(c, Number(id)), used: r2(v) }; })
         .sort((a, b) => order(a.sub) - order(b.sub) || a.sub.localeCompare(b.sub) || b.used - a.used);
       return { cols: [{ key: 'sub', label: 'Floor / subphase' }, { key: 'item', label: 'Item' }, { key: 'unit', label: 'Unit' }, { key: 'used', label: 'Used', num: true }], rows, group: 'sub', tiles: [{ label: 'Floors / subphases', value: new Set(rows.map((r) => r.sub)).size }] };
