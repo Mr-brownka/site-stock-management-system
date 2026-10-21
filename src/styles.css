@@ -2025,3 +2025,22 @@ body.colDrag, body.colDrag * { cursor: col-resize !important; user-select: none 
 .stAttach span:last-child { display: flex; flex-direction: column; min-width: 0; }
 .stAttach b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stAttach small { color: #59625F; font-size: 12.5px; }
+
+/* Balances page */
+.balSort select { height: 38px; border: 1px solid #C9CFCB; border-radius: 10px; padding: 0 10px; font: inherit; font-size: 14px; font-weight: 600; background: #fff; }
+.balRow { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.1fr) 120px 118px; gap: 14px; align-items: center; padding: 0 18px; min-height: 48px; border: 0; border-bottom: 1px solid #EEF0EE; background: #fff; font: inherit; color: inherit; text-align: left; cursor: pointer; animation: rowIn .35s var(--ease) both; transition: background .15s; }
+.balRow:hover { background: #FAFBF9; }
+.balRow.on { background: #FFF8EC; box-shadow: inset 3px 0 0 var(--accent); }
+.balRow.on .crName { font-weight: 700; }
+.balRow.th { min-height: 38px; cursor: default; font-size: 11.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #75807C; background: #FAFBFA; border-bottom-color: #E3E6E4; animation: none; }
+.balRow .r { text-align: right; }
+.balRow .stPill { justify-self: start; }
+.balBar { position: relative; height: 8px; border-radius: 4px; background: #F1F3F2; }
+.balBar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: #3FB27A; transform-origin: left; animation: barGrow .6s var(--ease) both; }
+.balBar.low i { background: #B54708; }
+.balBar.out i { background: #B42318; }
+.balBar em { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--ink); opacity: .3; border-radius: 1px; }
+.balChart { width: 100%; height: 140px; }
+.balChartNote { font-size: 12.5px; color: #6A7470; margin-top: -10px; }
+.balPage .consDetail .btn { align-self: flex-start; }
+@media (max-width: 760px) { .balRow { grid-template-columns: minmax(0, 1fr) 100px; } .balRow > :nth-child(2), .balRow > :nth-child(4) { display: none; } }

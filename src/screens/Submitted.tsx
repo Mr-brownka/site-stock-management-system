@@ -9,7 +9,7 @@ export function Submitted() {
   docsToday.forEach((d) => d.lines.forEach((l) => todayDelta.set(l.item_id, (todayDelta.get(l.item_id) ?? 0) + delta(l.kind, l.qty))));
   const rows = balances.filter((b) => todayDelta.has(b.item_id)).map((b) => ({ ...b, from: b.balance - (todayDelta.get(b.item_id) ?? 0) }));
   const low = rows.filter((r) => isLow(r));
-  const openBalances = () => { try { sessionStorage.setItem('ssms-dash', 'bal'); } catch { /* ignore */ } go('dashboard'); };
+  const openBalances = () => go('balances');
 
   const detail = (i: number) => {
     const s = STEPS[i];

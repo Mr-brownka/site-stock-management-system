@@ -52,7 +52,6 @@ export function Home() {
   };
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
-  const [lastTake, setLastTake] = useState<string | null | undefined>(undefined);
   const min = useMinutesToClose();
   const states = STEPS.map((s) => stateOf(s.key));
   const firstTodo = STEPS.find((s) => stateOf(s.key) === 'todo');
@@ -62,7 +61,7 @@ export function Home() {
   const [showEntries, setShowEntries] = useState(false);
   const noneToday = (k: StepKey) => { const st = STEPS.find((x) => x.key === k)!; markStep(k, 'none'); toast(`${st.label}: nothing ${catchUp ? 'that day' : 'today'}`); };
   useSignal('entries', () => setShowEntries(true));
-  useEffect(() => { api.stockTakes().then((t) => setLastTake(t.map((x) => x.count_date).sort().pop() ?? null)).catch(() => setLastTake(null)); }, []);
+  const movedToday = new Set(docsToday.flatMap((d) => d.lines.map((l) => l.item_id))).size;
 
   const status = (i: number) => {
     const s = STEPS[i];
@@ -124,7 +123,6 @@ export function Home() {
     ? `Day submitted at ${new Date(submission.submitted_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' })}. Balances are final for today.`
     : answered ? 'All four steps are answered. Submit the day to lock it.'
       : done ? `${done} of 4 steps done. Next: ${firstTodo!.label.toLowerCase()}.` : `Four quick steps. ${closeLabel(min)}.`;
-  const nice = (d: string) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
   return (
     <div className="page home">
@@ -184,8 +182,8 @@ export function Home() {
       <section className="kpis" aria-label="Key figures">
         <button className="kpi enter" onClick={() => toDash({ tab: 'bal', filter: 'all', focus: true })}>
           <span className="kpiLabel">All items</span>
-          <Num value={balances.filter((b) => b.balance > 0).length} className="kpiNum" />
-          <span className="kpiFoot">Open balances <Icon name="arrow" size={13} /></span>
+          <Num value={balances.length} className="kpiNum" />
+          <span className="kpiFoot">Search the list <Icon name="arrow" size={13} /></span>
         </button>
         <button className={`kpi enter ${lowItems.length ? 'alert' : ''}`} style={{ animationDelay: '.04s' }} onClick={() => toDash({ tab: 'bal', filter: 'low' })}>
           <span className="kpiLabel">{lowItems.length > 0 && <PulseDot />}Low stock</span>
@@ -197,10 +195,10 @@ export function Home() {
           <span className="kpiNum">{weekUse.top ? <><Num value={weekUse.top.used} /><span className="kpiUnit">{weekUse.top.it?.unit} this week</span></> : '0'}</span>
           <span className="kpiFoot">{weekUse.top ? (weekUse.top.it?.name ?? 'Item') : 'Nothing used yet this week'} <Icon name="arrow" size={13} /></span>
         </button>
-        <button className="kpi enter" style={{ animationDelay: '.12s' }} onClick={() => go('stocktake')}>
-          <span className="kpiLabel">Last stock take</span>
-          <span className="kpiNum">{lastTake === undefined ? <i className="skel" style={{ width: 90, height: 28 }} /> : lastTake ? nice(lastTake) : 'None'}</span>
-          <span className="kpiFoot">Stock take <Icon name="arrow" size={13} /></span>
+        <button className="kpi enter" style={{ animationDelay: '.12s' }} onClick={() => go('balances')}>
+          <span className="kpiLabel">Balances</span>
+          <span className="kpiNum"><Num value={balances.filter((b) => b.balance > 0).length} /><span className="kpiUnit">in store</span></span>
+          <span className="kpiFoot">{movedToday ? `${movedToday} changed today` : 'Open balances'} <Icon name="arrow" size={13} /></span>
         </button>
       </section>
 

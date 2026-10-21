@@ -11,7 +11,7 @@ const PARENT: Partial<Record<Screen, Screen>> = {
 export const SCREEN_LABEL: Record<Screen, string> = {
   home: 'Dashboard', dashboard: 'Dashboard', welcome: 'Dashboard', submitted: 'Day submitted', stocktake: 'Stock take', corrections: 'Fix an error', reports: 'Reports',
   deliveries: 'New delivery', issued: 'New card', returns: 'New return', transfers: 'New transfer',
-  'rec-deliveries': 'Deliveries', 'rec-issued': 'Issued items', 'rec-returns': 'Returned items', 'rec-transfers': 'Project transfers', consumption: 'Consumption',
+  'rec-deliveries': 'Deliveries', 'rec-issued': 'Issued items', 'rec-returns': 'Returned items', 'rec-transfers': 'Project transfers', consumption: 'Consumption', balances: 'Balances',
 };
 
 export function recordScreen(s: Screen) {
