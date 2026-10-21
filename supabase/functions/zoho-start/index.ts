@@ -1,8 +1,9 @@
 // Starts "Connect my Zoho": remembers who asked, then sends them to Zoho's own sign-in page.
-import { admin, authUrl, caller, configured, cors, json } from '../_shared/zoho.ts';
+import { admin, authUrl, caller, clientIdHint, configured, cors, json } from '../_shared/zoho.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
+  if (new URL(req.url).searchParams.get('check') === '1') return json({ configured: configured(), clientId: clientIdHint() });
   if (!configured()) return json({ error: 'Zoho is not set up on the server yet (client id or secret missing).' }, 500);
   const db = admin();
   const user = await caller(req, db);

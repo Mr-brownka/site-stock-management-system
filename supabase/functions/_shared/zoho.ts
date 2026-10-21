@@ -24,8 +24,11 @@ export async function caller(req: Request, db: SupabaseClient) {
   return data.user ?? null;
 }
 
-const clientId = () => Deno.env.get('ZOHO_CLIENT_ID') ?? '';
-const clientSecret = () => Deno.env.get('ZOHO_CLIENT_SECRET') ?? '';
+// Trim: values pasted into the dashboard often carry a stray space or line break.
+const clientId = () => (Deno.env.get('ZOHO_CLIENT_ID') ?? '').trim();
+const clientSecret = () => (Deno.env.get('ZOHO_CLIENT_SECRET') ?? '').trim();
+/** Safe to show: Zoho client IDs are public (they appear in the sign-in link). Helps spot a mix-up. */
+export const clientIdHint = () => { const c = clientId(); return { length: c.length, starts: c.slice(0, 5), looksLikeId: /^1000\.[A-Z0-9]+$/.test(c) }; };
 export const configured = () => !!clientId() && !!clientSecret();
 
 export function authUrl(state: string, accounts = 'https://accounts.zoho.com') {
