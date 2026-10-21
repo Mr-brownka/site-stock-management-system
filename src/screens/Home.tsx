@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Icon, Num, PulseDot, greeting, useMinutesToClose } from '../components/fx';
 import { signal, useSignal } from '../lib/signals';
 import { closeLabel } from '../components/Shell';
 import { api, progressStore } from '../lib/api';
 import { Dashboard } from './Dashboard';
 import { fmt } from '../components/ui';
-import { longDate, niceDate, today, weekday, weekdayName } from '../lib/dates';
+import { longDate, niceDate, periodRange, today, weekday, weekdayName } from '../lib/dates';
+import { consumption } from '../lib/consumption';
 import { DayStrip, type DayCell } from '../components/DayStrip';
 import { AlertButton } from '../components/StockAlert';
 import { UnfinishedCard } from '../components/Unfinished';
@@ -21,7 +22,7 @@ import { useZohoDeliveries } from '../components/Zoho';
 const STEP_ICON: Record<string, string> = { deliveries: 'truck', issued: 'card', returns: 'back', transfers: 'swap' };
 
 export function Home() {
-  const { day, user, balances, docsToday, stepState, submission, refresh, go, signOut, lowItems, daysLeft,
+  const { day, user, balances, docsToday, stepState, submission, refresh, go, signOut, lowItems, daysLeft, itemById, recent,
     realToday, catchUp, pendingDays, startCatchUp, endCatchUp, closeDay, refreshPending, drafts, markStep } = useData();
   const zohoOnly = useZohoDeliveries();
   const { add, modal: addModal } = useAddEntry();
@@ -109,8 +110,13 @@ export function Home() {
     } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   };
   const toDash = (d: { tab: 'cons' | 'bal'; filter?: 'all' | 'low' | 'today'; item?: number; focus?: boolean; sort?: 'days' }) => signal('dash', d);
-  // Items that will run out within a week at the rate the site is using them (not already finished).
-  const soon = balances.filter((b) => b.balance > 0).map((b) => ({ b, d: daysLeft(b) })).filter((x): x is { b: typeof x.b; d: number } => x.d != null && x.d <= 7).sort((a, z) => a.d - z.d);
+  // This week's consumption: the item using the biggest share of its stock leads the tile.
+  const weekUse = useMemo(() => {
+    const from = periodRange('week', day).from;
+    const u = consumption(recent.filter((d) => d.doc_date >= from && d.doc_date <= day).flatMap((d) => d.lines));
+    const rows = [...u.entries()].filter(([, x]) => x.used > 0).map(([id, x]) => ({ id, used: x.used, share: x.used / (x.used + Math.max(0, balances.find((b) => b.item_id === id)?.balance ?? 0) || 1) })).sort((a, z) => z.share - a.share);
+    return { n: rows.length, top: rows[0] ? { ...rows[0], it: itemById.get(rows[0].id) } : null };
+  }, [recent, day, balances, itemById]);
   const attention = [...lowItems].sort((a, b) => (a.balance <= 0 ? -1 : 0) - (b.balance <= 0 ? -1 : 0) || (daysLeft(a) ?? 1e9) - (daysLeft(b) ?? 1e9)).slice(0, 6);
   const outCount = lowItems.filter((b) => b.balance <= 0).length;
   const lead = submission
@@ -185,10 +191,10 @@ export function Home() {
           <Num value={lowItems.length} className="kpiNum" />
           <span className="kpiFoot">{lowItems.length ? `${outCount} finished` : 'All good'}</span>
         </button>
-        <button className={`kpi enter ${soon.length ? 'soon' : ''}`} style={{ animationDelay: '.08s' }} onClick={() => toDash({ tab: 'bal', filter: 'all', sort: 'days' })} title="At the rate the site is using it">
-          <span className="kpiLabel"><Icon name="clock" size={14} />Runs out within 7 days</span>
-          <Num value={soon.length} className="kpiNum" />
-          <span className="kpiFoot">{soon.length ? `${soon[0].b.name} first · ~${Math.max(1, Math.round(soon[0].d))} day${Math.round(soon[0].d) <= 1 ? '' : 's'}` : 'Nothing runs out this week'}</span>
+        <button className={`kpi enter ${weekUse.n ? 'cons' : ''}`} style={{ animationDelay: '.08s' }} onClick={() => go('consumption')}>
+          <span className="kpiLabel"><Icon name="chart" size={14} />Consumption · this week</span>
+          <span className="kpiNum">{weekUse.top ? <><Num value={weekUse.top.used} /><span className="kpiUnit">{weekUse.top.it?.unit}</span></> : '0'}</span>
+          <span className="kpiFoot">{weekUse.top ? `${weekUse.top.it?.name ?? 'Item'} · top of ${weekUse.n}` : 'Nothing used yet this week'} <Icon name="arrow" size={13} /></span>
         </button>
         <button className="kpi enter" style={{ animationDelay: '.12s' }} onClick={() => go('stocktake')}>
           <span className="kpiLabel">Last stock take</span>

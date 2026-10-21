@@ -1923,3 +1923,74 @@ body.colDrag, body.colDrag * { cursor: col-resize !important; user-select: none 
 .kpiFoot { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (prefers-reduced-motion: reduce) { .searchWrap.pulse .search { animation: none; box-shadow: 0 0 0 1.5px var(--accent); } }
 .kpiLabel { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Consumption page */
+.consSeg button { white-space: nowrap; }
+.consDates { display: flex; align-items: center; gap: 8px; margin-top: -10px; }
+.consDates .input { width: 170px; min-height: 40px; }
+.consGrid { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 18px; align-items: start; }
+@media (max-width: 1100px) { .consGrid { grid-template-columns: 1fr; } }
+.consList { display: flex; flex-direction: column; }
+.consBar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.consFind { flex: 1; min-width: 200px; width: auto; }
+.floorNav { display: inline-flex; align-items: center; gap: 4px; background: #ECEEEB; border-radius: 12px; padding: 3px; }
+.fTrack { display: inline-flex; align-items: center; gap: 4px; overflow: hidden; }
+.fChip { height: 34px; padding: 0 13px; border: 0; border-radius: 9px; background: transparent; font: inherit; font-size: 13.5px; font-weight: 600; color: #6A7470; cursor: pointer; white-space: nowrap; transition: background .2s, color .2s, box-shadow .2s; }
+.fChip:hover { color: var(--ink); }
+.fChip.on { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 2px 8px rgba(18,23,22,.06); }
+@keyframes chipArrive { from { opacity: 0; transform: translateX(26px) scale(.86); } to { opacity: 1; transform: none; } }
+@keyframes chipLeave { 0% { max-width: 120px; opacity: 1; transform: scale(1); padding: 0 13px; } 100% { max-width: 0; opacity: 0; transform: scale(.6); padding: 0; margin-right: -4px; } }
+.fChip.arrive { animation: chipArrive .38s cubic-bezier(.2,.9,.25,1.15) both; }
+.fChip.leave { overflow: hidden; pointer-events: none; animation: chipLeave .32s cubic-bezier(.4,0,.2,1) both; transform-origin: left center; }
+.fMore { width: 36px; height: 34px; border: 0; border-radius: 9px; background: transparent; font-weight: 800; letter-spacing: 1px; color: var(--ink); cursor: pointer; transition: background .15s, transform .15s var(--spring); }
+.fMore:hover { background: #fff; }
+.fMore:active { transform: translateX(2px); }
+.consRows { display: flex; flex-direction: column; }
+@keyframes rowIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.consRow { display: grid; grid-template-columns: 26px minmax(0, 1.3fr) minmax(0, 1.5fr) 120px; gap: 14px; align-items: center; padding: 0 18px; min-height: 50px; border: 0; border-bottom: 1px solid #EEF0EE; background: #fff; font: inherit; color: inherit; text-align: left; cursor: pointer; position: relative; animation: rowIn .35s var(--ease) both; transition: background .15s; }
+.consRow:hover { background: #FAFBF9; }
+.consRow.on { background: #FFF8EC; box-shadow: inset 3px 0 0 var(--accent); }
+.consRow.on .crName { font-weight: 700; }
+.crNo { color: #8A938F; font-size: 13px; }
+.crName { font-size: 14.5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crBar { height: 10px; border-radius: 5px; background: #F1F3F2; overflow: hidden; }
+@keyframes barGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.crBar i { display: block; height: 100%; border-radius: 5px; background: linear-gradient(90deg, #F7B267, #F08A3C); transform-origin: left; animation: barGrow .6s var(--ease) both; }
+.crQty { text-align: right; font-size: 15px; }
+.crQty small { font-weight: 400; color: #6A7470; font-size: 12.5px; font-family: var(--body); }
+.consFoot { padding: 10px 18px; font-size: 13px; color: #6A7470; }
+.consDetail { position: sticky; top: 76px; }
+.cdIn { padding: 18px 20px; display: flex; flex-direction: column; gap: 16px; animation: rowIn .3s var(--ease) both; }
+.cdHead { display: flex; align-items: flex-start; gap: 10px; }
+.cdHead > div { flex: 1; min-width: 0; }
+.cdKick { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #8A5000; }
+.cdBig { display: flex; align-items: baseline; gap: 8px; margin-top: 4px; }
+.cdBig .mono { font-size: 36px; line-height: 1; }
+.cdBig span:last-child { color: #6A7470; }
+.cdChange { height: 26px; padding: 0 10px; border-radius: 99px; font-size: 12.5px; font-weight: 700; display: inline-flex; align-items: center; white-space: nowrap; }
+.cdChange.up { background: #FDE7E5; color: #B42318; }
+.cdChange.down { background: var(--ok-soft); color: #145236; }
+.cdBars { display: flex; gap: 8px; align-items: stretch; height: 170px; }
+.cdBars.thin { gap: 3px; }
+.cdCol { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; min-width: 0; }
+.cdCol i { width: 100%; max-width: 34px; min-height: 2px; border-radius: 7px 7px 3px 3px; background: #F6D3AE; transform-origin: bottom; animation: barUp .55s var(--ease) both; transition: background .15s; }
+.cdBars.thin .cdCol i { border-radius: 3px 3px 1px 1px; }
+.cdCol i.peak { background: linear-gradient(180deg, #F7B267, #F08A3C); }
+.cdCol:hover i { background: #F08A3C; }
+@keyframes barUp { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.cdVal { font-size: 12px; color: #6A7470; }
+.cdDay { font-size: 12px; color: #6A7470; height: 15px; }
+.cdStats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.cdStats > div { border-radius: 12px; background: #F6F7F5; padding: 10px 12px; display: flex; flex-direction: column; }
+.cdStats span { font-size: 12px; color: #6A7470; }
+.cdStats b { font-size: 18px; font-weight: 500; }
+.cdFloors { display: flex; flex-direction: column; gap: 8px; }
+.cdFloors > b { font-size: 14px; }
+.cdFloor { display: grid; grid-template-columns: 110px 1fr 54px; gap: 10px; align-items: center; font-size: 13.5px; }
+.cdFBar { height: 8px; border-radius: 4px; background: #F1F3F2; overflow: hidden; }
+.cdFBar i { display: block; height: 100%; background: #F08A3C; border-radius: 4px; transform-origin: left; animation: barGrow .6s var(--ease) both; }
+.cdFloor .mono { text-align: right; font-size: 13px; }
+.kpi.cons { box-shadow: inset 0 3px 0 #F08A3C, var(--lift); }
+.kpi.cons .kpiLabel .ic { color: #B54708; }
+.kpiUnit { font-size: 14px; color: #6A7470; font-family: var(--body); margin-left: 6px; }
+.cdKick { line-height: 1.5; display: block; }

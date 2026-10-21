@@ -27,7 +27,7 @@ const RECORDS: { screen: Screen; label: string; tone: string; entry: Screen }[] 
 ];
 const readRecOpen = () => { try { return localStorage.getItem('ssms-records') !== 'closed'; } catch { return true; } };
 // Screens that show the phone tab bar (not the step-by-step forms).
-const TABBAR: Screen[] = ['home', 'dashboard', 'corrections', 'submitted', 'reports', 'stocktake', 'rec-deliveries', 'rec-issued', 'rec-returns', 'rec-transfers'];
+const TABBAR: Screen[] = ['home', 'dashboard', 'corrections', 'submitted', 'reports', 'stocktake', 'rec-deliveries', 'rec-issued', 'rec-returns', 'rec-transfers', 'consumption'];
 
 export function closeLabel(min: number): string {
   if (min <= 0) return 'Register closed at 6:00 pm';
@@ -43,6 +43,7 @@ function crumbs(screen: Screen): string[] {
   const rec = RECORDS.find((r) => r.screen === screen);
   if (rec) return ['Records', rec.label];
   if (screen === 'reports') return ['Records', 'Reports'];
+  if (screen === 'consumption') return ['Records', 'Consumption'];
   return [NAV.find((n) => n.match.includes(screen))?.label ?? ''];
 }
 
@@ -110,6 +111,9 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
                 <span className="rsDot" aria-hidden="true" /><span className="rlText">{r.label}</span>
               </button>
             ))}
+            <button className="railLink railSub" title="Consumption" aria-current={screen === 'consumption' ? 'page' : undefined} onClick={() => go('consumption')}>
+              <Icon name="chart" size={17} /><span className="rlText">Consumption</span>
+            </button>
             <button className="railLink railSub" title="Reports" aria-current={screen === 'reports' ? 'page' : undefined} onClick={() => go('reports')}>
               <Icon name="report" size={17} /><span className="rlText">Reports</span>
             </button>
