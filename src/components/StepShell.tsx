@@ -1,11 +1,11 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
 import { STEPS, useData, type Screen } from '../lib/store';
 import type { Doc, StepKey } from '../lib/types';
 import { fmt, Top, YesNo } from './ui';
 import { ask, toast } from './feedback';
 import { useSignal } from '../lib/signals';
-import { ZohoTag } from './Zoho';
+import { checkZohoNow, useZohoDeliveries, ZohoTag } from './Zoho';
 
 type Stage = 'ask' | 'form' | 'another' | 'summary';
 export const ADD_NOUN: Record<StepKey, string> = { deliveries: 'a delivery', issued: 'a card', returns: 'a return', transfers: 'a transfer' };
@@ -26,7 +26,10 @@ export function StepShell({ step, question, hint, another, formTitle, tone, rend
   const next = STEPS[meta.n] as (typeof STEPS)[number] | undefined;
   const locked = !!submission;
   const fromZoho = docsToday.some((d) => meta.kinds.includes(d.kind) && d.source === 'zoho');
-  const [stage, setStage] = useState<Stage>(stepState(step) === 'todo' && !locked && !fromZoho ? 'ask' : 'summary');
+  // With Zoho on, deliveries are received in Zoho only and appear here by themselves: nothing to type, nothing counted twice.
+  const zohoOnly = useZohoDeliveries() && step === 'deliveries';
+  const [stage, setStage] = useState<Stage>(stepState(step) === 'todo' && !locked && !fromZoho && !zohoOnly ? 'ask' : 'summary');
+  useEffect(() => { if (zohoOnly && stage !== 'summary') setStage('summary'); }, [zohoOnly, stage]);
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const tick = async (d: Doc) => {
     setChecked((c) => ({ ...c, [d.id]: true }));
@@ -56,7 +59,7 @@ export function StepShell({ step, question, hint, another, formTitle, tone, rend
           <YesNo question={question} hint={hint} onYes={() => setStage('form')} onNo={() => { markStep(step, 'none'); setStage('summary'); toast(`${meta.label}: nothing ${catchUp ? "that day" : "today"}`); }} />
         )}
 
-        {stage === 'form' && renderForm(saved, again)}
+        {stage === 'form' && !zohoOnly && renderForm(saved, again)}
 
         {stage === 'another' && (
           <>
@@ -73,7 +76,8 @@ export function StepShell({ step, question, hint, another, formTitle, tone, rend
                 <span>Anything you add now counts in today’s balances and is marked <span className="pill late">Added</span>. To change an entry that is already saved, use <button className="btn link inline" onClick={() => go('corrections')}>Fix an error</button>.</span>
               </div>
             )}
-            {!docs.length && stepState(step) === 'none' && <div className="note info enter">Nothing recorded for this step today.</div>}
+            {!docs.length && stepState(step) === 'none' && !zohoOnly && <div className="note info enter">Nothing recorded for this step today.</div>}
+            {zohoOnly && !docs.length && <div className="zohoStepNote enter"><ZohoTag /><span><b>No deliveries from Zoho today yet.</b> Receive every delivery in Zoho; it appears here within a few minutes. <button className="btn link inline" onClick={checkZohoNow}>Check Zoho now</button></span></div>}
             {fromZoho && (() => { const z = docs.filter((d) => d.source === 'zoho'); const n = z.filter((d) => d.checked_at || checked[d.id]).length; return (
               <div className="zohoStepNote enter"><ZohoTag /><span><b>{z.length} deliver{z.length === 1 ? 'y' : 'ies'} came in from Zoho today.</b> Already in stock. Tick each one when it matches the paper delivery note. <span className="muted">{n} of {z.length} checked</span></span></div>
             ); })()}
@@ -88,9 +92,11 @@ export function StepShell({ step, question, hint, another, formTitle, tone, rend
                 })}
               </div>
             ))}
-            {locked
-              ? <button className="btn ghost addLate" onClick={() => setStage('form')}>+ Add {ADD_NOUN[step]}</button>
-              : <button className="btn ghost" onClick={() => setStage('form')}>{docs.length || stepState(step) === 'none' ? '+ Add one' : 'Start'}</button>}
+            {zohoOnly
+              ? <button className="btn ghost" onClick={checkZohoNow}>Check Zoho now</button>
+              : locked
+                ? <button className="btn ghost addLate" onClick={() => setStage('form')}>+ Add {ADD_NOUN[step]}</button>
+                : <button className="btn ghost" onClick={() => setStage('form')}>{docs.length || stepState(step) === 'none' ? '+ Add one' : 'Start'}</button>}
             <button className="btn accent" onClick={finish}>{locked ? 'Done · Back to start' : next ? `Done · Next: ${next.label}` : 'Done · Back to start'}</button>
           </>
         )}

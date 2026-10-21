@@ -74,6 +74,12 @@ export function ZohoAutoSync() {
 let zohoSyncNow: () => void = () => undefined;
 export const checkZohoNow = () => zohoSyncNow();
 
+/** True when this store's deliveries come from Zoho: then they are never typed in Bohari (no double counting). */
+export function useZohoDeliveries() {
+  const s = useZoho();
+  return !!s?.connected;
+}
+
 /** Status line + actions, for the account menu and the welcome page. */
 export function ZohoStatusLine({ compact }: { compact?: boolean }) {
   const s = useZoho();

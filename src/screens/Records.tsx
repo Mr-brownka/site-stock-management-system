@@ -8,7 +8,7 @@ import type { Doc, StepKey } from '../lib/types';
 import { Icon } from '../components/fx';
 import { fmt } from '../components/ui';
 import { toast } from '../components/feedback';
-import { checkZohoNow, ZohoTag } from '../components/Zoho';
+import { checkZohoNow, useZohoDeliveries, ZohoTag } from '../components/Zoho';
 
 export type RecKey = 'deliveries' | 'issued' | 'returns' | 'transfers';
 type Row = { doc: Doc; ref: string; paper: string; who: string; where: string };
@@ -43,6 +43,7 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
   const [q, setQ] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
   const [menu, setMenu] = useState(false);
+  const zohoOnly = useZohoDeliveries() && key === 'deliveries';
 
   useEffect(() => { setOpenId(null); setQ(''); }, [key]);
   useEffect(() => { api.documents('2000-01-01', day).then(setAll).catch(() => setAll([])); }, [day]);
@@ -76,8 +77,8 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
   }, [rows, range, q, itemById]);
   const open = rows.find((r) => r.doc.id === openId) ?? null;
   // Deliveries show where each came from once any came from Zoho.
-  const src = key === 'deliveries' && rows.some((r) => r.doc.source === 'zoho');
-  const fromZoho = shown.filter((r) => r.doc.source === 'zoho').length;
+  const src = key === 'deliveries' && rows.some((r) => r.doc.zoho_grn);
+  const fromZoho = shown.filter((r) => r.doc.zoho_grn).length;
   const periodLabel = PERIODS.find(([p]) => p === period)![1];
 
   const addNew = () => { signal('step-form', key as StepKey); go(STEP_SCREEN[key]); };
@@ -107,7 +108,9 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
         {period === 'pick' && <span className="recDates"><input type="date" className="input" value={from} max={to} onChange={(e) => setFrom(e.target.value)} aria-label="From" /> – <input type="date" className="input" value={to} min={from} max={day} onChange={(e) => setTo(e.target.value)} aria-label="To" /></span>}
         <span className="abGrow" />
         <label className="recSearch"><Icon name="search" size={16} /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Search ${C.title.toLowerCase()}`} aria-label={`Search ${C.title}`} /></label>
-        <button className="recNew" onClick={addNew}><span><Icon name="plus" size={16} /></span>New</button>
+        {zohoOnly
+          ? <button className="recNew" onClick={checkZohoNow} title="Deliveries are received in Zoho and come in by themselves"><span><Icon name="download" size={16} /></span>Check Zoho now</button>
+          : <button className="recNew" onClick={addNew}><span><Icon name="plus" size={16} /></span>New</button>}
         <div className="recMore">
           <button className="recDots" onClick={() => setMenu((v) => !v)} aria-label="More" aria-expanded={menu}>···</button>
           {menu && <div className="recMenu" onMouseLeave={() => setMenu(false)}><button onClick={download}><Icon name="download" size={16} />Download as Excel</button></div>}
@@ -125,7 +128,7 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
               <span className="mono">{r.paper || '—'}</span>
               <span className="recWho">{r.who || '—'}</span>
               <span className="recWhere">{r.where || '—'}{!!r.doc.to_confirm?.length && <span className="fcTag confirm">To confirm</span>}</span>
-              {src && (r.doc.source === 'zoho' ? <ZohoTag grn={r.doc.zoho_grn} /> : <span className="small muted">Typed in Bohari</span>)}
+              {src && (r.doc.zoho_grn ? <ZohoTag grn={r.doc.zoho_grn} /> : <span className="small muted">Typed in Bohari</span>)}
             </button>
           ))}
           {shown.length > 0 && <div className="recFoot">{shown.length} {shown.length === 1 ? 'entry' : 'entries'} · {periodLabel.toLowerCase()}{src && fromZoho ? ` · ${fromZoho} from Zoho` : ''}{src && <button className="btn link inline" onClick={checkZohoNow}>Check Zoho now</button>}</div>}

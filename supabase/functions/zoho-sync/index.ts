@@ -64,7 +64,27 @@ async function discover(api: string, token: string, org: string) {
 }
 const base = (kind: string) => (kind === 'books' ? '/books/v3' : '/inventory/v1');
 
-async function place(db: SupabaseClient, c: Conn, p: Parsed, siteId: string): Promise<'imported' | 'pending' | 'skip'> {
+const digits = (s: unknown) => String(s ?? '').replace(/\D/g, '').replace(/^0+/, '');
+/** A delivery already typed in Bohari for the same receive: same delivery note number (digits only),
+ *  or same day, same vendor and the same items and quantities. Only unlinked, hand-typed ones. */
+async function findTwin(db: SupabaseClient, siteId: string, p: Parsed, map: Map<string, number>): Promise<string | null> {
+  if (!p.date) return null;
+  const from = new Date(new Date(p.date).getTime() - 7 * 864e5).toISOString().slice(0, 10);
+  const to = new Date(new Date(p.date).getTime() + 7 * 864e5).toISOString().slice(0, 10);
+  const { data } = await db.from('documents').select('id, doc_date, ref_no, party, movements(item_id, qty)')
+    .eq('site_id', siteId).eq('kind', 'delivery').is('zoho_receive_id', null).gte('doc_date', from).lte('doc_date', to);
+  const dn = digits(p.dn), grn = digits(p.grn);
+  const want = p.lines.map((l) => `${map.get(l.zid)}:${l.qty}`).sort().join('|');
+  for (const d of (data ?? []) as { id: string; doc_date: string; ref_no: string | null; party: string | null; movements: { item_id: number; qty: number }[] }[]) {
+    const ref = digits(d.ref_no);
+    if (ref && (ref === dn || ref === grn)) return d.id;
+    const items = (d.movements ?? []).map((m) => `${m.item_id}:${Number(m.qty)}`).sort().join('|');
+    if (d.doc_date === p.date && norm(d.party) === norm(p.vendor) && items === want) return d.id;
+  }
+  return null;
+}
+
+async function place(db: SupabaseClient, c: Conn, p: Parsed, siteId: string): Promise<'imported' | 'pending' | 'skip' | 'linked'> {
   const { data: dup } = await db.from('documents').select('id').eq('zoho_receive_id', p.id).maybeSingle();
   if (dup) return 'skip';
   // Items: Zoho's item id first; otherwise the same name already in Bohari; otherwise wait for the admin.
@@ -79,6 +99,22 @@ async function place(db: SupabaseClient, c: Conn, p: Parsed, siteId: string): Pr
       const hit = byName.get(norm(l.name));
       if (hit) { map.set(l.zid, hit); await db.from('zoho_item_map').upsert({ zoho_item_id: l.zid, item_id: hit, zoho_name: l.name, zoho_unit: l.unit }); }
       else await db.from('zoho_item_map').upsert({ zoho_item_id: l.zid, item_id: null, zoho_name: l.name, zoho_unit: l.unit }, { onConflict: 'zoho_item_id', ignoreDuplicates: true });
+    }
+  }
+  // Never count a delivery twice: if the store already typed this one into Bohari, link it to Zoho instead.
+  const twin = await findTwin(db, siteId, p, map);
+  if (twin) {
+    await db.from('documents').update({ zoho_receive_id: p.id, zoho_grn: p.grn, zoho_po: p.po }).eq('id', twin);
+    await db.from('zoho_pending').delete().eq('zoho_receive_id', p.id);
+    return 'linked';
+  }
+  // A second Zoho receive with the same delivery note number as one already in Bohari: let the admin decide.
+  if (digits(p.dn)) {
+    const { data: same } = await db.from('documents').select('id, ref_no').eq('site_id', siteId).eq('kind', 'delivery').not('zoho_receive_id', 'is', null);
+    if ((same ?? []).some((d) => digits(d.ref_no) === digits(p.dn))) {
+      await db.from('zoho_pending').upsert({ zoho_receive_id: p.id, site_id: null, project: p.project, grn: p.grn, receive_date: p.date || null, vendor: p.vendor,
+        reason: `Same delivery note (${p.dn}) as a delivery already in Bohari. Check it isn't the same goods twice.`, payload: p });
+      return 'pending';
     }
   }
   const unmatched = p.lines.filter((l) => !map.has(l.zid));
@@ -100,7 +136,7 @@ async function place(db: SupabaseClient, c: Conn, p: Parsed, siteId: string): Pr
 }
 
 async function syncOne(db: SupabaseClient, c: Conn) {
-  const out = { imported: 0, pending: 0, seen: 0, more: false, kind: c.api_kind as string | null, projects: [] as string[] };
+  const out = { imported: 0, pending: 0, linked: 0, seen: 0, more: false, kind: c.api_kind as string | null, projects: [] as string[] };
   const projects = new Set<string>();
   if (!c.site_id) throw new Error('Your Bohari account has no site yet.');
   const { data: site } = await db.from('sites').select('name, zoho_project').eq('id', c.site_id).single();
@@ -162,7 +198,7 @@ async function syncOne(db: SupabaseClient, c: Conn) {
       }
       if (norm(p.project) !== mine) { await db.from('zoho_seen').upsert({ zoho_receive_id: p.id, project: p.project }); continue; } // another site's: not ours
       const res = await place(db, c, p, c.site_id);
-      if (res === 'imported') out.imported++; else if (res === 'pending') out.pending++;
+      if (res === 'imported') out.imported++; else if (res === 'pending') out.pending++; else if (res === 'linked') out.linked++;
     }
     if (!fresh || !(r.body.page_context as Rec | undefined)?.has_more_page) break;
   }
