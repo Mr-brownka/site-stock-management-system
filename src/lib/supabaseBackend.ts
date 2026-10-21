@@ -241,10 +241,15 @@ export function supabaseBackend(url: string, key: string): Backend {
       const r = (data as ZohoStatus[] | null)?.[0];
       return r ? { ...r, connected: true } : { connected: false, zoho_email: null, last_sync_at: null, last_error: null, imported: 0 };
     },
-    async zohoConnect() {
-      const { data, error } = await sb.functions.invoke('zoho-start', { body: {} });
+    async zohoConnect(mail) {
+      const { data, error } = await sb.functions.invoke('zoho-start', { body: mail ? { mail: true } : {} });
       if (error || !data?.url) fail({ message: (data as { error?: string } | null)?.error ?? error?.message ?? 'Could not start the Zoho sign-in.' });
       location.href = data.url;
+    },
+    async sendMail(m) {
+      const { data, error } = await sb.functions.invoke('zoho-mail', { body: m });
+      if (error) return { error: error.message };
+      return data as { ok?: boolean; error?: string; reconnect?: boolean; from?: string };
     },
     async zohoSync() {
       const { data, error } = await sb.functions.invoke('zoho-sync', { body: {} });

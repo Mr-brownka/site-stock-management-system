@@ -11,5 +11,7 @@ Deno.serve(async (req) => {
   await db.from('zoho_states').delete().lt('created_at', new Date(Date.now() - 3600_000).toISOString());
   const { data, error } = await db.from('zoho_states').insert({ user_id: user.id }).select('state').single();
   if (error) return json({ error: error.message }, 500);
-  return json({ url: authUrl(data.state) });
+  let body: { mail?: boolean } = {};
+  try { body = await req.json(); } catch { /* no body */ }
+  return json({ url: authUrl(data.state, 'https://accounts.zoho.com', body.mail === true) });
 });

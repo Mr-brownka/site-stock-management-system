@@ -2019,3 +2019,4 @@ body.colDrag, body.colDrag * { cursor: col-resize !important; user-select: none 
   body.railDrag .shell { transition: none !important; }
   .toasts { left: calc(50% + var(--railW, 212px) / 2) !important; }
 }
+.stShareBox textarea.input { font-family: var(--body); min-height: 80px; padding: 10px 12px; resize: vertical; }

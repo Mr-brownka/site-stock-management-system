@@ -70,6 +70,7 @@ export function StockTake() {
   const [choosing, setChoosing] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [openTake, setOpenTake] = useState<Take | null>(null);
+  const [sharing, setSharing] = useState<Take | null>(null);
   const [printing, setPrinting] = useState<{ items: Item[]; values?: Record<number, number>; take?: Take } | null>(null);
   const rowsRef = useRef<HTMLDivElement>(null);
   // A long count can be put down and picked up later on this device.
@@ -254,7 +255,7 @@ export function StockTake() {
             <span className="ellip">{t.counted_by ?? '–'}</span>
             <span className="mono">{t.lines.length}</span>
             <span><span className={`stPill ${t.is_first || t.status === 'confirmed' ? 'ok' : 'idle'}`}>{t.is_first ? 'Opening balances' : t.status === 'confirmed' ? 'Confirmed' : 'Recorded'}</span></span>
-            <span className="r"><button className="stShare" title="Share by email (Zoho Mail)" aria-label={`Share ${refOf(t)} by email`} onClick={(e) => { e.stopPropagation(); toast('Email sharing through Zoho Mail is being set up next'); }}><Icon name="mail" size={17} /></button></span>
+            <span className="r"><button className="stShare" title="Share by email (Zoho Mail)" aria-label={`Share ${refOf(t)} by email`} onClick={(e) => { e.stopPropagation(); setSharing(t); }}><Icon name="mail" size={17} /></button></span>
           </div>
         ))}
       </section>
@@ -287,6 +288,59 @@ export function StockTake() {
           </section>
         </div>, document.body)}
       {printLayer}
+      {sharing && <ShareTake take={sharing} refName={refOf(sharing)} onClose={() => setSharing(null)} />}
     </div>
   );
+}
+
+const esc = (x: unknown) => String(x ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+
+/** Email one stock take from the person's own Zoho Mail: a clear table, signed by them. */
+function ShareTake({ take, refName, onClose }: { take: Take; refName: string; onClose: () => void }) {
+  const { site, company, user, itemById } = useData();
+  const [to, setTo] = useState(() => { try { return localStorage.getItem('ssms-st-mail-to') ?? ''; } catch { return ''; } });
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<{ text: string; reconnect?: boolean } | null>(null);
+  const subject = `Stock take ${refName} · ${site} · ${nice(take.count_date)}`;
+  const rows = sorted(take.lines.map((l) => itemById.get(l.item_id)).filter(Boolean) as Item[]);
+  const qty = new Map(take.lines.map((l) => [l.item_id, l.qty]));
+  const html = () => `<div style="font-family:Segoe UI,Arial,sans-serif;color:#1B2120;font-size:14px">
+${note.trim() ? `<p>${esc(note.trim()).replace(/\n/g, '<br>')}</p>` : ''}
+<p style="margin:0 0 4px;font-size:12px;letter-spacing:.1em;color:#8A5000;font-weight:bold">${esc((company || 'Comex Builders').toUpperCase())} · ${esc(site.toUpperCase())}</p>
+<h2 style="margin:0 0 6px">Stock take ${esc(refName)}</h2>
+<p style="margin:0 0 12px;color:#59625F">${esc(nice(take.count_date))}${take.start_time || take.end_time ? ` · ${esc(take.start_time ?? '–')} – ${esc(take.end_time ?? '–')}` : ''} · counted by ${esc(take.counted_by ?? '–')} · ${rows.length} items</p>
+<table style="border-collapse:collapse;font-size:13px;min-width:420px">
+<tr style="background:#FFF1DA"><th style="text-align:left;padding:6px 10px;border:1px solid #F0C99A">No.</th><th style="text-align:left;padding:6px 10px;border:1px solid #F0C99A">Item</th><th style="text-align:left;padding:6px 10px;border:1px solid #F0C99A">Unit</th><th style="text-align:right;padding:6px 10px;border:1px solid #F0C99A">Counted</th></tr>
+${rows.map((it, i) => `<tr><td style="padding:5px 10px;border:1px solid #EEE">${i + 1}</td><td style="padding:5px 10px;border:1px solid #EEE">${esc(it.name)}</td><td style="padding:5px 10px;border:1px solid #EEE">${esc(it.unit)}</td><td style="padding:5px 10px;border:1px solid #EEE;text-align:right;font-family:Consolas,monospace">${esc(fmt(qty.get(it.id) ?? 0))}</td></tr>`).join('\n')}
+</table>
+<p style="margin-top:16px">— ${esc(user.name)}, ${esc(site)} Store</p>
+<p style="color:#8A938F;font-size:11px">Sent from Bohari (Site Stock).</p></div>`;
+  const send = async () => {
+    const list = to.split(/[,;\s]+/).map((x) => x.trim()).filter(Boolean);
+    if (!list.length) { setErr({ text: 'Add who to send it to.' }); return; }
+    setBusy(true); setErr(null);
+    try {
+      const r = await api.sendMail({ to: list, subject, html: html() });
+      if (r.ok) { try { localStorage.setItem('ssms-st-mail-to', to); } catch { /* ignore */ } toast(`Sent from ${r.from ?? 'your Zoho Mail'}`); onClose(); return; }
+      setErr({ text: r.error ?? 'Not sent.', reconnect: r.reconnect });
+    } catch (e) { setErr({ text: (e as Error).message }); } finally { setBusy(false); }
+  };
+  return createPortal(
+    <div className="sheetBack dayAskBack" onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onClose(); }}>
+      <section className="dayAsk stShareBox" role="dialog" aria-modal="true" aria-labelledby="stShareTitle">
+        <span className="daKicker">Email · from your Zoho Mail</span>
+        <h2 id="stShareTitle">Send {refName}</h2>
+        <label className="field"><span>To</span><input className="input" type="email" multiple value={to} onChange={(e) => setTo(e.target.value)} placeholder="name@comex.co.ke · separate several with commas" autoFocus /></label>
+        <div className="field"><span>Subject</span><div className="input locked fakeIn">{subject}</div></div>
+        <label className="field"><span>Note <i className="muted" style={{ fontStyle: 'normal', fontWeight: 400 }}>(optional)</i></span><textarea className="input" rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Please find this week’s stock take below." /></label>
+        <span className="small muted">The count goes as a table in the email: {rows.length} items, signed “{user.name}, {site} Store”.</span>
+        {err && <div className="note err" role="alert">{err.text}{err.reconnect && <> <button className="btn link inline" onClick={() => api.zohoConnect(true).catch((e) => toast((e as Error).message, 'warn'))}>Allow Zoho Mail</button></>}</div>}
+        <div className="row" style={{ gap: 10 }}>
+          <button className="btn ghost sm" disabled={busy} onClick={onClose}>Cancel</button>
+          <span className="abGrow" />
+          <button className="btn sm" disabled={busy} onClick={send}><Icon name="mail" size={16} />{busy ? 'Sending…' : 'Send email'}</button>
+        </div>
+      </section>
+    </div>, document.body);
 }

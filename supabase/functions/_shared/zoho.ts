@@ -7,6 +7,9 @@ export const ORG_ID = Deno.env.get('ZOHO_ORG_ID') ?? '838038949';
 export const SCOPES = Deno.env.get('ZOHO_SCOPES') ??
   'ZohoBooks.purchasereceives.READ,ZohoBooks.purchaseorders.READ,ZohoBooks.settings.READ,ZohoBooks.contacts.READ';
 
+/** Asked for only when a person chooses to send email from Bohari (stock takes by Zoho Mail). */
+export const MAIL_SCOPES = 'ZohoMail.accounts.READ,ZohoMail.messages.CREATE';
+
 export const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -31,8 +34,8 @@ const clientSecret = () => (Deno.env.get('ZOHO_CLIENT_SECRET') ?? '').trim();
 export const clientIdHint = () => { const c = clientId(); return { length: c.length, starts: c.slice(0, 5), looksLikeId: /^1000\.[A-Z0-9]+$/.test(c) }; };
 export const configured = () => !!clientId() && !!clientSecret();
 
-export function authUrl(state: string, accounts = 'https://accounts.zoho.com') {
-  const p = new URLSearchParams({ response_type: 'code', client_id: clientId(), scope: SCOPES, redirect_uri: REDIRECT_URI, access_type: 'offline', prompt: 'consent', state });
+export function authUrl(state: string, accounts = 'https://accounts.zoho.com', mail = false) {
+  const p = new URLSearchParams({ response_type: 'code', client_id: clientId(), scope: mail ? `${SCOPES},${MAIL_SCOPES}` : SCOPES, redirect_uri: REDIRECT_URI, access_type: 'offline', prompt: 'consent', state });
   return `${accounts}/oauth/v2/auth?${p}`;
 }
 

@@ -170,6 +170,7 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
     async zohoStatus() { return null; },
     async zohoConnect() { throw new Error('Zoho connects in the live app only, not the demo.'); },
     async zohoSync() { return { connected: false }; },
+    async sendMail() { await new Promise((r) => setTimeout(r, 600)); return { ok: true, from: 'demo@comex.co.ke' }; },
     async zohoDisconnect() { /* demo */ },
     async checkDelivery(docId) { s.docs = s.docs.map((d) => (d.id === docId ? { ...d, checked_at: new Date().toISOString() } : d)); save(); },
     async markAlertSent() {

@@ -245,7 +245,10 @@ export interface Backend {
   /** My own Zoho connection (never the key itself). Null when not connected or not set up. */
   zohoStatus(): Promise<ZohoStatus | null>;
   /** Sends the browser to Zoho's sign-in page. */
-  zohoConnect(): Promise<void>;
+  /** Starts Zoho's sign-in. mail: also allow sending email from the person's Zoho Mail. */
+  zohoConnect(mail?: boolean): Promise<void>;
+  /** Sends an email from the signed-in person's Zoho Mail. */
+  sendMail(m: { to: string[]; cc?: string[]; subject: string; html: string }): Promise<{ ok?: boolean; error?: string; reconnect?: boolean; from?: string }>;
   zohoSync(): Promise<ZohoSyncResult>;
   zohoDisconnect(): Promise<void>;
   checkDelivery(docId: string): Promise<void>;
