@@ -57,7 +57,7 @@ const missingText = (labels: string[]) =>
   labels.length === 1 ? `${labels[0]} missing` : labels.length === 2 ? `${labels[0]} and ${labels[1].toLowerCase()} missing` : `${labels.length} details missing`;
 
 /** One slim line on the check-in page per unfinished entry (the first shown, the rest behind "+ more"). */
-export function UnfinishedCard() {
+export function UnfinishedCard({ chip }: { chip?: boolean } = {}) {
   const { unconfirmed, drafts, refreshUnfinished, openDraft, go, itemById, startCatchUp, realToday, day } = useData();
   const [finishing, setFinishing] = useState<Doc | null>(null);
   const [all, setAll] = useState(false);
@@ -82,7 +82,7 @@ export function UnfinishedCard() {
         <div key={d.id} className="fbRow">
           <span className="fbIc" aria-hidden="true">!</span>
           <div className="fbText"><b className="fbMiss">{missingText(labels)}</b><span className="fbWhat">{labels.length > 2 ? `${labels.join(', ')} · ` : ''}{what}</span></div>
-          <button className="btn sm" onClick={() => setFinishing(d)}>{labels.length === 1 ? `Add ${labels[0].toLowerCase()}` : 'Fill in'}</button>
+          <button className="btn sm" onClick={() => { setAll(false); setFinishing(d); }}>{labels.length === 1 ? `Add ${labels[0].toLowerCase()}` : 'Fill in'}</button>
         </div>
       );
     }),
@@ -94,6 +94,24 @@ export function UnfinishedCard() {
       </div>
     )),
   ];
+  if (chip) {
+    return (
+      <span className="finChipWrap">
+        <button className={`finChip ${all ? 'on' : ''}`} aria-expanded={all} aria-haspopup="dialog" onClick={() => setAll(!all)}>
+          <span className="fcDot" aria-hidden="true" />{n} to finish
+          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </button>
+        {all && <>
+          <span className="finPopBack" onClick={() => setAll(false)} />
+          <section className="finPop" role="dialog" aria-label="Entries to finish">
+            <header><span>To finish</span><small>Counted in stock unless it’s a draft</small></header>
+            {rows}
+          </section>
+        </>}
+        {finishing && createPortal(<FinishSheet doc={finishing} onClose={() => { setFinishing(null); }} />, document.body)}
+      </span>
+    );
+  }
   return (
     <section className="finBar enter" aria-label="Entries to finish">
       {all ? rows : rows[0]}

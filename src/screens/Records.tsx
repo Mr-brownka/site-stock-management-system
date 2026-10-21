@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import { api } from '../lib/api';
 import { addDays, niceDate } from '../lib/dates';
 import { weekStart } from '../lib/projectWeek';
-import { signal } from '../lib/signals';
 import { useData, type Screen } from '../lib/store';
-import type { Doc, StepKey } from '../lib/types';
+import type { Doc } from '../lib/types';
+import { takePeriod, useAddEntry } from '../components/AddEntry';
 import { Icon } from '../components/fx';
 import { fmt } from '../components/ui';
 import { toast } from '../components/feedback';
@@ -26,7 +26,6 @@ export const REC_SCREENS: { screen: Screen; key: RecKey; label: string }[] = [
   { screen: 'rec-returns', key: 'returns', label: 'Returned items' },
   { screen: 'rec-transfers', key: 'transfers', label: 'Project transfers' },
 ];
-const STEP_SCREEN: Record<RecKey, Screen> = { deliveries: 'deliveries', issued: 'issued', returns: 'returns', transfers: 'transfers' };
 
 type Period = 'today' | 'week' | '30' | 'month' | 'all' | 'pick';
 const PERIODS: [Period, string][] = [['today', 'Today'], ['week', 'This week'], ['30', 'Last 30 days'], ['month', 'This month'], ['all', 'All time'], ['pick', 'Pick dates']];
@@ -37,7 +36,9 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
   const { day, itemById, go, site, company } = useData();
   const C = CFG[key];
   const [all, setAll] = useState<Doc[] | null>(null);
-  const [period, setPeriod] = useState<Period>('30');
+  const [period, setPeriod] = useState<Period>(() => (takePeriod() as Period | null) ?? '30');
+  const { add, modal } = useAddEntry();
+  const cols = useCols(key);
   const [from, setFrom] = useState(addDays(day, -29));
   const [to, setTo] = useState(day);
   const [q, setQ] = useState('');
@@ -81,7 +82,7 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
   const fromZoho = shown.filter((r) => r.doc.zoho_grn).length;
   const periodLabel = PERIODS.find(([p]) => p === period)![1];
 
-  const addNew = () => { signal('step-form', key as StepKey); go(STEP_SCREEN[key]); };
+  const addNew = () => add(key);
   const download = async () => {
     setMenu(false);
     const XLSX = await import('xlsx');
@@ -98,6 +99,7 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
 
   return (
     <div className={`recPage ${key}`}>
+      {modal}
       <header className="recHead">
         <span className="recIco"><Svg d={C.icon} /></span>
         <h1>{C.title}</h1>
@@ -119,10 +121,14 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
 
       {all === null ? <div className="recEmpty">Loading…</div> : !open ? (
         <section className="recTable" aria-label={C.title}>
-          <div className={`recRow recTh ${src ? 'src' : ''}`}><span>System ref</span><span>Date</span><span>{C.paper}</span><span>{C.who}</span><span>{C.where}</span>{src && <span>Source</span>}</div>
+          <div className="recRow recTh" ref={cols.headRef} style={cols.style(src)}>
+            {['System ref', 'Date', C.paper, C.who, C.where, ...(src ? ['Source'] : [])].map((h, i, a) => (
+              <span key={h} className="recThCell">{h}{i < a.length - 1 && <i className="colGrip" role="separator" aria-orientation="vertical" aria-label={`Resize ${h}`} title="Drag to resize · double-click to reset" onPointerDown={(e) => cols.start(e, i, src)} onDoubleClick={cols.reset} />}</span>
+            ))}
+          </div>
           {!shown.length && <div className="recEmpty">No {C.title.toLowerCase()} {period === 'all' ? 'yet' : `in ${periodLabel.toLowerCase()}`}{q ? ' matching your search' : ''}.</div>}
           {shown.map((r) => (
-            <button key={r.doc.id} className={`recRow ${src ? 'src' : ''}`} onClick={() => setOpenId(r.doc.id)}>
+            <button key={r.doc.id} className="recRow" style={cols.style(src)} onClick={() => setOpenId(r.doc.id)}>
               <b className="recRef">{r.ref}</b>
               <span>{niceDate(r.doc.doc_date)}</span>
               <span className="mono">{r.paper || '—'}</span>
@@ -148,6 +154,41 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
       )}
     </div>
   );
+}
+
+/** Column widths in proportions (they always fill the table). Each person's own layout is remembered on this device. */
+const DEFAULT_COLS = [1.05, 1.1, 1.35, 2.3, 1.6, 1.25];
+function useCols(key: RecKey) {
+  const store = `ssms-cols-${key}`;
+  const [w, setW] = useState<number[]>(() => { try { const v = JSON.parse(localStorage.getItem(store) || 'null'); return Array.isArray(v) && v.length === 6 ? v : DEFAULT_COLS; } catch { return DEFAULT_COLS; } });
+  useEffect(() => { try { const v = JSON.parse(localStorage.getItem(store) || 'null'); setW(Array.isArray(v) && v.length === 6 ? v : DEFAULT_COLS); } catch { setW(DEFAULT_COLS); } }, [store]);
+  const headRef = useRef<HTMLDivElement>(null);
+  const save = (v: number[]) => { setW(v); try { localStorage.setItem(store, JSON.stringify(v)); } catch { /* private window */ } };
+  const style = (src: boolean) => ({ gridTemplateColumns: w.slice(0, src ? 6 : 5).map((f) => `minmax(64px, ${f.toFixed(3)}fr)`).join(' ') });
+  const start = (e: RPointerEvent, i: number, src: boolean) => {
+    e.preventDefault(); e.stopPropagation();
+    const n = src ? 6 : 5;
+    const total = headRef.current?.getBoundingClientRect().width ?? 1000;
+    const sum = w.slice(0, n).reduce((a, b) => a + b, 0);
+    const px = w.slice(0, n).map((f) => (f / sum) * total);
+    const x0 = e.clientX;
+    document.body.classList.add('colDrag');
+    const move = (ev: PointerEvent) => {
+      const dx = Math.max(64 - px[i], Math.min(px[i + 1] - 64, ev.clientX - x0));
+      const next = px.map((p, j) => (j === i ? p + dx : j === i + 1 ? p - dx : p));
+      setW([...next.map((p) => (p / total) * sum), ...w.slice(n)]);
+    };
+    const up = (ev: PointerEvent) => {
+      move(ev);
+      document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up);
+      document.body.classList.remove('colDrag');
+      const dx = Math.max(64 - px[i], Math.min(px[i + 1] - 64, ev.clientX - x0));
+      save([...px.map((p, j) => (j === i ? p + dx : j === i + 1 ? p - dx : p)).map((p) => (p / total) * sum), ...w.slice(n)]);
+    };
+    document.addEventListener('pointermove', move); document.addEventListener('pointerup', up);
+  };
+  const reset = () => save(DEFAULT_COLS);
+  return { style, start, reset, headRef };
 }
 
 function Detail({ row, cfg, onClose, onFix }: { row: Row; cfg: (typeof CFG)[RecKey]; onClose: () => void; onFix: () => void }) {

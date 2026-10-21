@@ -11,7 +11,7 @@ import { CommandPalette } from './CommandPalette';
 import { Welcome } from '../screens/Welcome';
 import { isTrained } from '../lib/trainingPlan';
 
-const CHECKIN: Screen[] = ['home', 'dashboard', 'deliveries', 'issued', 'returns', 'transfers', 'submitted'];
+const CHECKIN: Screen[] = ['home', 'dashboard', 'submitted'];
 const NAV: { screen: Screen; label: string; icon: string; match: Screen[] }[] = [
   { screen: 'home', label: 'Check-in', icon: 'checkin', match: CHECKIN },
   { screen: 'stocktake', label: 'Stock take', icon: 'box', match: ['stocktake'] },
@@ -19,11 +19,11 @@ const NAV: { screen: Screen; label: string; icon: string; match: Screen[] }[] = 
   { screen: 'corrections', label: 'Fix an error', icon: 'fix', match: ['corrections'] },
 ];
 /** Records: past entries per kind, each with its colour (green in, orange out, blue back in, purple transfers). */
-const RECORDS: { screen: Screen; label: string; tone: string }[] = [
-  { screen: 'rec-deliveries', label: 'Deliveries', tone: 'deliveries' },
-  { screen: 'rec-issued', label: 'Issued items', tone: 'issued' },
-  { screen: 'rec-returns', label: 'Returned items', tone: 'returns' },
-  { screen: 'rec-transfers', label: 'Project transfers', tone: 'transfers' },
+const RECORDS: { screen: Screen; label: string; tone: string; entry: Screen }[] = [
+  { screen: 'rec-deliveries', label: 'Deliveries', tone: 'deliveries', entry: 'deliveries' },
+  { screen: 'rec-issued', label: 'Issued items', tone: 'issued', entry: 'issued' },
+  { screen: 'rec-returns', label: 'Returned items', tone: 'returns', entry: 'returns' },
+  { screen: 'rec-transfers', label: 'Project transfers', tone: 'transfers', entry: 'transfers' },
 ];
 const readRecOpen = () => { try { return localStorage.getItem('ssms-records') !== 'closed'; } catch { return true; } };
 // Screens that show the phone tab bar (not the step-by-step forms).
@@ -36,8 +36,8 @@ export function closeLabel(min: number): string {
 }
 
 function crumbs(screen: Screen): string[] {
-  const step = STEPS.find((s) => s.screen === screen);
-  if (step) return ['Check-in', `Step ${step.n} · ${step.label}`];
+  const entry = RECORDS.find((r) => r.entry === screen);
+  if (entry) return ['Records', entry.label, 'New entry'];
   if (screen === 'submitted') return ['Check-in', 'Day submitted'];
   if (CHECKIN.includes(screen)) return ['Check-in'];
   const rec = RECORDS.find((r) => r.screen === screen);
@@ -101,13 +101,12 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
               {n.screen === 'home' && lowItems.length > 0 && <span className="railLow"><PulseDot />{lowItems.length}</span>}
             </button>
           ))}
-          <span className="railSec">Records</span>
-          <button className="railLink railGroup" title="Records" aria-expanded={recOpen} onClick={toggleRec}>
-            <Icon name="list" /><span className="rlText">Records</span><span className={`rgChev rlText ${recOpen ? 'open' : ''}`} aria-hidden="true">▾</span>
+          <button className="railSec railSecBtn" aria-expanded={recOpen} onClick={toggleRec} title={recOpen ? 'Hide records' : 'Show records'}>
+            Records<span className={`rgChev ${recOpen ? 'open' : ''}`} aria-hidden="true"><svg viewBox="0 0 24 24" width="12" height="12"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
           </button>
           {recOpen && <>
             {RECORDS.map((r) => (
-              <button key={r.screen} className={`railLink railSub ${r.tone}`} title={r.label} aria-current={screen === r.screen ? 'page' : undefined} onClick={() => go(r.screen)}>
+              <button key={r.screen} className={`railLink railSub ${r.tone}`} title={r.label} aria-current={screen === r.screen || screen === r.entry ? 'page' : undefined} onClick={() => go(r.screen)}>
                 <span className="rsDot" aria-hidden="true" /><span className="rlText">{r.label}</span>
               </button>
             ))}
@@ -175,7 +174,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
           <nav className="crumbs" aria-label="Breadcrumb">
             {trail.map((c, i) => (
               <span key={c} className="crPart"><span aria-hidden="true">/</span>
-                {i < trail.length - 1 ? (c === 'Records' ? <span>{c}</span> : <button onClick={() => go('home')}>{c}</button>) : <b aria-current="page">{c}</b>}
+                {i < trail.length - 1 ? (c === 'Records' ? <span>{c}</span> : <button onClick={() => go(RECORDS.find((r) => r.label === c)?.screen ?? 'home')}>{c}</button>) : <b aria-current="page">{c}</b>}
               </span>
             ))}
           </nav>

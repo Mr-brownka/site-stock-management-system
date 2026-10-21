@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { StepShell } from '../components/StepShell';
 import { LineTable } from '../components/LineTable';
 import { Icon } from '../components/fx';
-import { checkLines, enterNext, fmt, newLine, Suggest, type LineDraft } from '../components/ui';
+import { checkLines, enterNext, newLine, Suggest, type LineDraft } from '../components/ui';
 import { api } from '../lib/api';
 import { addDays, niceDate } from '../lib/dates';
 import { focusMiss, LaterBar, linesFromPayload, linesToPayload, useDraft } from '../components/Unfinished';
 import { toast } from '../components/feedback';
+import { openRecords } from '../components/AddEntry';
 import { useData } from '../lib/store';
 
 function DeliveryForm({ done, again }: { done: () => void; again: () => Promise<void> }) {
@@ -35,7 +36,6 @@ function DeliveryForm({ done, again }: { done: () => void; again: () => Promise<
   const last = useMemo(() => past.filter((p) => norm(p.party) === norm(supplier)).sort((a, b) => b.date.localeCompare(a.date))[0], [past, supplier]);
   const used = lines.filter((l) => l.item || l.qty);
   const linesOk = used.length > 0 && !checkLines(lines, { subphase: true });
-  const todays = docsToday.filter((d) => d.kind === 'delivery');
 
   const save = async (stay: boolean, confirmLater = false) => {
     // Quantities and duplicates must be right; other details can be confirmed later.
@@ -72,7 +72,7 @@ function DeliveryForm({ done, again }: { done: () => void; again: () => Promise<
     <div className="formGrid enter">
       <div className="formMain">
         <section className="panel" aria-label="Delivery note">
-          <header className="panelHead"><b>Delivery note</b><span className="small muted">From the paper the driver hands over</span></header>
+          <header className="panelHead"><b>Delivery note</b></header>
           <div className="formFields">
             <div className="span2">
               <Suggest label="Supplier" value={supplier} onChange={setSupplier} options={suppliers} placeholder="Start typing the supplier name" autoFocus glow={!supplier} inputClass={miss(!supplier.trim())} />
@@ -90,52 +90,33 @@ function DeliveryForm({ done, again }: { done: () => void; again: () => Promise<
         </section>
 
         <section className="panel" aria-label="Items received">
-          <header className="panelHead"><b>Items received</b><span className="small muted keyHintInline">Enter moves to the next box</span></header>
+          <header className="panelHead"><b>Items received</b><span className="small muted keyHintInline">Short or damaged? Enter what actually arrived · Enter moves to the next box</span></header>
           <LineTable lines={lines} setLines={setLines} withSubphase effect="in" glowFirst={!!note.trim() && !lines[0]?.item} flag={flag} />
         </section>
 
         {err && <div className="note err" role="alert">{err}</div>}
         {later && <LaterBar kind="delivery" missing={later} busy={!!busy} onLater={() => save(false, true)} onCancel={() => setLater(null)} />}
         <div className="actionBar">
-          <button className="btn ghost sm" onClick={() => go('home')}>Cancel</button>
+          <button className="btn ghost sm" onClick={() => openRecords(go, 'deliveries')}>Cancel</button>
           <button className="btn link" disabled={!!busy} onClick={saveDraft}>{busy === 'draft' ? 'Saving…' : 'Save as draft'}</button>
           <span className="abGrow" />
+          <span className="abChecks" aria-label="Check before saving">
+            {check(!!supplier.trim() && !!note.trim(), false, 'Supplier & note')}
+            {check(!!note.trim() && !dupe, !!dupe, dupe ? 'Already entered' : 'New note')}
+            {check(linesOk, used.length > 0 && !linesOk, linesOk ? `${used.length} line${used.length === 1 ? '' : 's'}` : 'Items')}
+          </span>
           <button data-nav className="btn ghost sm" disabled={!!busy} onClick={() => save(true)}>{busy === 'again' ? 'Saving…' : 'Save & add another'}</button>
           <button className="btn accent sm" disabled={!!busy} onClick={() => save(false)}>{busy === 'save' ? 'Saving…' : 'Save delivery'}</button>
         </div>
       </div>
 
-      <aside className="formAside">
-        <section className="panel pad stack" aria-label="Check before saving">
-          <b>Check before saving</b>
-          {check(!!supplier.trim() && !!note.trim(), false, 'Supplier and note number filled')}
-          {check(!!note.trim() && !dupe, !!dupe, dupe ? `Note ${note} already entered` : 'Note not entered before')}
-          {check(linesOk, used.length > 0 && !linesOk, linesOk ? `${used.length} line${used.length === 1 ? '' : 's'} complete` : used.length ? (checkLines(lines, { subphase: true }) ?? '') : 'Add at least one item')}
-        </section>
-        <section className="panel" aria-label="Deliveries today">
-          <header className="panelHead"><b>Deliveries today</b><span className="small muted">{todays.length}</span></header>
-          {!todays.length && <div className="pad small muted">This will be the first today.</div>}
-          {todays.map((d) => (
-            <div key={d.id} className="miniDoc">
-              <div className="between"><b>{d.party}</b><span className="mono small muted">{d.ref_no}</span></div>
-              <span className="small muted">{d.lines.map((l) => `${itemById.get(l.item_id)?.name ?? 'Item'} ${fmt(l.qty)}`).join(' · ')}</span>
-            </div>
-          ))}
-        </section>
-        <section className="panel dark">
-          <b>Short or damaged?</b>
-          <span>Enter what actually arrived. Write the difference in the remarks on the paper note.</span>
-        </section>
-      </aside>
     </div>
   );
 }
 
 export function Deliveries() {
   return (
-    <StepShell step="deliveries" question="Did any deliveries arrive today?" hint="Count every delivery note received at the store."
-      another="Was there another delivery?" formTitle="New delivery"
-      renderForm={(done, again) => <DeliveryForm done={done} again={again} />}
-      docTitle={(d) => `${d.party ?? '(supplier to confirm)'} · ${d.ref_no ?? '(note to confirm)'}`} />
+    <StepShell step="deliveries" sub="From the delivery note the driver hands over."
+      renderForm={(done, again) => <DeliveryForm done={done} again={again} />} />
   );
 }

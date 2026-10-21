@@ -1,14 +1,17 @@
 import { useMemo, useState } from 'react';
-import { checkLines, fmt, LineEditor, newLine, Top, YesNo, type LineDraft } from '../components/ui';
+import { checkLines, fmt, newLine, type LineDraft } from '../components/ui';
+import { LineTable } from '../components/LineTable';
+import { EntryHead } from '../components/StepShell';
+import { openRecords } from '../components/AddEntry';
+import { toast } from '../components/feedback';
 import { api } from '../lib/api';
 import { useData } from '../lib/store';
 import type { Doc } from '../lib/types';
 
-type Stage = 'ask' | 'cards' | 'loose' | 'summary';
+type Stage = 'cards' | 'loose';
 
 export function Returns() {
-  const { docsToday, itemById, day, stepState, markStep, refresh, go, submission } = useData();
-  const locked = !!submission;
+  const { docsToday, itemById, day, markStep, refresh, go } = useData();
   const cards = docsToday.filter((d) => d.kind === 'issue');
   const returns = docsToday.filter((d) => d.kind === 'return');
   const already = useMemo(() => {
@@ -17,7 +20,8 @@ export function Returns() {
     return m;
   }, [returns]);
 
-  const [stage, setStage] = useState<Stage>(stepState('returns') === 'todo' && !locked ? 'ask' : 'summary');
+  // Straight to the entry: today's cards if there are any, otherwise a return without a card.
+  const [stage, setStage] = useState<Stage>(cards.length ? 'cards' : 'loose');
   const [back, setBack] = useState<Record<number, string>>({});
   const [loose, setLoose] = useState<LineDraft[]>([newLine()]);
   const [err, setErr] = useState('');
@@ -34,14 +38,14 @@ export function Returns() {
       const v = Number(back[l.id] || 0);
       if (v > maxBack(l.id, l.qty)) { setErr(`Card ${c.ref_no}: you can't return more ${itemById.get(l.item_id)?.name} than was issued.`); return; }
     }
-    if (!withBack) { setErr('Type what came back on at least one card. If nothing came back, go back and answer No.'); return; }
+    if (!withBack) { setErr('Type what came back on at least one card. If nothing came back, mark returns as “None today” on the check-in.'); return; }
     setBusy(true); setErr('');
     try {
       for (const c of cards) {
         const ls = c.lines.filter((l) => Number(back[l.id] || 0) > 0).map((l) => ({ item_id: l.item_id, qty: Number(back[l.id]), return_of: l.id, subphase: l.subphase }));
         if (ls.length) await api.saveDocument({ kind: 'return', doc_date: day, ref_no: c.ref_no }, ls);
       }
-      await refresh(); markStep('returns', 'done'); setBack({}); setStage('summary');
+      await refresh(); markStep('returns', 'done'); setBack({}); toast('Saved to returned to store'); openRecords(go, 'returns');
     } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   };
 
@@ -51,24 +55,19 @@ export function Returns() {
     setBusy(true); setErr('');
     try {
       await api.saveDocument({ kind: 'return', doc_date: day, ref_no: 'No card' }, loose.filter((l) => l.item).map((l) => ({ item_id: l.item!.id, qty: Number(l.qty) })));
-      await refresh(); markStep('returns', 'done'); setLoose([newLine()]); setStage('summary');
+      await refresh(); markStep('returns', 'done'); setLoose([newLine()]); toast('Saved to returned to store'); openRecords(go, 'returns');
     } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   };
 
   const usedOf = (lineId: number, qty: number) => qty - (already.get(lineId) ?? 0) - Number(back[lineId] || 0);
 
   return (
-    <div className="phone">
-      <Top onBack={() => go('home')} kicker={`STEP 3 OF 4 · ${day}`} title="Returned to store" sub="Match leftovers to today’s withdrawal cards" />
-      <main className="body">
-        {stage === 'ask' && (
-          <YesNo question="Was unused stock returned to the store this evening?" hint="Leftovers from today’s withdrawal cards."
-            onYes={() => setStage(cards.length ? 'cards' : 'loose')} onNo={() => { markStep('returns', 'none'); setStage('summary'); }} />
-        )}
-
+    <div className="entryPage">
+      <EntryHead step="returns" sub={stage === 'cards' ? 'Type only what came back. Cards left empty count as fully used.' : 'Only for stock that came back without a withdrawal card.'} />
+      <main className="stack">
         {stage === 'cards' && (
           <div className="stack enter">
-            <div className="note">Type only what came back. <b>Used</b> is worked out for you. Cards you leave empty count as fully used, so there's no need to enter zeros.</div>
+            <div className="retGrid">
             {cards.map((c) => {
               const some = hasBack(c);
               return (
@@ -96,50 +95,31 @@ export function Returns() {
                 </div>
               );
             })}
+            </div>
             {err && <div className="note err" role="alert">{err}</div>}
-            <button className="btn accent" disabled={busy} onClick={saveCards}>{busy ? 'Saving…' : `Save returns${withBack ? ` · ${withBack} card${withBack === 1 ? '' : 's'} with returns` : ''}${cards.length - withBack ? `, ${cards.length - withBack} fully used` : ''}`}</button>
-            <button className="btn link" onClick={() => { setErr(''); setStage('loose'); }}>+ Return without a card (rare)</button>
+            <div className="actionBar">
+              <button className="btn ghost sm" onClick={() => openRecords(go, 'returns')}>Cancel</button>
+              <button className="btn link" onClick={() => { setErr(''); setStage('loose'); }}>Return without a card</button>
+              <span className="abGrow" />
+              <span className="small muted abHint">{withBack ? `${withBack} card${withBack === 1 ? '' : 's'} with returns` : 'Nothing typed yet'}{cards.length - withBack ? ` · ${cards.length - withBack} fully used` : ''}</span>
+              <button className="btn accent sm" disabled={busy} onClick={saveCards}>{busy ? 'Saving…' : 'Save returns'}</button>
+            </div>
           </div>
         )}
 
         {stage === 'loose' && (
           <div className="stack enter">
             {!cards.length && <div className="note info">No withdrawal cards were entered today, so returns can only be recorded without a card.</div>}
-            <div className="note">Only for stock that came back without a withdrawal card.</div>
-            <LineEditor lines={loose} setLines={setLoose} withSubphase={false} />
+            <section className="panel" aria-label="Items returned"><header className="panelHead"><b>Items returned</b></header><LineTable lines={loose} setLines={setLoose} effect="in" /></section>
             {err && <div className="note err" role="alert">{err}</div>}
-            <button className="btn accent" disabled={busy} onClick={saveLoose}>{busy ? 'Saving…' : 'Save return'}</button>
-            <button className="btn ghost" onClick={() => setStage(cards.length ? 'cards' : 'summary')}>Back</button>
+            <div className="actionBar">
+              {cards.length > 0 ? <button className="btn ghost sm" onClick={() => setStage('cards')}>Back to today’s cards</button> : <button className="btn ghost sm" onClick={() => openRecords(go, 'returns')}>Cancel</button>}
+              <span className="abGrow" />
+              <button className="btn accent sm" disabled={busy} onClick={saveLoose}>{busy ? 'Saving…' : 'Save return'}</button>
+            </div>
           </div>
         )}
 
-        {stage === 'summary' && (
-          <>
-            {locked && <div className="note info">Today has been submitted, so entries can no longer change.</div>}
-            {!returns.length && <div className="note info enter">{stepState('returns') === 'none' ? 'Nothing was returned today.' : 'No returns recorded yet.'}</div>}
-            {cards.map((c, i) => {
-              const backTotal = c.lines.reduce((a, l) => a + (already.get(l.id) ?? 0), 0);
-              return (
-                <div key={c.id} className="sumCard" style={{ animationDelay: `${i * 0.05}s` }}>
-                  <b>Card {c.ref_no}{[c.activity, c.gemba].some(Boolean) ? ` · ${[c.activity, c.gemba].filter(Boolean).join(', ')}` : ''}</b>
-                  {c.lines.map((l) => {
-                    const it = itemById.get(l.item_id);
-                    const b = already.get(l.id) ?? 0;
-                    return <div className="ln" key={l.id}><span>{it?.name}</span><span className="mono">{b ? `${fmt(b)} back · ` : ''}{fmt(l.qty - b)} {it?.unit} used</span></div>;
-                  })}
-                  {!backTotal && <span className="small muted">Fully used</span>}
-                </div>
-              );
-            })}
-            {returns.filter((d) => d.ref_no === 'No card').map((d) => (
-              <div key={d.id} className="sumCard"><b>Returned without a card</b>
-                {d.lines.map((l) => <div className="ln" key={l.id}><span>{itemById.get(l.item_id)?.name}</span><span className="mono">{fmt(l.qty)} {itemById.get(l.item_id)?.unit}</span></div>)}
-              </div>
-            ))}
-            {!locked && cards.some((c) => c.lines.some((l) => maxBack(l.id, l.qty) > 0)) && <button className="btn ghost" onClick={() => { setErr(''); setStage('cards'); }}>+ Record returns against cards</button>}
-            <button className="btn accent" onClick={() => go('transfers')}>Done · Next: Project transfers</button>
-          </>
-        )}
       </main>
     </div>
   );

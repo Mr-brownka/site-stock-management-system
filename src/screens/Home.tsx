@@ -14,13 +14,19 @@ import { resetDemo } from '../lib/demoBackend';
 import { STEPS, useData } from '../lib/store';
 import { ask, toast } from '../components/feedback';
 import { ADD_NOUN } from '../components/StepShell';
-import type { StepKey } from '../lib/types';
+import type { StepKey, StepState } from '../lib/types';
+import { openRecords, useAddEntry } from '../components/AddEntry';
+import { useZohoDeliveries } from '../components/Zoho';
 
 const STEP_ICON: Record<string, string> = { deliveries: 'truck', issued: 'card', returns: 'back', transfers: 'swap' };
 
 export function Home() {
-  const { day, user, balances, docsToday, stepState, submission, refresh, go, signOut, lowItems, daysLeft, itemById,
-    realToday, catchUp, pendingDays, startCatchUp, endCatchUp, closeDay, refreshPending, drafts } = useData();
+  const { day, user, balances, docsToday, stepState, submission, refresh, go, signOut, lowItems, daysLeft,
+    realToday, catchUp, pendingDays, startCatchUp, endCatchUp, closeDay, refreshPending, drafts, markStep } = useData();
+  const zohoOnly = useZohoDeliveries();
+  const { add, modal: addModal } = useAddEntry();
+  // With Zoho on, deliveries come in by themselves: that step never waits for an answer.
+  const stateOf = (k: StepKey): StepState => { const v = stepState(k); return k === 'deliveries' && zohoOnly && v === 'todo' ? 'none' : v; };
   const locked = !catchUp && pendingDays.length > 0;
   const [runTotal, setRunTotal] = useState(0);
   const [askDay, setAskDay] = useState<{ day: string; holiday: string | null } | null>(null);
@@ -47,30 +53,14 @@ export function Home() {
   const [err, setErr] = useState('');
   const [lastTake, setLastTake] = useState<string | null | undefined>(undefined);
   const min = useMinutesToClose();
-  const states = STEPS.map((s) => stepState(s.key));
-  const firstTodo = STEPS.find((s) => stepState(s.key) === 'todo');
+  const states = STEPS.map((s) => stateOf(s.key));
+  const firstTodo = STEPS.find((s) => stateOf(s.key) === 'todo');
   const answered = states.every((s) => s !== 'todo');
   const done = states.filter((s) => s !== 'todo').length;
   const entries = docsToday.filter((d) => d.kind !== 'opening').length;
   const first = user.name.split(' ')[0];
   const [showEntries, setShowEntries] = useState(false);
-  const [plusOpen, setPlusOpen] = useState(false);
-  // After submitting: ask, show what was already entered today for that step, then open its form.
-  const addTo = async (key: StepKey) => {
-    const st = STEPS.find((x) => x.key === key)!;
-    const ds = docsToday.filter((d) => st.kinds.includes(d.kind));
-    const ok = await ask({
-      title: `Add ${ADD_NOUN[key]}?`,
-      body: ds.length ? <>
-        <p>Already entered today for {st.label.toLowerCase()}:</p>
-        <div className="askList">{ds.map((d) => <div key={d.id}><span>{[KIND_LABEL[d.kind], d.ref_no, d.party].filter(Boolean).join(' · ')}</span><b>{d.lines.map((l) => `${itemById.get(l.item_id)?.name ?? 'Item'} ${fmt(l.qty)}`).join(', ')}</b></div>)}</div>
-      </> : <p>Nothing was entered for {st.label.toLowerCase()} today yet.</p>,
-      yes: `Add ${ADD_NOUN[key]}`, no: 'Cancel', tone: 'go',
-    });
-    if (!ok) return;
-    signal('step-form', key);
-    go(st.screen);
-  };
+  const noneToday = (k: StepKey) => { const st = STEPS.find((x) => x.key === k)!; markStep(k, 'none'); toast(`${st.label}: nothing ${catchUp ? 'that day' : 'today'}`); };
   useSignal('entries', () => setShowEntries(true));
   useEffect(() => { api.stockTakes().then((t) => setLastTake(t.map((x) => x.count_date).sort().pop() ?? null)).catch(() => setLastTake(null)); }, []);
 
@@ -79,33 +69,27 @@ export function Home() {
     const ds = docsToday.filter((d) => s.kinds.includes(d.kind));
     const lines = ds.reduce((a, d) => a + d.lines.length, 0);
     if (states[i] === 'done') return { text: 'Done', detail: `${ds.length} entr${ds.length === 1 ? 'y' : 'ies'} · ${lines} line${lines === 1 ? '' : 's'}`, cls: 'done' };
-    if (states[i] === 'none') return { text: catchUp ? 'Nothing that day' : 'Nothing today', detail: 'Answered “No”', cls: 'done' };
+    if (states[i] === 'none') return { text: catchUp ? 'None that day' : 'None today', detail: s.key === 'deliveries' && zohoOnly ? 'Come in from Zoho by themselves' : 'Nothing to enter', cls: 'none' };
     if (!submission && firstTodo?.key === s.key) return { text: 'Next', detail: ds.length ? `${ds.length} entered during the day` : s.desc, cls: 'next' };
     return { text: 'Not started', detail: ds.length ? `${ds.length} entered during the day` : s.desc, cls: '' };
   };
 
   const submit = async () => {
     const open = drafts.filter((d) => d.doc_date === day);
-    if (open.length) {
-      await ask({ title: `${catchUp ? wd : 'Today'} can't be submitted yet`, body: <>
-        <p>{open.length} draft{open.length === 1 ? ' isn’t' : 's aren’t'} finished: {open.map((d) => d.label).join(', ')}.</p>
-        <p>Finish {open.length === 1 ? 'it' : 'them'} or discard {open.length === 1 ? 'it' : 'them'} from the list at the top first. Details still to confirm don’t block submitting.</p></>,
-        yes: 'OK', no: 'Close' });
-      return;
-    }
     const lines = docsToday.reduce((a, d) => a + d.lines.length, 0);
     const ok = await ask({
       title: `Submit ${new Date(day + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'long', timeZone: 'UTC' })}’s register?`,
       body: <>
         <div className="askList">{STEPS.map((s) => { const n = docsToday.filter((d) => s.kinds.includes(d.kind)).length; return <div key={s.key}><span>{s.label}</span><b>{n ? `${n} entr${n === 1 ? 'y' : 'ies'}` : 'Nothing'}</b></div>; })}</div>
         <p>{lines} item line{lines === 1 ? '' : 's'} in total. After submitting, today is locked and balances are final. Mistakes are fixed with a correction.</p>
+        {open.length > 0 && <p className="askDraft"><b>{open.length} draft{open.length === 1 ? '' : 's'} not finished:</b> {open.map((d) => d.label).join(', ')}. {open.length === 1 ? 'It stays' : 'They stay'} in “to finish” and {open.length === 1 ? 'isn’t' : 'aren’t'} counted in stock until finished.</p>}
       </>,
       yes: 'Submit the day', no: 'Not yet', tone: 'go',
     });
     if (!ok) return;
     setBusy(true); setErr('');
     try {
-      await api.submitDay(day, Object.fromEntries(STEPS.map((s) => [s.key, stepState(s.key)])));
+      await api.submitDay(day, Object.fromEntries(STEPS.map((s) => [s.key, stateOf(s.key)])));
       if (api.mode === 'training') {
         // A submitted practice evening counts as one training day on the real account (not on Sundays).
         const real = today();
@@ -149,6 +133,7 @@ export function Home() {
           </>}
         </div>
         <div className="phActions">
+          <UnfinishedCard chip />
           <button className="btn ghost sm" onClick={() => setShowEntries(true)}><Icon name="list" size={16} />{catchUp ? `${wd}’s entries` : 'Today’s entries'}</button>
           {locked ? (
             <button className="btn sm" onClick={() => beginCatchUp(pendingDays[0].day)}>Enter {weekdayName(pendingDays[0].day)}’s papers<Icon name="arrow" size={16} /></button>
@@ -156,9 +141,7 @@ export function Home() {
             <button className="btn sm" onClick={() => go('submitted')}>Today’s summary<Icon name="arrow" size={16} /></button>
           ) : answered ? (
             <button className="btn accent sm" disabled={busy} onClick={submit}>{busy ? 'Submitting…' : 'Submit the day'}<Icon name="check" size={16} /></button>
-          ) : (
-            <button className="btn sm" onClick={() => go(firstTodo!.screen)}>{done ? `Continue · ${firstTodo!.label}` : 'Start check-in'}<Icon name="arrow" size={16} /></button>
-          )}
+          ) : null}
         </div>
       </header>
 
@@ -190,7 +173,6 @@ export function Home() {
           ))}
         </section>
       )}
-      <UnfinishedCard />
       <section className="kpis" aria-label="Key figures">
         <button className="kpi enter" onClick={() => toDash({ tab: 'bal', filter: 'all' })}>
           <span className="kpiLabel">Items in store</span>
@@ -218,30 +200,29 @@ export function Home() {
         <section className={`panel process enter ${locked ? 'lockedPanel' : ''}`} aria-label="Today’s process" aria-disabled={locked || undefined}>
           <header className="panelHead">
             <span className="phTitle"><b>{catchUp ? `${wd}’s process` : 'Today’s process'}</b><span className="muted small">{submission ? 'Submitted' : `${done} of 4 done`}</span></span>
-            {submission ? (
-              <span className="plusWrap">
-                <button className="plusBtn" aria-label="Add" aria-expanded={plusOpen} aria-haspopup="menu" onClick={() => setPlusOpen((v) => !v)}><Icon name="plus" size={22} /></button>
-                {plusOpen && (
-                  <span className="plusMenu" role="menu" onMouseLeave={() => setPlusOpen(false)}>
-                    {STEPS.map((st) => <button key={st.key} role="menuitem" onClick={() => { setPlusOpen(false); addTo(st.key); }}><Icon name={STEP_ICON[st.key]} size={18} />Add {ADD_NOUN[st.key]}</button>)}
-                  </span>
-                )}
-              </span>
-            ) : (
-              <button className="btn sm startBtn" disabled={busy} onClick={() => (firstTodo ? go(firstTodo.screen) : submit())}>Start<Icon name="arrow" size={16} /></button>
-            )}
           </header>
           <div className="procBar" aria-hidden="true"><i style={{ width: `${((submission ? 4 : done) / 4) * 100}%` }} /></div>
           {STEPS.map((s, i) => {
             const st = status(i);
+            const canAdd = !(s.key === 'deliveries' && zohoOnly);
             return (
-              <button key={s.key} className={`procRow ${st.cls}`} onClick={() => (submission ? addTo(s.key) : go(s.screen))}>
-                <span className="procDot">{st.cls === 'done' ? <Icon name="check" size={16} /> : s.n}</span>
-                <span className="procIc"><Icon name={STEP_ICON[s.key]} size={18} /></span>
-                <span className="procText"><b>{s.label}</b><span>{st.detail}</span></span>
-                <span className={`stPill ${st.cls === 'done' ? 'ok' : st.cls === 'next' ? 'warn' : 'idle'}`}>{st.text}</span>
-                <span className="procGo">{submission ? 'Add' : st.cls === 'done' ? 'Review' : 'Open'}<Icon name={submission ? 'plus' : 'arrow'} size={14} /></span>
-              </button>
+              <div key={s.key} className={`procRow ${st.cls}`}>
+                <button className="procMain" onClick={() => openRecords(go, s.key)} title={`See ${s.label.toLowerCase()}`}>
+                  <span className="procDot">{st.cls === 'done' ? <Icon name="check" size={16} /> : st.cls === 'none' ? '–' : s.n}</span>
+                  <span className="procIc"><Icon name={STEP_ICON[s.key]} size={18} /></span>
+                  <span className="procText"><b>{s.label}</b><span>{st.detail}</span></span>
+                </button>
+                <span className="procActs">
+                  {states[i] === 'todo' && !submission
+                    ? <button className="procNone" onClick={() => noneToday(s.key)} title={`Nothing for ${s.label.toLowerCase()} ${catchUp ? 'that day' : 'today'}`}>None today</button>
+                    : states[i] === 'none' && !submission && !(s.key === 'deliveries' && zohoOnly)
+                      ? <button className="stPill idle asBtn" onClick={() => markStep(s.key, 'todo')} title="Undo">{st.text}</button>
+                      : <span className={`stPill ${st.cls === 'done' ? 'ok' : st.cls === 'next' ? 'warn' : 'idle'}`}>{st.text}</span>}
+                  {canAdd
+                    ? <button className="procAdd" onClick={() => add(s.key)} aria-label={`Add ${ADD_NOUN[s.key]}`} title={`Add ${ADD_NOUN[s.key]}`}><Icon name="plus" size={18} /></button>
+                    : <span className="procAdd off" title="Deliveries come in from Zoho" aria-hidden="true" />}
+                </span>
+              </div>
             );
           })}
           {!submission && (
@@ -286,6 +267,7 @@ export function Home() {
         </span>
       </div>
       {showEntries && <EntriesSheet onClose={() => setShowEntries(false)} />}
+      {addModal}
       {askDay && (
         <div className="sheetBack dayAskBack">
           <section className="dayAsk" role="dialog" aria-modal="true" aria-labelledby="dayAskTitle">
@@ -335,7 +317,7 @@ function EntriesSheet({ onClose }: { onClose: () => void }) {
           const c = CAT[st.key];
           return (
             <div key={st.key} className={`entBand ${st.key} ${ds.length ? 'has' : ''}`}>
-              <button className="entBandHead" onClick={() => { onClose(); go(st.screen); }} aria-label={`${st.label}: ${ds.length} · open step ${st.n}`}>
+              <button className="entBandHead" onClick={() => { onClose(); openRecords(go, st.key); }} aria-label={`${st.label}: ${ds.length} · open the list`}>
                 <span className="ebIc" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16"><path d={c.icon} fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
                 <b className="ebName">{st.label}</b>
                 <span className="ebTag">{c.tag}</span>

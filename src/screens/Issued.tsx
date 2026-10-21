@@ -6,6 +6,7 @@ import { addDays } from '../lib/dates';
 import { useData } from '../lib/store';
 import { focusMiss, LaterBar, linesFromPayload, linesToPayload, useDraft } from '../components/Unfinished';
 import { toast } from '../components/feedback';
+import { openRecords } from '../components/AddEntry';
 
 const ROWS = 7; // the paper card has seven item rows
 const blank = () => Array.from({ length: ROWS }, () => newLine());
@@ -163,9 +164,10 @@ function CardForm({ done, again }: { done: () => void; again: () => Promise<void
       {err && <div className="note err" role="alert">{err}</div>}
       {later && <LaterBar kind="issue" missing={later} busy={!!busy} onLater={() => save(false, true)} onCancel={() => setLater(null)} />}
       <div className="actionBar">
-        <span className="small muted">Copy the card exactly as written. Units come with the item.</span>
+        <button className="btn ghost sm" onClick={() => openRecords(go, 'issued')}>Cancel</button>
         <button className="btn link" disabled={!!busy} onClick={saveDraft}>{busy === 'draft' ? 'Saving…' : 'Save as draft'}</button>
         <span className="abGrow" />
+        <span className="small muted abHint">Copy the card exactly as written</span>
         <button data-nav className="btn ghost sm" disabled={!!busy} onClick={() => save(true)}>{busy === 'again' ? 'Saving…' : 'Save & next card'}</button>
         <button className="btn accent sm" disabled={!!busy} onClick={() => save(false)}>{busy === 'save' ? 'Saving…' : 'Save card'}</button>
       </div>
@@ -175,9 +177,7 @@ function CardForm({ done, again }: { done: () => void; again: () => Promise<void
 
 export function Issued() {
   return (
-    <StepShell step="issued" question="Were materials issued to production today?" hint="One entry per Material Withdrawal Card. Cards can also be entered during the day."
-      another="Was there another card?" formTitle="New withdrawal card" docTone={() => 'out'}
-      renderForm={(done, again) => <CardForm done={done} again={again} />}
-      docTitle={(d) => `Card ${d.ref_no ?? '(code to confirm)'} · ${d.activity ?? '…'}, ${d.gemba ?? 'gemba to confirm'} · ${d.party ?? '…'}`} />
+    <StepShell step="issued" sub="One entry per Material Withdrawal Card, copied box for box."
+      renderForm={(done, again) => <CardForm done={done} again={again} />} />
   );
 }
