@@ -63,7 +63,7 @@ export function StepShell({ step, question, hint, another, formTitle, tone, rend
             {locked && (
               <div className="lateNote enter">
                 <b>Today was submitted at {at}.</b>
-                <span>Anything you add now counts in today’s balances and is marked <span className="pill late">Added</span>. To change an entry that is already saved, use <button className="btn link inline" onClick={() => go('corrections')}>Fix a mistake</button>.</span>
+                <span>Anything you add now counts in today’s balances and is marked <span className="pill late">Added</span>. To change an entry that is already saved, use <button className="btn link inline" onClick={() => go('corrections')}>Fix an error</button>.</span>
               </div>
             )}
             {!docs.length && stepState(step) === 'none' && <div className="note info enter">Nothing recorded for this step today.</div>}

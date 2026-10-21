@@ -1,13 +1,25 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { fmt, Top } from '../components/ui';
 import { api } from '../lib/api';
 import { addDays, niceDate } from '../lib/dates';
 import { useData } from '../lib/store';
-import type { CorrectionRequest, Doc, Submission } from '../lib/types';
+import type { CorrectionRequest, Doc } from '../lib/types';
 
-type Tab = 'fix' | 'recount' | 'mine';
+type Tab = 'pick' | 'fix' | 'recount' | 'mine';
+type CatKey = 'deliveries' | 'issued' | 'returns' | 'transfers';
 const FIX_REASONS = ['Typing mistake', 'Wrong item', 'Wrong card / note number', 'Other'];
 const COUNT_REASONS = ['Damaged / spoilt', 'Lost / not found', 'Delivery not entered', 'Issue not entered', 'Counting error'];
+/** The four places an error can be, in the same colours as everywhere else in the app. */
+const CATS: { key: CatKey; label: string; tag: string; kinds: Doc['kind'][]; doc: string; numLabel: string; eg: string; icon: string }[] = [
+  { key: 'deliveries', label: 'Deliveries', tag: 'Stock in', kinds: ['delivery'], doc: 'A delivery note was entered wrong', numLabel: 'Delivery note no.', eg: 'e.g. wrong quantity on DN 0421', icon: 'M12 4v12M6 10l6 6 6-6M5 20h14' },
+  { key: 'issued', label: 'Issued to production', tag: 'Stock out', kinds: ['issue'], doc: 'A withdrawal card was entered wrong', numLabel: 'Card no.', eg: 'e.g. card 5131 says 10, typed 12', icon: 'M12 20V8M6 14l6-6 6 6M5 4h14' },
+  { key: 'returns', label: 'Returned to store', tag: 'Back in', kinds: ['return'], doc: 'A return was entered wrong', numLabel: 'Card no.', eg: 'e.g. 3 bags came back, not 5', icon: 'M9 14l-5-5 5-5M4 9h10a6 6 0 0 1 0 12h-3' },
+  { key: 'transfers', label: 'Site transfers', tag: 'In / out', kinds: ['transfer_in', 'transfer_out'], doc: 'A transfer note was entered wrong', numLabel: 'Transfer note no.', eg: 'e.g. sent 20 Pcs to Astana, not 25', icon: 'M4 8h14l-4-4M20 16H6l4 4' },
+];
+const OUT_KINDS = ['issue', 'transfer_out'];
+const CatIcon = ({ d, size = 20 }: { d: string; size?: number }) => <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true"><path d={d} fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+
 const KIND_LABEL: Record<string, string> = { delivery: 'Delivery', issue: 'Card', return: 'Return', transfer_in: 'Received', transfer_out: 'Sent', opening: 'Opening count' };
 
 function Chips({ options, value, onPick }: { options: string[]; value: string; onPick: (v: string) => void }) {
@@ -22,12 +34,11 @@ function Chips({ options, value, onPick }: { options: string[]; value: string; o
 }
 
 export function Corrections() {
-  const { day, go, itemById, balances, refresh } = useData();
-  const [tab, setTab] = useState<Tab>('fix');
+  const { day, go, itemById, balances, balanceOf, refresh } = useData();
+  const [tab, setTab] = useState<Tab>('pick');
+  const [cat, setCat] = useState<CatKey | null>(null);
   const [docs, setDocs] = useState<Doc[] | null>(null);
-  const [subs, setSubs] = useState<Record<string, Submission | null>>({});
   const [mine, setMine] = useState<CorrectionRequest[]>([]);
-  const [openDay, setOpenDay] = useState<string | null>(null);
   const [openDoc, setOpenDoc] = useState<Doc | null>(null);
   const [vals, setVals] = useState<Record<number, string>>({});
   const [reason, setReason] = useState('');
@@ -35,44 +46,48 @@ export function Corrections() {
   const [itemId, setItemId] = useState<number | null>(null);
   const [counted, setCounted] = useState('');
   const [q, setQ] = useState('');
+  const [num, setNum] = useState('');
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState<string | null>(null);
 
   const loadMine = () => api.myCorrections().then(setMine).catch(() => setMine([]));
   useEffect(() => {
-    api.documents(addDays(day, -29), day).then(async (ds) => {
-      const list = ds.filter((d) => d.kind !== 'correction');
-      setDocs(list);
-      const days = [...new Set(list.map((d) => d.doc_date))];
-      const pairs = await Promise.all(days.map(async (d) => [d, await api.submission(d).catch(() => null)] as const));
-      setSubs(Object.fromEntries(pairs));
-    });
+    api.documents(addDays(day, -29), day).then((ds) => setDocs(ds.filter((d) => d.kind !== 'correction' && d.kind !== 'opening')));
     loadMine();
   }, [day]);
 
   const pendingLines = useMemo(() => new Set(mine.filter((m) => m.status === 'pending' && m.movement_id).map((m) => m.movement_id)), [mine]);
-  const days = useMemo(() => {
-    const m = new Map<string, Doc[]>();
-    (docs ?? []).forEach((d) => m.set(d.doc_date, [...(m.get(d.doc_date) ?? []), d]));
-    return [...m.entries()].sort((a, b) => b[0].localeCompare(a[0]));
-  }, [docs]);
+  const waiting = mine.filter((m) => m.status === 'pending').length;
+  const C = CATS.find((c) => c.key === cat);
+  const list = useMemo(() => {
+    if (!C) return [];
+    const n = num.trim().toLowerCase();
+    return (docs ?? []).filter((d) => C.kinds.includes(d.kind) && (!n || (d.ref_no ?? '').toLowerCase().includes(n)))
+      .sort((a, b) => b.doc_date.localeCompare(a.doc_date) || b.created_at.localeCompare(a.created_at));
+  }, [docs, C, num]);
 
   const reset = () => { setVals({}); setReason(''); setNote(''); setErr(''); setCounted(''); };
+  const pickCat = (k: CatKey) => { setCat(k); setTab('fix'); setOpenDoc(null); setNum(''); reset(); setMsg(''); setSent(null); };
+  const toTab = (t: Tab) => { setTab(t); setErr(''); setMsg(''); setOpenDoc(null); reset(); };
   const docTitle = (d: Doc) => `${KIND_LABEL[d.kind] ?? d.kind}${d.ref_no ? ` ${d.ref_no}` : ''}${d.party ? ` · ${d.party}` : ''}`;
+  const sign = (d: Doc) => (OUT_KINDS.includes(d.kind) ? -1 : 1);
 
+  const changed = openDoc ? openDoc.lines.filter((l) => vals[l.id] !== undefined && vals[l.id] !== '' && Number(vals[l.id]) !== l.qty) : [];
   const sendFix = async () => {
     if (!openDoc) return;
-    const changed = openDoc.lines.filter((l) => vals[l.id] !== undefined && vals[l.id] !== '' && Number(vals[l.id]) !== l.qty);
-    if (!changed.length) { setErr('Type the correct quantity on the line that is wrong.'); return; }
+    if (!changed.length) { setErr('Type the number from the paper on the line that is wrong.'); return; }
     if (!reason) { setErr('Choose why it was wrong.'); return; }
     setBusy(true); setErr('');
     try {
       for (const l of changed) {
         await api.requestCorrection({ kind: 'fix', movement_id: l.id, item_id: l.item_id, from_qty: l.qty, to_qty: Number(vals[l.id]), reason, note: note.trim() || null });
       }
-      await loadMine(); reset(); setOpenDoc(null); setOpenDay(null); setTab('mine');
-      setMsg(`Sent to the admin for approval. Balances change only after approval.`);
+      await loadMine();
+      const l0 = changed[0]; const it = itemById.get(l0.item_id);
+      setSent(`${docTitle(openDoc)} · ${it?.name} ${fmt(l0.qty)} → ${fmt(Number(vals[l0.id]))} ${it?.unit ?? ''}${changed.length > 1 ? ` and ${changed.length - 1} more` : ''}`);
+      reset(); setOpenDoc(null);
     } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   };
 
@@ -91,70 +106,100 @@ export function Corrections() {
 
   const shownItems = balances.filter((b) => !q.trim() || b.name.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 40);
   const diff = bal && counted !== '' ? Number(counted) - bal.balance : 0;
+  const back = () => (tab === 'fix' && openDoc ? (setOpenDoc(null), reset()) : tab !== 'pick' ? toTab('pick') : go('home'));
 
   return (
-    <div className="phone">
-      <Top onBack={() => (openDoc ? (setOpenDoc(null), reset()) : openDay ? setOpenDay(null) : go('home'))} title="Fix a mistake" sub="Every change goes to the admin for approval. Nothing is deleted." />
+    <div className="phone fixPage">
+      <Top onBack={back} title="Fix an error" sub="Every change goes to the admin for approval. Nothing is deleted." />
       <main className="body">
-        <div className="seg" role="tablist" style={{ display: 'flex' }}>
-          {([['fix', 'Fix an entry'], ['recount', 'Recount'], ['mine', `My requests${mine.some((m) => m.status === 'pending') ? ` (${mine.filter((m) => m.status === 'pending').length})` : ''}`]] as [Tab, string][]).map(([t, l]) => (
-            <button key={t} role="tab" aria-pressed={tab === t} style={{ flex: 1 }} onClick={() => { setTab(t); setErr(''); setMsg(''); setOpenDay(null); setOpenDoc(null); reset(); }}>{l}</button>
-          ))}
-        </div>
         {msg && <div className="note ok enter" role="status">{msg}</div>}
 
-        {tab === 'fix' && !openDay && (
+        {tab === 'pick' && (
           <div className="stack enter">
-            <div className="note info">Pick the day, then the card or note with the mistake. For today’s entries that aren’t submitted yet, just remove and re-enter them in the check-in.</div>
-            {docs === null ? <div className="muted">Loading…</div> : !days.length ? <div className="card pad muted">No entries in the last 30 days.</div> : (
-              <div className="card" style={{ overflow: 'hidden' }}>
-                {days.map(([d, list]) => (
-                  <button key={d} className="step" onClick={() => setOpenDay(d)}>
-                    <span style={{ flex: 1 }}><b style={{ display: 'block' }}>{niceDate(d)}</b><span className="small muted">{list.length} {list.length === 1 ? 'entry' : 'entries'}</span></span>
-                    <span className={`pill ${subs[d] ? 'done' : ''}`}>{subs[d] ? 'Submitted' : 'Not submitted'}</span>
-                    <span aria-hidden>›</span>
-                  </button>
-                ))}
-              </div>
-            )}
+            <h2 className="fixQ">What do you want to fix?</h2>
+            <div className="fixCats">
+              {CATS.map((c) => (
+                <button key={c.key} className={`fixCat ${c.key}`} onClick={() => pickCat(c.key)}>
+                  <span className="fcBand"><span className="fcIco"><CatIcon d={c.icon} /></span><b>{c.label}</b><span className="fcTagc">{c.tag}</span></span>
+                  <span className="fcBody"><span>{c.doc}</span><small>{c.eg}</small></span>
+                </button>
+              ))}
+            </div>
+            <div className="fixSafe"><b>✓ Nothing changes until the admin approves.</b> Nothing is ever deleted.</div>
+            <div className="between small">
+              <span className="muted">The shelf doesn’t match the app? <button className="btn link inline" onClick={() => toTab('recount')}>Recount an item</button></span>
+              <button className="btn link" onClick={() => toTab('mine')}>My requests{waiting ? ` (${waiting} waiting)` : ''}</button>
+            </div>
           </div>
         )}
 
-        {tab === 'fix' && openDay && !openDoc && (
+        {tab === 'fix' && C && (
           <div className="stack enter">
-            <div className="label">{niceDate(openDay)} · tap the entry with the mistake</div>
-            {days.find(([d]) => d === openDay)?.[1].map((d) => (
-              <button key={d.id} className={`sumCard ${d.kind === 'issue' || d.kind === 'transfer_out' ? 'out' : d.kind === 'transfer_in' ? 'in' : ''}`} style={{ textAlign: 'left' }} onClick={() => { reset(); setOpenDoc(d); }}>
-                <div className="between"><b>{docTitle(d)}</b>{d.lines.some((l) => pendingLines.has(l.id)) && <span className="pill">Correction waiting</span>}</div>
-                {d.lines.map((l) => <div className="ln" key={l.id}><span>{itemById.get(l.item_id)?.name}</span><span className="mono">{fmt(l.qty)} {itemById.get(l.item_id)?.unit}</span></div>)}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {tab === 'fix' && openDoc && (
-          <div className="stack enter">
-            <div className="label">{docTitle(openDoc)} · {niceDate(openDoc.doc_date)}</div>
-            {openDoc.lines.map((l) => {
-              const it = itemById.get(l.item_id);
-              const v = vals[l.id] ?? '';
-              const waiting = pendingLines.has(l.id);
-              return (
-                <div key={l.id} className="card pad stack">
-                  <div className="between"><b>{it?.name}</b><span className="small muted">entered {fmt(l.qty)} {it?.unit}</span></div>
-                  {waiting ? <span className="pill" style={{ alignSelf: 'flex-start' }}>A correction for this line is already waiting</span> : (
-                    <label className="field"><span>Correct quantity (leave empty if this line is right)</span>
-                      <input className="input num" inputMode="decimal" value={v} placeholder={String(l.qty)} onChange={(e) => setVals({ ...vals, [l.id]: e.target.value.replace(/[^0-9.]/g, '') })} />
-                    </label>
-                  )}
-                  {v !== '' && Number(v) !== l.qty && <div className="mono small" style={{ color: 'var(--accent-dark)' }}>{fmt(l.qty)} → {fmt(Number(v))} {it?.unit}</div>}
+            <div className={`fixStrip ${C.key}`}><span className="fcIco"><CatIcon d={C.icon} size={18} /></span><b>Fixing: {C.label}</b><button className="btn link" onClick={() => toTab('pick')}>Change</button></div>
+            <div className="fixGrid">
+              <aside className="fixFind">
+                <label className="field"><span>{C.numLabel}</span>
+                  <input className="input mono" value={num} onChange={(e) => setNum(e.target.value)} placeholder="Number on the paper" autoFocus />
+                </label>
+                <span className="fixListHead">{num.trim() ? `${list.length} found` : 'Or pick a recent one'}</span>
+                {docs === null && <span className="muted small">Loading…</span>}
+                {docs !== null && !list.length && <span className="muted small">Nothing in the last 30 days{num.trim() ? ' with that number' : ''}.</span>}
+                <div className="fixList">
+                  {list.slice(0, 30).map((d) => (
+                    <button key={d.id} className={`fixDoc ${openDoc?.id === d.id ? 'on' : ''}`} onClick={() => { reset(); setOpenDoc(d); }}>
+                      <b className="mono">{KIND_LABEL[d.kind]}{d.ref_no ? ` ${d.ref_no}` : ''}</b>
+                      <span>{niceDate(d.doc_date)}{[d.party, d.activity, d.gemba].filter(Boolean).length ? ` · ${[d.party, d.activity, d.gemba].filter(Boolean).join(' · ')}` : ''}</span>
+                      {d.lines.some((l) => pendingLines.has(l.id)) && <span className="pill">Fix waiting</span>}
+                    </button>
+                  ))}
                 </div>
-              );
-            })}
-            <div className="field"><span>Why was it wrong?</span><Chips options={FIX_REASONS} value={reason} onPick={setReason} /></div>
-            <label className="field"><span>Note (optional)</span><input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. the card says 10, I typed 12" /></label>
-            {err && <div className="note err" role="alert">{err}</div>}
-            <button className="btn accent" disabled={busy} onClick={sendFix}>{busy ? 'Sending…' : 'Send to admin for approval'}</button>
+              </aside>
+
+              {!openDoc ? (
+                <div className="fixEmpty">Pick the {C.key === 'issued' ? 'card' : 'note'} on the left. The saved entry will show next to what the paper says.</div>
+              ) : (
+                <div className="stack">
+                  <div className="fixCompare">
+                    <section className="fixCol app">
+                      <header><span aria-hidden>🔒</span><div><b>What the app has</b><small>{docTitle(openDoc)} · {niceDate(openDoc.doc_date)} · locked</small></div></header>
+                      {openDoc.lines.map((l) => { const it = itemById.get(l.item_id); return <div key={l.id} className="fixRow"><span>{it?.name}</span><span className="mono">{fmt(l.qty)}</span><span className="u">{it?.unit}</span></div>; })}
+                    </section>
+                    <span className="fixArrow" aria-hidden>→</span>
+                    <section className="fixCol paper">
+                      <header><span aria-hidden>✎</span><div><b>What the paper says</b><small>Change only what is different</small></div></header>
+                      {openDoc.lines.map((l) => {
+                        const it = itemById.get(l.item_id);
+                        const v = vals[l.id] ?? String(l.qty);
+                        const ch = v !== '' && Number(v) !== l.qty;
+                        return (
+                          <div key={l.id} className={`fixRow ${ch ? 'changed' : ''}`}>
+                            <span>{it?.name}</span>
+                            {pendingLines.has(l.id) ? <span className="pill">Fix waiting</span>
+                              : <input className="input num" inputMode="decimal" aria-label={`${it?.name} on the paper`} value={v} onChange={(e) => setVals({ ...vals, [l.id]: e.target.value.replace(/[^0-9.]/g, '') })} />}
+                            <span className="u">{it?.unit}</span>
+                          </div>
+                        );
+                      })}
+                    </section>
+                  </div>
+                  <div className="fixSummary">
+                    {changed.length ? (
+                      <div className="stack" style={{ gap: 4 }}>
+                        <b>{changed.length} change{changed.length === 1 ? '' : 's'} found</b>
+                        {changed.map((l) => {
+                          const it = itemById.get(l.item_id); const to = Number(vals[l.id]); const eff = (to - l.qty) * sign(openDoc);
+                          return <span key={l.id}>{it?.name} <span className="mono">{fmt(l.qty)} → {fmt(to)} {it?.unit}</span> · store {eff > 0 ? '+' : '−'}{fmt(Math.abs(eff))} {it?.unit} after approval (now {fmt(balanceOf(l.item_id))})</span>;
+                        })}
+                      </div>
+                    ) : <span className="muted">No changes yet. Type the number from the paper on the line that is wrong.</span>}
+                    <div className="field"><span>Why was it wrong?</span><Chips options={FIX_REASONS} value={reason} onPick={setReason} /></div>
+                    <label className="field"><span>Note (optional)</span><input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. the card says 10, I typed 12" /></label>
+                  </div>
+                  {err && <div className="note err" role="alert">{err}</div>}
+                  <button className="btn accent" disabled={busy || !changed.length} onClick={sendFix}>{busy ? 'Sending…' : changed.length ? `Send ${changed.length} change${changed.length === 1 ? '' : 's'} to admin` : 'Send to admin'}</button>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -207,6 +252,19 @@ export function Corrections() {
           </div>
         )}
       </main>
+
+      {sent && createPortal(
+        <div className="sheetBack dayAskBack">
+          <section className="dayAsk fixAgain" role="dialog" aria-modal="true" aria-labelledby="againTitle">
+            <div className="faSent"><span className="faTick" aria-hidden>✓</span><div><b>Sent to the admin</b><small>{sent} · waiting for approval</small></div></div>
+            <h2 id="againTitle">Do you want to fix another error?</h2>
+            <span className="muted">Pick where it is, or finish here.</span>
+            <div className="faCats">
+              {CATS.map((c) => <button key={c.key} className={`faCat ${c.key}`} onClick={() => pickCat(c.key)}><span className="fcIco"><CatIcon d={c.icon} size={17} /></span><b>{c.label}</b><span aria-hidden>›</span></button>)}
+            </div>
+            <button className="btn ghost" onClick={() => { setSent(null); go('home'); }}>No, I’m done</button>
+          </section>
+        </div>, document.body)}
     </div>
   );
 }

@@ -31,7 +31,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
       ...STEPS.map((s) => ({ id: `p-${s.key}`, group: 'Pages' as const, label: `Step ${s.n} · ${s.label}`, hint: s.desc, icon: { deliveries: 'truck', issued: 'card', returns: 'back', transfers: 'swap' }[s.key], run: to(s.screen) })),
       { id: 'p-st', group: 'Pages', label: 'Stock take', hint: 'Print the sheet, enter counts, history', icon: 'box', run: to('stocktake') },
       { id: 'p-rep', group: 'Pages', label: 'Reports', hint: 'Excel and print', icon: 'report', run: to('reports') },
-      { id: 'p-fix', group: 'Pages', label: 'Fix a mistake', hint: 'Corrections and recounts', icon: 'fix', run: to('corrections') },
+      { id: 'p-fix', group: 'Pages', label: 'Fix an error', hint: 'Corrections and recounts', icon: 'fix', run: to('corrections') },
     ];
     if (user.role === 'admin') pages.push({ id: 'p-adm', group: 'Pages', label: 'Admin', hint: 'People, sites, approvals', icon: 'user', run: openAdmin });
 

@@ -15,7 +15,7 @@ const NAV: { screen: Screen; label: string; icon: string; match: Screen[] }[] = 
   { screen: 'home', label: 'Check-in', icon: 'checkin', match: CHECKIN },
   { screen: 'stocktake', label: 'Stock take', icon: 'box', match: ['stocktake'] },
   { screen: 'reports', label: 'Reports', icon: 'report', match: ['reports'] },
-  { screen: 'corrections', label: 'Fix a mistake', icon: 'fix', match: ['corrections'] },
+  { screen: 'corrections', label: 'Fix an error', icon: 'fix', match: ['corrections'] },
 ];
 // Screens that show the phone tab bar (not the step-by-step forms).
 const TABBAR: Screen[] = ['home', 'dashboard', 'corrections', 'submitted', 'reports', 'stocktake'];
