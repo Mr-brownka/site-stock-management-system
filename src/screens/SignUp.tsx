@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { api } from '../lib/api';
 import type { SiteInfo } from '../lib/types';
 
-/** Storekeepers create their own account; the admin approves it before it can be used. */
+/** Store members create their own account; the admin approves it before it can be used. */
 export function SignUp({ onBack, onDone }: { onBack: () => void; onDone: () => void }) {
   const [sites, setSites] = useState<SiteInfo[]>([]);
   const [name, setName] = useState('');
@@ -54,7 +54,7 @@ export function SignUp({ onBack, onDone }: { onBack: () => void; onDone: () => v
           </div>
           <div className="field"><span>Your role</span>
             <div className="seg" role="group" aria-label="Your role" style={{ display: 'flex' }}>
-              <button type="button" style={{ flex: 1 }} aria-pressed={role === 'store'} onClick={() => setRole('store')}>Storekeeper</button>
+              <button type="button" style={{ flex: 1 }} aria-pressed={role === 'store'} onClick={() => setRole('store')}>Store</button>
               <button type="button" style={{ flex: 1 }} aria-pressed={role === 'assistant'} onClick={() => setRole('assistant')}>Assistant</button>
             </div>
           </div>

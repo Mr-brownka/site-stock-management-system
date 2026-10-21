@@ -1,5 +1,5 @@
 // Project week number.
-// The admin (or the first storekeeper) says which week of the project it is; the app
+// The admin (or the first store member) says which week of the project it is; the app
 // counts on from there. A week with no entries at all (site closed, e.g. the December
 // break) does not count, so the number pauses by itself. The admin can correct it.
 import { addDays } from './dates';

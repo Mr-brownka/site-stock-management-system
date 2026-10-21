@@ -156,7 +156,7 @@ function CardForm({ done, again }: { done: () => void; again: () => Promise<void
         <div className="mwcAppr">Approval</div>
         <div className="mwcFoot">
           <div><span>SM/Supervisor :</span><Suggest bare label="SM / Supervisor" value={sup} onChange={setSup} options={sups} placeholder="Name" glow={used.some((l) => l.item && l.qty) && !sup} inputClass={`mwcIn ${miss(!sup.trim())}`} /></div>
-          <div><span>Store keeper :</span><b>{user.name}</b></div>
+          <div><span>Store :</span><b>{user.name}</b></div>
         </div>
       </div>
 

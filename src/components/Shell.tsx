@@ -73,7 +73,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
   const toggleRail = () => { const v = !mini; setMini(v); try { localStorage.setItem('ssms-rail', v ? 'mini' : 'full'); } catch { /* ignore */ } };
 
   // A store with no stock take yet starts on the welcome page.
-  // New storekeepers stay on the welcome page until 5 training days are done and the store has stock
+  // New store members stay on the welcome page until 5 training days are done and the store has stock
   // (a store with no stock unlocks its first stock take after training).
   const onboarding = api.mode !== 'training' && user.role !== 'admin' && (!isTrained(user) || !balances.length);
   if (onboarding && !(screen === 'stocktake' && isTrained(user))) return <Welcome />;
@@ -135,7 +135,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
           )}
           <button className="railUser" onClick={() => setUserMenu((v) => !v)} aria-expanded={userMenu} aria-haspopup="menu" title="Your account">
             <span className="avatar">{initials}</span>
-            <div className="rlText"><b>{user.name}</b><span>{user.role === 'admin' ? 'Admin' : 'Storekeeper'}{site ? ` · ${site}` : ''}{api.mode === 'demo' ? ' · demo' : ''}</span></div>
+            <div className="rlText"><b>{user.name}</b><span>{user.role === 'admin' ? 'Admin' : 'Store'}{site ? ` · ${site}` : ''}{api.mode === 'demo' ? ' · demo' : ''}</span></div>
             <span className={`rgChev rlText ${userMenu ? 'open' : ''}`} aria-hidden="true">▴</span>
           </button>
         </div>
@@ -164,7 +164,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
                 <div className="spRow"><span>Site</span><b>{site || '–'}</b></div>
                 {projectWeek != null && <div className="spRow"><span>Project week</span><b>{projectWeek}</b></div>}
                 <div className="spRow"><span>Items in store</span><b>{balances.filter((b) => b.balance > 0).length}</b></div>
-                <div className="spRow"><span>You</span><b>{user.name} · {user.role === 'admin' ? 'Admin' : 'Storekeeper'}</b></div>
+                <div className="spRow"><span>You</span><b>{user.name} · {user.role === 'admin' ? 'Admin' : 'Store'}</b></div>
                 {user.role === 'admin' && <button className="btn ghost sm" onClick={() => { setSiteOpen(false); openAdmin(); }}>Manage sites</button>}
               </div>
             )}

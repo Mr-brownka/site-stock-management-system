@@ -1,4 +1,4 @@
-// Storekeeper onboarding: 5 working days of practice (Mon–Sat), then the live store opens.
+// Store onboarding: 5 working days of practice (Mon–Sat), then the live store opens.
 import { addDays, today, weekday } from './dates';
 import type { User } from './types';
 

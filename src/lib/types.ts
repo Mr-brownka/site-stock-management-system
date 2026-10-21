@@ -236,7 +236,7 @@ export interface Backend {
   /** Records a stock take. The first one for a store also becomes its opening balances. */
   saveStockTake(input: StockTakeInput): Promise<void>;
   projectWeek(): Promise<WeekInfo>;
-  /** Storekeepers can set it once (onboarding); after that only the admin. */
+  /** Store members can set it once (onboarding); after that only the admin. */
   setProjectWeek(week: number): Promise<void>;
   /** Dates (from..to) that have any entries other than stock takes, for counting project weeks. */
   entryDays(from: string, to: string): Promise<string[]>;

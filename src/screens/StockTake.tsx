@@ -17,7 +17,7 @@ function sorted(items: Item[]) {
   return [...items].sort((a, b) => a.name.trim().localeCompare(b.name.trim(), 'en', { sensitivity: 'base', numeric: true }));
 }
 
-/** The orange paper sheet the storekeeper prints and writes on. */
+/** The orange paper sheet the store prints and writes on. */
 export function StockSheet({ items, values, head, title = 'Stock take sheet' }: { items: Item[]; values?: Record<number, string | number>; head?: { date?: string; start?: string | null; end?: string | null; by?: string | null; checked?: string | null }; title?: string }) {
   const { company, site } = useData();
   const list = sorted(items);

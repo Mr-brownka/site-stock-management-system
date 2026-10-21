@@ -11,7 +11,7 @@ import { TRAINING_DAYS } from '../lib/trainingPlan';
 import { describeStructure, subphasesFor } from '../lib/structure';
 
 type Sec = 'overview' | 'people' | 'corr' | 'sites' | 'items' | 'reorder' | 'log';
-const ROLE_LABEL: Record<Role, string> = { store: 'Storekeeper', assistant: 'Assistant', admin: 'Admin' };
+const ROLE_LABEL: Record<Role, string> = { store: 'Store', assistant: 'Assistant', admin: 'Admin' };
 const KIND_LABEL: Record<string, string> = { opening: 'Opening count', delivery: 'Delivery', issue: 'Card', return: 'Return', transfer_in: 'Received', transfer_out: 'Sent', correction: 'Correction' };
 const time = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' });
 const dayOf = (iso: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Nairobi' }).format(new Date(iso));
@@ -282,7 +282,7 @@ function Corr({ d, siteName, person, itemById, busy, act }: { d: Data; siteName:
             <div className="row" style={{ flexWrap: 'wrap' }}>
               <button className="btn ok admSm" disabled={!!busy} onClick={() => act(c.id, () => api.admin.decide(c.id, true, notes[c.id]))}>Approve</button>
               <button className="btn ghost admSm" disabled={!!busy} onClick={() => { if (!notes[c.id]) { setNotes({ ...notes, [c.id]: '' }); } act(c.id, () => api.admin.decide(c.id, false, notes[c.id] || 'Rejected by the admin')); }}>Reject</button>
-              <input className="input" style={{ flex: 1, minWidth: 200, minHeight: 42 }} placeholder="Note to the storekeeper (optional)" value={notes[c.id] ?? ''} onChange={(e) => setNotes({ ...notes, [c.id]: e.target.value })} />
+              <input className="input" style={{ flex: 1, minWidth: 200, minHeight: 42 }} placeholder="Note to the store (optional)" value={notes[c.id] ?? ''} onChange={(e) => setNotes({ ...notes, [c.id]: e.target.value })} />
             </div>
           </div>
         );
