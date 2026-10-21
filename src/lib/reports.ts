@@ -228,8 +228,8 @@ export const REPORTS: Def[] = [
   },
   {
     key: 'transfers', group: 'Registers', icon: 'swap', needs: ['range'],
-    title: 'Site transfers register',
-    desc: 'Stock sent to and received from other sites, with the transfer note and who authorised it.',
+    title: 'Project transfers register',
+    desc: 'Stock sent to and received from other projects, with the transfer note and who authorised it.',
     build(c) {
       const rows = linesIn(c).filter(({ l }) => l.kind === 'transfer_in' || l.kind === 'transfer_out').map(({ d, l }) => ({ date: d.doc_date, dir: l.kind === 'transfer_in' ? 'Received' : 'Sent', site: d.party ?? '', ref: d.ref_no ?? '', auth: d.authorised_by ?? '', item: nm(c, l.item_id), unit: un(c, l.item_id), qty: r2(l.qty) }))
         .sort((a, b) => a.date.localeCompare(b.date));
@@ -271,7 +271,7 @@ export const REPORTS: Def[] = [
   {
     key: 'idle', group: 'Planning', icon: 'box', needs: ['idle'],
     title: 'Slow-moving & idle stock',
-    desc: 'Items sitting in the store that have not been issued for a while. Candidates to transfer to another site.',
+    desc: 'Items sitting in the store that have not been issued for a while. Candidates to transfer to another project.',
     build(c) {
       const last = new Map<number, string>();
       c.docs.forEach((d) => d.lines.forEach((l) => { if (l.kind === 'issue' && (last.get(l.item_id) ?? '') < d.doc_date) last.set(l.item_id, d.doc_date); }));

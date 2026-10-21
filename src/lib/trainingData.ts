@@ -142,7 +142,7 @@ export function buildAstanaTraining(allItems: Item[], user: { email: string; nam
       add({ kind: 'return', doc_date: day, ref_no: doc.ref_no }, [[name, back, l.subphase ?? undefined]], iso(day, '17:05'), new Map([[l.item_id, l.id]]));
     }
 
-    // Site transfers now and then.
+    // Project transfers now and then.
     if (k % 11 === 4) add({ kind: 'transfer_out', doc_date: day, ref_no: `TN-${tn++}`, party: pick(['Balozi Suites', 'Nyayo View 2']), authorised_by: 'Eng. Kariuki (Projects Manager)', vehicle: 'KCK 412T' }, [[pick(['T12 Bars', 'Timber 4" x 2"', 'Cement']), between(10, 30)]], iso(day, '14:20'));
     if (k % 13 === 6) add({ kind: 'transfer_in', doc_date: day, ref_no: `TN-${tn++}`, party: pick(['Balozi Suites', 'Nyayo View 2']), authorised_by: 'Eng. Kariuki (Projects Manager)', vehicle: 'KCK 412T' }, [[pick(['Marine board', 'Tie Rods', 'Wheelbarrow']), between(4, 12)]], iso(day, '11:40'));
 

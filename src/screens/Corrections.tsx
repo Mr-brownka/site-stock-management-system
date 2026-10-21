@@ -15,7 +15,7 @@ const CATS: { key: CatKey; label: string; tag: string; kinds: Doc['kind'][]; doc
   { key: 'deliveries', label: 'Deliveries', tag: 'Stock in', kinds: ['delivery'], doc: 'A delivery note was entered wrong', numLabel: 'Delivery note no.', eg: 'e.g. wrong quantity on DN 0421', icon: 'M12 4v12M6 10l6 6 6-6M5 20h14' },
   { key: 'issued', label: 'Issued to production', tag: 'Stock out', kinds: ['issue'], doc: 'A withdrawal card was entered wrong', numLabel: 'Card no.', eg: 'e.g. card 5131 says 10, typed 12', icon: 'M12 20V8M6 14l6-6 6 6M5 4h14' },
   { key: 'returns', label: 'Returned to store', tag: 'Back in', kinds: ['return'], doc: 'A return was entered wrong', numLabel: 'Card no.', eg: 'e.g. 3 bags came back, not 5', icon: 'M9 14l-5-5 5-5M4 9h10a6 6 0 0 1 0 12h-3' },
-  { key: 'transfers', label: 'Site transfers', tag: 'In / out', kinds: ['transfer_in', 'transfer_out'], doc: 'A transfer note was entered wrong', numLabel: 'Transfer note no.', eg: 'e.g. sent 20 Pcs to Astana, not 25', icon: 'M4 8h14l-4-4M20 16H6l4 4' },
+  { key: 'transfers', label: 'Project transfers', tag: 'In / out', kinds: ['transfer_in', 'transfer_out'], doc: 'A transfer note was entered wrong', numLabel: 'Transfer note no.', eg: 'e.g. sent 20 Pcs to Astana, not 25', icon: 'M4 8h14l-4-4M20 16H6l4 4' },
 ];
 const OUT_KINDS = ['issue', 'transfer_out'];
 const CatIcon = ({ d, size = 20 }: { d: string; size?: number }) => <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true"><path d={d} fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>;

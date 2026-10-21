@@ -137,7 +137,7 @@ export function Returns() {
               </div>
             ))}
             {!locked && cards.some((c) => c.lines.some((l) => maxBack(l.id, l.qty) > 0)) && <button className="btn ghost" onClick={() => { setErr(''); setStage('cards'); }}>+ Record returns against cards</button>}
-            <button className="btn accent" onClick={() => go('transfers')}>Done · Next: Site transfers</button>
+            <button className="btn accent" onClick={() => go('transfers')}>Done · Next: Project transfers</button>
           </>
         )}
       </main>

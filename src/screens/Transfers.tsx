@@ -32,9 +32,9 @@ function TransferForm({ done }: { done: () => void }) {
     return (
       <div className="card pad stack enter">
         <h2 style={{ fontFamily: 'var(--display)', fontSize: 26 }}>Which way did it go?</h2>
-        <button className="btn accent" style={{ minHeight: 76 }} onClick={() => setDir('out')} autoFocus>↗ Sent to another site<br /></button>
+        <button className="btn accent" style={{ minHeight: 76 }} onClick={() => setDir('out')} autoFocus>↗ Sent to another project<br /></button>
         <div className="muted small" style={{ marginTop: -4 }}>Stock goes down</div>
-        <button className="btn" style={{ minHeight: 76, background: 'var(--in)' }} onClick={() => setDir('in')}>↙ Received from another site</button>
+        <button className="btn" style={{ minHeight: 76, background: 'var(--in)' }} onClick={() => setDir('in')}>↙ Received from another project</button>
         <div className="muted small" style={{ marginTop: -4 }}>Stock goes up</div>
       </div>
     );
@@ -59,7 +59,7 @@ function TransferForm({ done }: { done: () => void }) {
     setBusy(true);
     try {
       if (draft) await api.deleteDraft(draft.id).catch(() => undefined);
-      await api.saveDraft({ step: 'transfers', doc_date: day, label: `Transfer ${dir === 'out' ? 'to' : 'from'} ${site.trim() || '(site not filled in)'}`, payload: { dir: dir ?? '', site, note, by, vehicle, lines: linesToPayload(lines) } });
+      await api.saveDraft({ step: 'transfers', doc_date: day, label: `Transfer ${dir === 'out' ? 'to' : 'from'} ${site.trim() || '(project not filled in)'}`, payload: { dir: dir ?? '', site, note, by, vehicle, lines: linesToPayload(lines) } });
       await refreshUnfinished(); toast('Saved as a draft · not counted in stock yet'); go('home');
     } catch (e) { setErr((e as Error).message); setBusy(false); }
   };
@@ -67,11 +67,11 @@ function TransferForm({ done }: { done: () => void }) {
   return (
     <div className="stack enter">
       <div className="note" style={dir === 'in' ? { background: 'var(--in-soft)', borderColor: '#A9C1E6', color: 'var(--in)' } : undefined}>
-        <b>{dir === 'out' ? '↗ Sent to another site: stock goes down.' : '↙ Received from another site: stock goes up.'}</b>{' '}
+        <b>{dir === 'out' ? '↗ Sent to another project: stock goes down.' : '↙ Received from another project: stock goes up.'}</b>{' '}
         <button className="btn link" onClick={() => setDir(null)}>Change</button>
       </div>
       <div className="card pad stack">
-        <Suggest label={dir === 'out' ? 'Sent to (site)' : 'Received from (site)'} value={site} onChange={setSite} options={sites} placeholder="Start typing the site name" autoFocus glow={!site} inputClass={miss(!site.trim())} />
+        <Suggest label={dir === 'out' ? 'Sent to (project)' : 'Received from (project)'} value={site} onChange={setSite} options={sites} placeholder="Start typing the project name" autoFocus glow={!site} inputClass={miss(!site.trim())} />
         <label className="field"><span>Transfer note no.</span>
           <input data-nav className={`input ${site && !note ? 'next' : ''} ${miss(!note.trim())}`} value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={enterNext} placeholder="e.g. TN 112" />
         </label>
@@ -92,7 +92,7 @@ function TransferForm({ done }: { done: () => void }) {
 
 export function Transfers() {
   return (
-    <StepShell step="transfers" question="Were materials moved to or from another site today?" another="Was there another transfer?" formTitle="New transfer"
+    <StepShell step="transfers" question="Were materials moved to or from another project today?" another="Was there another transfer?" formTitle="New transfer"
       renderForm={(done) => <TransferForm done={done} />}
       docTone={(d) => (d.kind === 'transfer_out' ? 'out' : 'in')}
       docTitle={(d) => `${d.kind === 'transfer_out' ? '↗ Sent to' : '↙ Received from'} ${d.party ?? '(site to confirm)'} · ${d.ref_no ?? '(note to confirm)'}`} />
