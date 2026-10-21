@@ -87,6 +87,13 @@ export function ZohoStatusLine({ compact }: { compact?: boolean }) {
         </div>
       );
   }
+  // Zoho refused or the sign-in ran out: the fix is to connect again (and accept the permissions).
+  const reconnect = !!s.last_error && /allow|authori|expired|connect zoho again|invalid/i.test(s.last_error);
+  if (reconnect) {
+    return compact
+      ? <button className="railLink zohoMenu" onClick={connect} disabled={busy} title={s.last_error ?? ''}><span className="zohoDot err" /><span className="rlText">{busy ? 'Opening Zoho…' : 'Reconnect Zoho'}</span></button>
+      : <div className="zohoCard"><div><b>Reconnect your Zoho</b><span>Zoho needs you to accept access again.</span><span className="zohoErr">{s.last_error}</span></div><button className="btn" onClick={connect} disabled={busy}><ZohoTag />{busy ? 'Opening Zoho…' : 'Reconnect Zoho'}</button></div>;
+  }
   return compact
     ? <button className="railLink zohoMenu" onClick={checkZohoNow} title={s.last_error ?? `Connected${s.zoho_email ? ` as ${s.zoho_email}` : ''}`}><span className={`zohoDot ${s.last_error ? 'err' : ''}`} /><span className="rlText">{s.last_error ? 'Zoho needs attention' : `Zoho · checked ${ago(s.last_sync_at)}`}</span></button>
     : <div className="zohoCard ok"><div><b>Zoho connected</b><span>{s.zoho_email ? `${s.zoho_email} · ` : ''}checked {ago(s.last_sync_at)} · {s.imported} brought in</span>{s.last_error && <span className="zohoErr">{s.last_error}</span>}</div><button className="btn ghost sm" onClick={checkZohoNow}>Check now</button></div>;

@@ -5,7 +5,7 @@ export const APP_URL = Deno.env.get('BOHARI_APP_URL') ?? 'https://site-stock-man
 export const REDIRECT_URI = `${Deno.env.get('SUPABASE_URL')}/functions/v1/zoho-callback`;
 export const ORG_ID = Deno.env.get('ZOHO_ORG_ID') ?? '838038949';
 export const SCOPES = Deno.env.get('ZOHO_SCOPES') ??
-  'ZohoInventory.purchasereceives.READ,ZohoInventory.purchaseorders.READ,ZohoBooks.purchaseorders.READ,ZohoBooks.settings.READ,ZohoBooks.contacts.READ';
+  'ZohoBooks.purchasereceives.READ,ZohoBooks.purchaseorders.READ,ZohoBooks.settings.READ,ZohoBooks.contacts.READ';
 
 export const cors = {
   'Access-Control-Allow-Origin': '*',

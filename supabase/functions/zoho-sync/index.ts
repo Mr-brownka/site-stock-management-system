@@ -50,7 +50,16 @@ async function discover(api: string, token: string, org: string) {
     tried.push(`${kind} ${r.status} code ${String(r.body.code ?? '-')}: ${String(r.body.message ?? '').slice(0, 120)}`);
   }
   const po = await zget(api, token, '/books/v3/purchaseorders', { organization_id: org, per_page: '1' });
-  tried.push(`books POs ${po.status} code ${String(po.body.code ?? '-')}: ${String(po.body.message ?? '').slice(0, 80)}`);
+  tried.push(`books POs ${po.status} code ${String(po.body.code ?? '-')}`);
+  // Backup route: does a purchase order carry its receives? Note which fields mention receiving.
+  const first = ((po.body.purchaseorders as Rec[] | undefined) ?? [])[0];
+  if (first?.purchaseorder_id) {
+    const pd = await zget(api, token, `/books/v3/purchaseorders/${first.purchaseorder_id}`, { organization_id: org });
+    const p = (pd.body.purchaseorder ?? {}) as Rec;
+    const keys = Object.keys(p).filter((k) => /receiv/i.test(k));
+    const line = ((p.line_items as Rec[] | undefined) ?? [])[0] ?? {};
+    tried.push(`PO fields: ${keys.join(',') || 'none'}; line fields: ${Object.keys(line).filter((k) => /receiv|quantity/i.test(k)).join(',')}`);
+  }
   return null;
 }
 const base = (kind: string) => (kind === 'books' ? '/books/v3' : '/inventory/v1');
