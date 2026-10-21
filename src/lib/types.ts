@@ -46,6 +46,8 @@ export interface Line {
 export interface Doc extends DocInput {
   id: string;
   created_at: string;
+  /** Bohari's own number for the entry, per project and kind (DLV/ISS/RET/TRF). Set by the database. */
+  sys_no?: number | null;
   lines: Line[];
 }
 
@@ -95,6 +97,9 @@ export interface Structure { basements: number; has_ground: boolean; floors: num
 /** An unfinished entry: kept, but not counted in stock until finished. */
 export interface Draft { id: string; step: StepKey; doc_date: string; label: string; payload: Record<string, unknown>; created_at: string }
 
+export interface AlertContact { name: string | null; phone: string | null }
+export interface AlertInfo extends AlertContact { sent_at: string | null; sent_by: string | null }
+
 export interface SiteInfo extends Partial<Structure> {
   id: string;
   name: string;
@@ -102,6 +107,11 @@ export interface SiteInfo extends Partial<Structure> {
   /** Project week the admin set, and the date it was set (the app counts on from there). */
   week_anchor_no?: number | null;
   week_anchor_date?: string | null;
+  /** WhatsApp stock alert: the site admin, and the last time it was sent. */
+  alert_name?: string | null;
+  alert_phone?: string | null;
+  alert_sent_at?: string | null;
+  alert_sent_by?: string | null;
 }
 
 /** One physical count of the store. The first one becomes the opening balances. */
@@ -180,6 +190,9 @@ export interface AdminApi {
   addSite(name: string, structure?: Structure): Promise<void>;
   setStructure(id: string, structure: Structure): Promise<void>;
   renameSite(id: string, name: string): Promise<void>;
+  /** Site admins who receive the WhatsApp stock alert, by site id. */
+  alertContacts(): Promise<Record<string, AlertContact>>;
+  setAlertContact(siteId: string, c: AlertContact): Promise<void>;
   corrections(): Promise<CorrectionRequest[]>;
   decide(id: string, approve: boolean, note?: string): Promise<void>;
   balances(): Promise<Balance[]>;
@@ -207,6 +220,9 @@ export interface Backend {
   admin: AdminApi;
   /** The signed-in person's company and site, e.g. Comex Builders / Reveal. */
   siteName(): Promise<{ company: string; site: string; structure?: Structure | null }>;
+  /** Who gets the WhatsApp stock alert for my site, and when it was last sent. Null if not set up. */
+  alertInfo(): Promise<AlertInfo | null>;
+  markAlertSent(): Promise<void>;
   /** Entries saved with details still to confirm, newest first. */
   unconfirmed(): Promise<Doc[]>;
   confirmDetails(docId: string, fields: Record<string, string>): Promise<void>;

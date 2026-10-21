@@ -123,6 +123,8 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
       async setProfile(id, patch) { s.profiles = s.profiles.map((p) => (p.id === id ? { ...p, ...patch, decided_at: new Date().toISOString() } : p)); save(); },
       async sites() { return s.sites; },
       async addSite(name, structure) { s.sites.push({ id: uid(), name, company: 'Comex Builders', ...(structure ?? {}) }); save(); },
+      async alertContacts() { return Object.fromEntries(s.sites.map((x) => [x.id, { name: x.alert_name ?? null, phone: x.alert_phone ?? null }])); },
+      async setAlertContact(siteId, c) { s.sites = s.sites.map((x) => (x.id === siteId ? { ...x, alert_name: c.name, alert_phone: c.phone } : x)); save(); },
       async setStructure(id, structure) { s.sites = s.sites.map((x) => (x.id === id ? { ...x, ...structure } : x)); save(); },
       async renameSite(id, name) { s.sites = s.sites.map((x) => (x.id === id ? { ...x, name } : x)); save(); },
       async corrections() { return s.corrections; },
@@ -154,6 +156,14 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
     async sendPasswordReset() { /* demo: nothing to send */ },
     isRecovery() { return false; },
     async setPassword() { /* demo */ },
+    async alertInfo() {
+      const st = s.sites.find((x) => x.id === SITE);
+      return { name: st?.alert_name ?? 'Site admin', phone: st?.alert_phone ?? null, sent_at: st?.alert_sent_at ?? null, sent_by: st?.alert_sent_by ?? null };
+    },
+    async markAlertSent() {
+      s.sites = s.sites.map((x) => (x.id === SITE ? { ...x, alert_sent_at: new Date().toISOString(), alert_sent_by: 'Abdirahman' } : x));
+      save();
+    },
     async siteName() {
       const st = s.sites.find((x) => x.id === SITE);
       const structure = st?.floors ? { basements: st.basements ?? 0, has_ground: st.has_ground ?? true, floors: st.floors, roof_name: st.roof_name ?? null } : null;

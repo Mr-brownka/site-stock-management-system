@@ -57,7 +57,7 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
       const who = key === 'deliveries' ? d.party ?? '' : key === 'issued' ? [d.activity, d.party].filter(Boolean).join(' · ')
         : key === 'returns' ? (d.ref_no === 'No card' ? 'Without a card' : card?.party ?? '') : `${d.kind === 'transfer_out' ? 'To' : 'From'} ${d.party ?? '…'}`;
       const where = key === 'transfers' ? (d.kind === 'transfer_out' ? '↗ Out' : '↙ In') : key === 'issued' ? d.gemba ?? subs.join(', ') : subs.join(', ') || card?.gemba || '';
-      return { doc: d, ref: `${C.prefix}-${String(i + 1).padStart(4, '0')}`, paper: d.ref_no ?? '', who, where };
+      return { doc: d, ref: `${C.prefix}-${String(d.sys_no ?? i + 1).padStart(4, '0')}`, paper: d.ref_no ?? '', who, where };
     }).reverse();
   }, [all, C, key]);
 

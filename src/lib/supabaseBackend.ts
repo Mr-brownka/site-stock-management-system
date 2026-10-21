@@ -66,6 +66,15 @@ function adminApi(sb: SupabaseClient): AdminApi {
       const { error } = await sb.from('sites').insert({ name, company_id: one?.company_id, ...(structure ?? {}) });
       if (error) fail(error);
     },
+    async alertContacts() {
+      const { data, error } = await sb.from('sites').select('id, alert_name, alert_phone');
+      if (error) return {};
+      return Object.fromEntries((data ?? []).map((r) => [r.id, { name: r.alert_name, phone: r.alert_phone }]));
+    },
+    async setAlertContact(siteId, c) {
+      const { error } = await sb.from('sites').update({ alert_name: c.name, alert_phone: c.phone }).eq('id', siteId);
+      if (error) fail(/column/.test(error.message) ? { ...error, message: 'The database update for WhatsApp contacts has not been run yet.' } : error);
+    },
     async setStructure(id, structure) {
       const { error } = await sb.from('sites').update(structure).eq('id', id);
       if (error) fail(error);
@@ -188,6 +197,12 @@ export function supabaseBackend(url: string, key: string): Backend {
       history.replaceState(null, '', location.pathname);
     },
 
+    async alertInfo() {
+      const { data, error } = await sb.from('sites').select('alert_name, alert_phone, alert_sent_at, alert_sent_by').eq('id', await mySite()).maybeSingle();
+      if (error || !data) return null;
+      return { name: data.alert_name, phone: data.alert_phone, sent_at: data.alert_sent_at, sent_by: data.alert_sent_by };
+    },
+    async markAlertSent() { await sb.rpc('mark_alert_sent', {}); },
     async siteName() {
       const { data: u } = await sb.auth.getUser();
       const { data: p } = await sb.from('profiles').select('site_id').eq('id', u.user?.id ?? '').maybeSingle();

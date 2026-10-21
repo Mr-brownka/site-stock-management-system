@@ -7,6 +7,7 @@ import { Dashboard } from './Dashboard';
 import { fmt } from '../components/ui';
 import { longDate, niceDate, today, weekday, weekdayName } from '../lib/dates';
 import { DayStrip, type DayCell } from '../components/DayStrip';
+import { AlertButton } from '../components/StockAlert';
 import { UnfinishedCard } from '../components/Unfinished';
 import { TRAINING_DAYS } from '../lib/trainingPlan';
 import { resetDemo } from '../lib/demoBackend';
@@ -266,6 +267,7 @@ export function Home() {
                 </button>
               );
             })}
+            <AlertButton />
           </section>
           <section className="panel tip enter" style={{ animationDelay: '.14s' }}>
             <span><kbd>Ctrl</kbd> <kbd>K</kbd> finds any item, page or action.</span>

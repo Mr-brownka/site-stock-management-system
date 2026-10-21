@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fmt } from '../components/ui';
 import { api } from '../lib/api';
 import { addDays, niceDate, today, weekday } from '../lib/dates';
-import type { Balance, CorrectionRequest, Item, Profile, Role, SiteDoc, SiteInfo, Structure, User } from '../lib/types';
+import type { AlertContact, Balance, CorrectionRequest, Item, Profile, Role, SiteDoc, SiteInfo, Structure, User } from '../lib/types';
 import { ask, toast } from '../components/feedback';
 import { StartTraining } from '../components/Training';
 import { TRAINING_DAYS } from '../lib/trainingPlan';
@@ -310,6 +310,10 @@ function Sites({ d, busy, act }: { d: Data; busy: string; act: Act }) {
   const [weeks, setWeeks] = useState<Record<string, string>>({});
   const [build, setBuild] = useState<string | null>(null);
   const [newSt, setNewSt] = useState<Structure>({ basements: 0, has_ground: true, floors: null, roof_name: null });
+  const [contacts, setContacts] = useState<Record<string, AlertContact>>({});
+  const [editC, setEditC] = useState<string | null>(null);
+  const [cDraft, setCDraft] = useState<AlertContact>({ name: '', phone: '' });
+  useEffect(() => { api.admin.alertContacts().then(setContacts).catch(() => setContacts({})); }, [d.sites]);
   useEffect(() => { Promise.all(d.sites.map((s) => api.admin.checklist(s.id).then((ids) => [s.id, ids] as const))).then((x) => setLists(Object.fromEntries(x))); }, [d.sites]);
   return (
     <div className="stack" style={{ gap: 14 }}>
@@ -341,6 +345,18 @@ function Sites({ d, busy, act }: { d: Data; busy: string; act: Act }) {
                 {build === s.id && (
                   <StructureFields value={structOf(s)} busy={!!busy} saveLabel="Save floors"
                     onSave={(st) => act(`b${s.id}`, async () => { await api.admin.setStructure(s.id, st); setBuild(null); })} />
+                )}
+                <div className="siteWeek">
+                  <span className="label">Site admin (WhatsApp)</span>
+                  <span>{contacts[s.id]?.phone ? <><b>{contacts[s.id].name || 'Site admin'}</b> · {contacts[s.id].phone}</> : <span className="muted">Not set. Stock alerts open WhatsApp without a contact.</span>}</span>
+                  <button className="btn link" onClick={() => { setEditC(editC === s.id ? null : s.id); setCDraft({ name: contacts[s.id]?.name ?? '', phone: contacts[s.id]?.phone ?? '' }); }}>{editC === s.id ? 'Close' : contacts[s.id]?.phone ? 'Change' : 'Add'}</button>
+                </div>
+                {editC === s.id && (
+                  <div className="row" style={{ gap: 8, flexWrap: 'wrap', padding: '4px 0 8px' }}>
+                    <input className="input" style={{ flex: '1 1 200px', minHeight: 42 }} placeholder="Name, e.g. Eng. Juma Otieno" value={cDraft.name ?? ''} onChange={(e) => setCDraft({ ...cDraft, name: e.target.value })} aria-label="Site admin name" />
+                    <input className="input mono" style={{ flex: '1 1 160px', minHeight: 42 }} inputMode="tel" placeholder="WhatsApp number, e.g. 0712 345 678" value={cDraft.phone ?? ''} onChange={(e) => setCDraft({ ...cDraft, phone: e.target.value })} aria-label="Site admin WhatsApp number" />
+                    <button className="btn sm" disabled={!!busy || !(cDraft.phone ?? '').replace(/\D/g, '')} onClick={() => act(`c${s.id}`, async () => { const c = { name: (cDraft.name ?? '').trim() || null, phone: (cDraft.phone ?? '').trim() || null }; await api.admin.setAlertContact(s.id, c); setContacts({ ...contacts, [s.id]: c }); setEditC(null); })}>Save</button>
+                  </div>
                 )}
                 <div className="siteWeek">
                   <span className="label">Stock take list</span>
