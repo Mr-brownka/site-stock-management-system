@@ -33,9 +33,12 @@ Deno.serve(async (req) => {
   email = ((me.body.user as { email?: string } | undefined)?.email) ?? null;
 
   const { data: prof } = await db.from('profiles').select('site_id').eq('id', st.user_id).maybeSingle();
+  // Imports start from the day a store first connects (Nairobi date). Reconnecting keeps the original start date.
+  const { data: prev } = await db.from('zoho_connections').select('import_from').eq('user_id', st.user_id).maybeSingle();
+  const today = new Date(Date.now() + 3 * 3600_000).toISOString().slice(0, 10);
   const { error } = await db.from('zoho_connections').upsert({
     user_id: st.user_id, site_id: prof?.site_id ?? null, zoho_email: email, org_id: org, api_domain: api,
-    accounts_domain: accounts, refresh_token: tok.refresh_token, api_kind: null, connected_at: new Date().toISOString(), last_error: null,
+    accounts_domain: accounts, refresh_token: tok.refresh_token, api_kind: null, import_from: prev?.import_from ?? today, connected_at: new Date().toISOString(), last_error: null,
   });
   if (error) return back({ zoho: 'error', why: error.message });
   return back({ zoho: 'connected' });
