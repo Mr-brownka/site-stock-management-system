@@ -4,6 +4,8 @@ export interface Item {
   id: number;
   name: string;
   unit: string;
+  /** False for items added by hand that Zoho doesn't have (yet). Missing = treat as in Zoho. */
+  in_zoho?: boolean;
 }
 
 export interface DocInput {

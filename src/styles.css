@@ -2116,3 +2116,4 @@ body.colDrag, body.colDrag * { cursor: col-resize !important; user-select: none 
 .fxReq .stPill { justify-self: end; }
 .fxDot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
 .fxDot.approved { background: #1F7A4D; } .fxDot.rejected { background: #B42318; }
+.stNoZoho { color: #B42318; font-weight: 600; }

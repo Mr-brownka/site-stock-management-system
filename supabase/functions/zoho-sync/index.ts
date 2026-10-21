@@ -137,9 +137,25 @@ async function place(db: SupabaseClient, c: Conn, p: Parsed, siteId: string): Pr
   return 'imported';
 }
 
+/** Items added by hand in Bohari: has Zoho got an item with the same name now? If so, link it (marks it "in Zoho"). */
+async function checkNewItems(db: SupabaseClient, c: Conn, token: string, kind: string) {
+  const { data } = await db.from('items').select('id, name').eq('in_zoho', false).limit(25);
+  let found = 0;
+  for (const it of (data ?? []) as { id: number; name: string }[]) {
+    const r = await zget(c.api_domain, token, `${base(kind)}/items`, { organization_id: c.org_id, search_text: it.name, per_page: '25' });
+    if (!r.ok) return found; // no permission to read items: try again next time
+    const hit = ((r.body.items as Rec[] | undefined) ?? []).find((z) => norm(z.name ?? z.item_name) === norm(it.name));
+    if (!hit) continue;
+    await db.from('zoho_item_map').upsert({ zoho_item_id: String(hit.item_id), item_id: it.id, zoho_name: String(hit.name ?? it.name), zoho_unit: str(hit.unit) });
+    await db.from('items').update({ in_zoho: true }).eq('id', it.id);
+    found++;
+  }
+  return found;
+}
+
 async function syncOne(db: SupabaseClient, c: Conn) {
   if (!c.import_from) throw new Error('Zoho import is off until a start date is set.');
-  const out = { imported: 0, pending: 0, linked: 0, seen: 0, more: false, kind: c.api_kind as string | null, projects: [] as string[] };
+  const out = { imported: 0, pending: 0, linked: 0, seen: 0, more: false, kind: c.api_kind as string | null, projects: [] as string[], newInZoho: 0 };
   const projects = new Set<string>();
   if (!c.site_id) throw new Error('Your Bohari account has no site yet.');
   const { data: site } = await db.from('sites').select('name, zoho_project').eq('id', c.site_id).single();
@@ -210,6 +226,7 @@ async function syncOne(db: SupabaseClient, c: Conn) {
     if (!fresh || !(r.body.page_context as Rec | undefined)?.has_more_page) break;
   }
   out.projects = [...projects];
+  try { out.newInZoho = await checkNewItems(db, c, token, out.kind); } catch { /* not important enough to fail the sync */ }
   await db.from('zoho_connections').update({ last_sync_at: new Date().toISOString(), last_error: null, imported: c.imported + out.imported }).eq('user_id', c.user_id);
   return out;
 }

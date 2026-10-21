@@ -198,9 +198,9 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
     async drafts() { return s.drafts ?? []; },
     async saveDraft(d) { s.drafts = [...(s.drafts ?? []), { ...d, id: uid(), created_at: new Date().toISOString() }]; save(); },
     async deleteDraft(id) { s.drafts = (s.drafts ?? []).filter((x) => x.id !== id); save(); },
-    async items() { return wait(allItems().slice().sort((a, b) => a.name.localeCompare(b.name))); },
+    async items() { return wait(allItems().map((i) => ('in_zoho' in i ? i : { ...i, in_zoho: !/plastic tank|concrete mixer|flood light|spirit level/i.test(i.name) })).sort((a, b) => a.name.localeCompare(b.name))); },
     async addItem(name, unit) {
-      const it = { id: 900000 + s.extraItems.length, name, unit };
+      const it = { id: 900000 + s.extraItems.length, name, unit, in_zoho: false };
       s.extraItems.push(it); save(); return it;
     },
     async remembered(field: Field) {

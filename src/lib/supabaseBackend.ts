@@ -295,8 +295,10 @@ export function supabaseBackend(url: string, key: string): Backend {
     admin: adminApi(sb),
 
     async items() {
-      const rows = await fetchAll<Item>((a, b) => sb.from('items').select('id,name,unit').order('name').range(a, b));
-      return rows.map((r) => ({ id: num(r.id), name: r.name, unit: r.unit }));
+      // in_zoho arrives with migration 0015; until it has run, every item counts as in Zoho.
+      const rows = await fetchAll<Item>((a, b) => sb.from('items').select('id,name,unit,in_zoho').order('name').range(a, b))
+        .catch(() => fetchAll<Item>((a, b) => sb.from('items').select('id,name,unit').order('name').range(a, b)));
+      return rows.map((r) => ({ id: num(r.id), name: r.name, unit: r.unit, in_zoho: r.in_zoho !== false }));
     },
 
     async addItem(name, unit) {

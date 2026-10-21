@@ -299,7 +299,7 @@ const partOfDay = () => { const h = Number(new Date().toLocaleString('en-GB', { 
 
 /** Email one stock take from the person's own Zoho Mail, with the count as an Excel file attached. */
 function ShareTake({ take, refName, onClose }: { take: Take; refName: string; onClose: () => void }) {
-  const { site, company, user, itemById } = useData();
+  const { site, user, itemById } = useData();
   const asOf = `${site}’s stock take as of ${longDay(take.count_date)}`;
   const [to, setTo] = useState(() => { try { return localStorage.getItem('ssms-st-mail-to') ?? ''; } catch { return ''; } });
   const [text, setText] = useState(() => `${partOfDay()},\n\nFind attached ${asOf}.\n\nRegards,\n${user.name}\n${site} Store`);
@@ -308,17 +308,10 @@ function ShareTake({ take, refName, onClose }: { take: Take; refName: string; on
   const rows = sorted(take.lines.map((l) => itemById.get(l.item_id)).filter(Boolean) as Item[]);
   const qty = new Map(take.lines.map((l) => [l.item_id, l.qty]));
   const fileName = `${site} stock take ${take.count_date.split('-').reverse().join('-')}.xlsx`.replace(/[\\/:*?"<>|]/g, '-');
+  const notInZoho = rows.filter((it) => it.in_zoho === false).length;
   const excel = async () => {
-    const XLSX = await import('xlsx');
-    const ws = XLSX.utils.aoa_to_sheet([
-      [`${company || 'Comex Builders'} · ${site}`], [`Stock take ${refName}`], [longDay(take.count_date)],
-      [`Time: ${take.start_time ?? '–'} – ${take.end_time ?? '–'}`, '', `Counted by: ${take.counted_by ?? '–'}`], [],
-      ['No.', 'Item', 'Unit', 'Quantity counted'],
-      ...rows.map((it, i) => [i + 1, it.name, it.unit, qty.get(it.id) ?? 0]),
-    ]);
-    ws['!cols'] = [6, 40, 10, 18].map((wch) => ({ wch }));
-    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Stock take');
-    return XLSX.write(wb, { type: 'base64', bookType: 'xlsx' }) as string;
+    const { stockTakeExcel } = await import('../lib/stockTakeExcel');
+    return stockTakeExcel(take.count_date, rows.map((it) => ({ name: it.name, unit: it.unit, qty: qty.get(it.id) ?? 0, inZoho: it.in_zoho !== false })));
   };
   const send = async () => {
     const list = to.split(/[,;\s]+/).map((x) => x.trim()).filter(Boolean);
@@ -338,7 +331,7 @@ function ShareTake({ take, refName, onClose }: { take: Take; refName: string; on
         <label className="field"><span>To</span><input className="input" type="email" multiple value={to} onChange={(e) => setTo(e.target.value)} placeholder="name@comex.co.ke · separate several with commas" autoFocus /></label>
         <div className="field"><span>Subject</span><div className="input locked fakeIn">{asOf}</div></div>
         <label className="field"><span>Message</span><textarea className="input" rows={7} value={text} onChange={(e) => setText(e.target.value)} /></label>
-        <div className="stAttach"><span className="stAttachIc" aria-hidden="true">XLS</span><span><b>{fileName}</b><small>{rows.length} items · attached</small></span></div>
+        <div className="stAttach"><span className="stAttachIc" aria-hidden="true">XLS</span><span><b>{fileName}</b><small>{rows.length} items{notInZoho ? <> · <span className="stNoZoho">{notInZoho} not in Zoho, marked red</span></> : ''} · attached</small></span></div>
         {err && <div className="note err" role="alert">{err.text}{err.reconnect && <> <button className="btn link inline" onClick={() => api.zohoConnect(true).catch((e) => toast((e as Error).message, 'warn'))}>Allow Zoho Mail</button></>}</div>}
         <div className="row" style={{ gap: 10 }}>
           <button className="btn ghost sm" disabled={busy} onClick={onClose}>Cancel</button>
