@@ -4,6 +4,7 @@ import { STEPS, useData, type Screen } from '../lib/store';
 import { longDate, weekdayName } from '../lib/dates';
 import { signal, useSignal } from '../lib/signals';
 import { ComexLogo, SiteLogo } from './Brand';
+import { ZohoAutoSync, ZohoStatusLine } from './Zoho';
 import { Icon, PulseDot, Ring, useMinutesToClose } from './fx';
 import { StartTraining } from './Training';
 import { CommandPalette } from './CommandPalette';
@@ -76,8 +77,8 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
   // New store members stay on the welcome page until 5 training days are done and the store has stock
   // (a store with no stock unlocks its first stock take after training).
   const onboarding = api.mode !== 'training' && user.role !== 'admin' && (!isTrained(user) || !balances.length);
-  if (onboarding && !(screen === 'stocktake' && isTrained(user))) return <Welcome />;
-  if (screen === 'welcome' || (!balances.length && (screen === 'home' || screen === 'dashboard'))) return <Welcome />;
+  if (onboarding && !(screen === 'stocktake' && isTrained(user))) return <><ZohoAutoSync /><Welcome /></>;
+  if (screen === 'welcome' || (!balances.length && (screen === 'home' || screen === 'dashboard'))) return <><ZohoAutoSync /><Welcome /></>;
   const done = STEPS.filter((s) => stepState(s.key) !== 'todo').length;
   const urgent = !submission && min < 60;
   const trail = crumbs(screen);
@@ -86,6 +87,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
 
   return (
     <div className={`shell ${TABBAR.includes(screen) ? 'hasTab' : ''} ${mini ? 'mini' : ''}`}>
+      <ZohoAutoSync />
       <aside className="rail" aria-label="Main menu">
         <div className="railBrand comexBrand" title="Comex Builders Ltd">
           {mini ? <ComexLogo dark hatOnly width={44} /> : <ComexLogo dark width={172} />}
@@ -129,6 +131,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
           {userMenu && (
             <div className="railUserMenu" role="menu" onMouseLeave={() => setUserMenu(false)}>
               {user.role === 'admin' && <button className="railLink" role="menuitem" onClick={() => { setUserMenu(false); openAdmin(); }}><Icon name="user" /><span className="rlText">Admin</span></button>}
+              <ZohoStatusLine compact />
               <StartTraining user={user} label="Training mode" />
               <button className="railLink signOut" role="menuitem" onClick={signOut}><Icon name="out" /><span className="rlText">Sign out</span></button>
             </div>

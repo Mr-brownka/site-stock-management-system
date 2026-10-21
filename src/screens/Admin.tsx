@@ -4,13 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fmt } from '../components/ui';
 import { api } from '../lib/api';
 import { addDays, niceDate, today, weekday } from '../lib/dates';
-import type { AlertContact, Balance, CorrectionRequest, Item, Profile, Role, SiteDoc, SiteInfo, Structure, User } from '../lib/types';
+import type { AlertContact, Balance, ZohoConnection, ZohoItemMatch, ZohoPending, CorrectionRequest, Item, Profile, Role, SiteDoc, SiteInfo, Structure, User } from '../lib/types';
 import { ask, toast } from '../components/feedback';
 import { StartTraining } from '../components/Training';
 import { TRAINING_DAYS } from '../lib/trainingPlan';
 import { describeStructure, subphasesFor } from '../lib/structure';
 
-type Sec = 'overview' | 'people' | 'corr' | 'sites' | 'items' | 'reorder' | 'log';
+type Sec = 'overview' | 'people' | 'corr' | 'sites' | 'zoho' | 'items' | 'reorder' | 'log';
 const ROLE_LABEL: Record<Role, string> = { store: 'Store', assistant: 'Assistant', admin: 'Admin' };
 const KIND_LABEL: Record<string, string> = { opening: 'Opening count', delivery: 'Delivery', issue: 'Card', return: 'Return', transfer_in: 'Received', transfer_out: 'Sent', correction: 'Correction' };
 const time = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' });
@@ -52,9 +52,9 @@ export function Admin({ user, onExit, onSignOut }: { user: User; onExit: () => v
 
   const NAV: [Sec, string, string, number?][] = [
     ['overview', 'chart', 'Overview'], ['people', 'user', 'People', pendingPeople.length], ['corr', 'fix', 'Corrections', pendingCorr.length],
-    ['sites', 'box', 'Sites'], ['items', 'list', 'Items'], ['reorder', 'alert', 'Reorder levels'], ['log', 'clock', 'Activity log'],
+    ['sites', 'box', 'Sites'], ['zoho', 'swap', 'Zoho'], ['items', 'list', 'Items'], ['reorder', 'alert', 'Reorder levels'], ['log', 'clock', 'Activity log'],
   ];
-  const TITLE: Record<Sec, string> = { overview: 'Overview', people: 'People', corr: 'Corrections', sites: 'Sites', items: 'Items', reorder: 'Reorder levels', log: 'Activity log' };
+  const TITLE: Record<Sec, string> = { overview: 'Overview', people: 'People', corr: 'Corrections', sites: 'Sites', zoho: 'Zoho Books', items: 'Items', reorder: 'Reorder levels', log: 'Activity log' };
   const company = d?.sites[0]?.company ?? '';
 
   return (
@@ -86,6 +86,7 @@ export function Admin({ user, onExit, onSignOut }: { user: User; onExit: () => v
             {sec === 'people' && <People d={d} me={user} siteName={siteName} busy={busy} act={act} />}
             {sec === 'corr' && <Corr d={d} siteName={siteName} person={person} itemById={itemById} busy={busy} act={act} />}
             {sec === 'sites' && <Sites d={d} busy={busy} act={act} />}
+            {sec === 'zoho' && <ZohoAdmin d={d} busy={busy} act={act} />}
             {sec === 'items' && <Items d={d} busy={busy} act={act} />}
             {sec === 'reorder' && <Reorder d={d} busy={busy} act={act} />}
             {sec === 'log' && <Log d={d} siteName={siteName} person={person} itemById={itemById} />}
@@ -97,6 +98,88 @@ export function Admin({ user, onExit, onSignOut }: { user: User; onExit: () => v
 }
 
 type Act = (key: string, fn: () => Promise<unknown>) => Promise<void>;
+
+/** Zoho Books: each site's Zoho Project, who is connected, and what waits for the admin. */
+function ZohoAdmin({ d, busy, act }: { d: Data; busy: string; act: Act }) {
+  const [projects, setProjects] = useState<Record<string, string | null>>({});
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [conns, setConns] = useState<ZohoConnection[]>([]);
+  const [pending, setPending] = useState<ZohoPending[]>([]);
+  const [zitems, setZitems] = useState<ZohoItemMatch[]>([]);
+  const [pick, setPick] = useState<Record<string, string>>({});
+  const reload = useCallback(() => {
+    api.admin.zohoProjects().then(setProjects);
+    api.admin.zohoConnections().then(setConns);
+    api.admin.zohoPending().then(setPending);
+    api.admin.zohoItems().then(setZitems);
+  }, []);
+  useEffect(() => { reload(); }, [reload, d]);
+  const siteName = new Map(d.sites.map((s) => [s.id, s.name]));
+  const items = [...d.items].sort((a, b) => a.name.localeCompare(b.name));
+  const toMatch = zitems.filter((z) => !z.item_id);
+  const noSite = pending.filter((p) => !p.site_id);
+  const waiting = pending.filter((p) => p.site_id);
+  const ago = (iso: string | null) => (iso ? new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' }) : '—');
+  return (
+    <div className="stack" style={{ gap: 16 }}>
+      <div className="note info">Bohari reads goods received from Zoho Books for each person who connects their Zoho. A receive goes to the site whose <b>Zoho Project</b> matches below, and only that site sees it. Nothing is ever changed in Zoho.</div>
+
+      <section className="card" style={{ overflow: 'hidden' }}>
+        <div className="admRow" style={{ fontWeight: 700 }}>Each site’s Zoho Project</div>
+        {d.sites.map((s) => {
+          const v = draft[s.id] ?? projects[s.id] ?? '';
+          const who = conns.filter((c) => c.site_id === s.id);
+          return (
+            <div key={s.id} className="admRow" style={{ flexWrap: 'wrap', gap: 10 }}>
+              <b style={{ width: 150 }}>{s.name}</b>
+              <input className="input" style={{ width: 200, minHeight: 40 }} value={v} placeholder="As written in Zoho" onChange={(e) => setDraft({ ...draft, [s.id]: e.target.value })} aria-label={`Zoho Project for ${s.name}`} />
+              {draft[s.id] !== undefined && draft[s.id] !== (projects[s.id] ?? '') && <button className="btn link" disabled={!!busy} onClick={() => act(`zp${s.id}`, async () => { await api.admin.setZohoProject(s.id, draft[s.id]); const n = { ...draft }; delete n[s.id]; setDraft(n); })}>Save</button>}
+              <span className="small muted" style={{ flex: 1 }}>{who.length ? who.map((c) => `${c.full_name ?? 'Someone'} · checked ${ago(c.last_sync_at)} · ${c.imported} in${c.last_error ? ` · ⚠ ${c.last_error}` : ''}`).join(' | ') : 'Nobody on this site has connected Zoho yet'}</span>
+            </div>
+          );
+        })}
+      </section>
+
+      <section className="card" style={{ overflow: 'hidden' }}>
+        <div className="admRow" style={{ fontWeight: 700 }}>Zoho items to match · {toMatch.length}</div>
+        {!toMatch.length && <div className="admRow muted">Nothing to match. New Zoho items appear here the first time they’re received.</div>}
+        {toMatch.map((z) => (
+          <div key={z.zoho_item_id} className="admRow" style={{ flexWrap: 'wrap', gap: 10 }}>
+            <span style={{ flex: '1 1 260px' }}><span className="zohoTag"><b>ZOHO</b></span> {z.zoho_name} <span className="muted">{z.zoho_unit ?? ''}</span></span>
+            <select className="select input" style={{ flex: '1 1 260px', minHeight: 40 }} value={pick[z.zoho_item_id] ?? ''} onChange={(e) => setPick({ ...pick, [z.zoho_item_id]: e.target.value })} aria-label={`Bohari item for ${z.zoho_name}`}>
+              <option value="">Choose the Bohari item…</option>
+              {items.map((i) => <option key={i.id} value={i.id}>{i.name} ({i.unit})</option>)}
+            </select>
+            <button className="btn sm" disabled={!pick[z.zoho_item_id] || !!busy} onClick={() => act(`zm${z.zoho_item_id}`, () => api.admin.matchZohoItem(z.zoho_item_id, Number(pick[z.zoho_item_id])))}>Match</button>
+            <button className="btn link" disabled={!!busy} onClick={() => act(`zn${z.zoho_item_id}`, async () => { const it = await api.addItem((z.zoho_name ?? 'Item').trim(), (z.zoho_unit ?? 'Pcs').trim() || 'Pcs'); await api.admin.matchZohoItem(z.zoho_item_id, it.id); })}>Add as new item</button>
+          </div>
+        ))}
+        {!!toMatch.length && <div className="admRow small muted">Once matched, the waiting deliveries come in on the next Zoho check (within 5 minutes, or when the store presses Check Zoho now).</div>}
+      </section>
+
+      <section className="card" style={{ overflow: 'hidden' }}>
+        <div className="admRow" style={{ fontWeight: 700 }}>Receives with no Project in Zoho · {noSite.length}</div>
+        {!noSite.length && <div className="admRow muted">None.</div>}
+        {noSite.map((p) => (
+          <div key={p.zoho_receive_id} className="admRow" style={{ flexWrap: 'wrap', gap: 10 }}>
+            <span style={{ flex: '1 1 260px' }}><b className="mono">{p.grn}</b> · {p.vendor ?? '—'} · {p.receive_date ? niceDate(p.receive_date) : ''}</span>
+            <select className="select input" style={{ minHeight: 40, width: 200 }} value={pick[p.zoho_receive_id] ?? ''} onChange={(e) => setPick({ ...pick, [p.zoho_receive_id]: e.target.value })} aria-label={`Site for ${p.grn}`}>
+              <option value="">Which site?</option>{d.sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+            <button className="btn sm" disabled={!pick[p.zoho_receive_id] || !!busy} onClick={() => act(`za${p.zoho_receive_id}`, () => api.admin.assignPending(p.zoho_receive_id, pick[p.zoho_receive_id]))}>Place</button>
+          </div>
+        ))}
+      </section>
+
+      {!!waiting.length && (
+        <section className="card" style={{ overflow: 'hidden' }}>
+          <div className="admRow" style={{ fontWeight: 700 }}>Waiting to come in · {waiting.length}</div>
+          {waiting.map((p) => <div key={p.zoho_receive_id} className="admRow small"><b className="mono">{p.grn}</b><span>{siteName.get(p.site_id!) ?? ''}</span><span className="muted" style={{ flex: 1 }}>{p.reason}</span></div>)}
+        </section>
+      )}
+    </div>
+  );
+}
 
 /** Same rule as the store dashboard: out, at/below the reorder level, or about 5 days left at the last 2 weeks' rate. */
 function lowCount(bs: Balance[], site: string, docs: SiteDoc[], day: string) {

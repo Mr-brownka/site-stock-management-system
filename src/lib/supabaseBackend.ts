@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { AdminApi, Backend, Balance, CorrectionRequest, Doc, DocInput, Draft, Field, Item, Line, LineInput, Profile, SiteDoc, SiteInfo, StockTake, Submission, User } from './types';
+import type { AdminApi, Backend, Balance, CorrectionRequest, Doc, DocInput, Draft, Field, Item, Line, LineInput, Profile, SiteDoc, SiteInfo, StockTake, Submission, User, ZohoConnection, ZohoItemMatch, ZohoPending, ZohoStatus, ZohoSyncResult } from './types';
 
 const PAGE = 1000;
 
@@ -70,6 +70,38 @@ function adminApi(sb: SupabaseClient): AdminApi {
       const { data, error } = await sb.from('sites').select('id, alert_name, alert_phone');
       if (error) return {};
       return Object.fromEntries((data ?? []).map((r) => [r.id, { name: r.alert_name, phone: r.alert_phone }]));
+    },
+    async zohoProjects() {
+      const { data, error } = await sb.from('sites').select('id, zoho_project');
+      if (error) return {};
+      return Object.fromEntries((data ?? []).map((r) => [r.id, r.zoho_project]));
+    },
+    async setZohoProject(siteId, project) {
+      const { error } = await sb.from('sites').update({ zoho_project: project.trim() || null }).eq('id', siteId);
+      if (error) fail(error);
+    },
+    async zohoConnections() {
+      const { data, error } = await sb.rpc('zoho_overview');
+      if (error) return [];
+      return (data ?? []) as ZohoConnection[];
+    },
+    async zohoPending() {
+      const { data, error } = await sb.from('zoho_pending').select('zoho_receive_id, site_id, project, grn, receive_date, vendor, reason').order('receive_date', { ascending: false });
+      if (error) return [];
+      return (data ?? []) as ZohoPending[];
+    },
+    async assignPending(receiveId, siteId) {
+      const { error } = await sb.from('zoho_pending').update({ site_id: siteId, reason: 'Placed by the admin' }).eq('zoho_receive_id', receiveId);
+      if (error) fail(error);
+    },
+    async zohoItems() {
+      const { data, error } = await sb.from('zoho_item_map').select('zoho_item_id, item_id, zoho_name, zoho_unit').order('created_at', { ascending: false });
+      if (error) return [];
+      return (data ?? []) as ZohoItemMatch[];
+    },
+    async matchZohoItem(zohoItemId, itemId) {
+      const { error } = await sb.from('zoho_item_map').update({ item_id: itemId }).eq('zoho_item_id', zohoItemId);
+      if (error) fail(error);
     },
     async setAlertContact(siteId, c) {
       const { error } = await sb.from('sites').update({ alert_name: c.name, alert_phone: c.phone }).eq('id', siteId);
@@ -203,6 +235,24 @@ export function supabaseBackend(url: string, key: string): Backend {
       return { name: data.alert_name, phone: data.alert_phone, sent_at: data.alert_sent_at, sent_by: data.alert_sent_by };
     },
     async markAlertSent() { await sb.rpc('mark_alert_sent', {}); },
+    async zohoStatus() {
+      const { data, error } = await sb.rpc('my_zoho');
+      if (error) return null;
+      const r = (data as ZohoStatus[] | null)?.[0];
+      return r ? { ...r, connected: true } : { connected: false, zoho_email: null, last_sync_at: null, last_error: null, imported: 0 };
+    },
+    async zohoConnect() {
+      const { data, error } = await sb.functions.invoke('zoho-start', { body: {} });
+      if (error || !data?.url) fail({ message: (data as { error?: string } | null)?.error ?? error?.message ?? 'Could not start the Zoho sign-in.' });
+      location.href = data.url;
+    },
+    async zohoSync() {
+      const { data, error } = await sb.functions.invoke('zoho-sync', { body: {} });
+      if (error) return { connected: true, error: error.message };
+      return data as ZohoSyncResult;
+    },
+    async zohoDisconnect() { const { error } = await sb.rpc('disconnect_zoho'); if (error) fail(error); },
+    async checkDelivery(docId) { const { error } = await sb.rpc('check_delivery', { doc: docId }); if (error) fail(error); },
     async siteName() {
       const { data: u } = await sb.auth.getUser();
       const { data: p } = await sb.from('profiles').select('site_id').eq('id', u.user?.id ?? '').maybeSingle();

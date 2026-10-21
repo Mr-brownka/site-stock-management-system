@@ -48,6 +48,11 @@ export interface Doc extends DocInput {
   created_at: string;
   /** Bohari's own number for the entry, per project and kind (DLV/ISS/RET/TRF). Set by the database. */
   sys_no?: number | null;
+  /** 'zoho' when it was brought in from Zoho Books, with Zoho's numbers. */
+  source?: string | null;
+  zoho_grn?: string | null;
+  zoho_po?: string | null;
+  checked_at?: string | null;
   lines: Line[];
 }
 
@@ -96,6 +101,12 @@ export interface Structure { basements: number; has_ground: boolean; floors: num
 
 /** An unfinished entry: kept, but not counted in stock until finished. */
 export interface Draft { id: string; step: StepKey; doc_date: string; label: string; payload: Record<string, unknown>; created_at: string }
+
+export interface ZohoStatus { connected: boolean; zoho_email: string | null; last_sync_at: string | null; last_error: string | null; imported: number }
+export interface ZohoSyncResult { connected: boolean; imported?: number; pending?: number; seen?: number; projects?: string[]; error?: string }
+export interface ZohoPending { zoho_receive_id: string; site_id: string | null; project: string | null; grn: string | null; receive_date: string | null; vendor: string | null; reason: string | null }
+export interface ZohoItemMatch { zoho_item_id: string; item_id: number | null; zoho_name: string | null; zoho_unit: string | null }
+export interface ZohoConnection { user_id: string; full_name: string | null; site_id: string | null; zoho_email: string | null; last_sync_at: string | null; last_error: string | null; imported: number }
 
 export interface AlertContact { name: string | null; phone: string | null }
 export interface AlertInfo extends AlertContact { sent_at: string | null; sent_by: string | null }
@@ -193,6 +204,14 @@ export interface AdminApi {
   /** Site admins who receive the WhatsApp stock alert, by site id. */
   alertContacts(): Promise<Record<string, AlertContact>>;
   setAlertContact(siteId: string, c: AlertContact): Promise<void>;
+  /** Zoho: which Zoho Project each site is, who is connected, and what waits for the admin. */
+  zohoProjects(): Promise<Record<string, string | null>>;
+  setZohoProject(siteId: string, project: string): Promise<void>;
+  zohoConnections(): Promise<ZohoConnection[]>;
+  zohoPending(): Promise<ZohoPending[]>;
+  assignPending(receiveId: string, siteId: string): Promise<void>;
+  zohoItems(): Promise<ZohoItemMatch[]>;
+  matchZohoItem(zohoItemId: string, itemId: number): Promise<void>;
   corrections(): Promise<CorrectionRequest[]>;
   decide(id: string, approve: boolean, note?: string): Promise<void>;
   balances(): Promise<Balance[]>;
@@ -223,6 +242,13 @@ export interface Backend {
   /** Who gets the WhatsApp stock alert for my site, and when it was last sent. Null if not set up. */
   alertInfo(): Promise<AlertInfo | null>;
   markAlertSent(): Promise<void>;
+  /** My own Zoho connection (never the key itself). Null when not connected or not set up. */
+  zohoStatus(): Promise<ZohoStatus | null>;
+  /** Sends the browser to Zoho's sign-in page. */
+  zohoConnect(): Promise<void>;
+  zohoSync(): Promise<ZohoSyncResult>;
+  zohoDisconnect(): Promise<void>;
+  checkDelivery(docId: string): Promise<void>;
   /** Entries saved with details still to confirm, newest first. */
   unconfirmed(): Promise<Doc[]>;
   confirmDetails(docId: string, fields: Record<string, string>): Promise<void>;

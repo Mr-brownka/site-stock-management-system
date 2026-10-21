@@ -8,6 +8,7 @@ import type { Doc, StepKey } from '../lib/types';
 import { Icon } from '../components/fx';
 import { fmt } from '../components/ui';
 import { toast } from '../components/feedback';
+import { checkZohoNow, ZohoTag } from '../components/Zoho';
 
 export type RecKey = 'deliveries' | 'issued' | 'returns' | 'transfers';
 type Row = { doc: Doc; ref: string; paper: string; who: string; where: string };
@@ -74,6 +75,9 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
     return rows.filter((r) => r.doc.doc_date >= range[0] && r.doc.doc_date <= range[1] && (!s || [r.ref, r.paper, r.who, r.where, ...r.doc.lines.map((l) => itemById.get(l.item_id)?.name ?? '')].some((x) => x.toLowerCase().includes(s))));
   }, [rows, range, q, itemById]);
   const open = rows.find((r) => r.doc.id === openId) ?? null;
+  // Deliveries show where each came from once any came from Zoho.
+  const src = key === 'deliveries' && rows.some((r) => r.doc.source === 'zoho');
+  const fromZoho = shown.filter((r) => r.doc.source === 'zoho').length;
   const periodLabel = PERIODS.find(([p]) => p === period)![1];
 
   const addNew = () => { signal('step-form', key as StepKey); go(STEP_SCREEN[key]); };
@@ -112,18 +116,19 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
 
       {all === null ? <div className="recEmpty">Loading…</div> : !open ? (
         <section className="recTable" aria-label={C.title}>
-          <div className="recRow recTh"><span>System ref</span><span>Date</span><span>{C.paper}</span><span>{C.who}</span><span>{C.where}</span></div>
+          <div className={`recRow recTh ${src ? 'src' : ''}`}><span>System ref</span><span>Date</span><span>{C.paper}</span><span>{C.who}</span><span>{C.where}</span>{src && <span>Source</span>}</div>
           {!shown.length && <div className="recEmpty">No {C.title.toLowerCase()} {period === 'all' ? 'yet' : `in ${periodLabel.toLowerCase()}`}{q ? ' matching your search' : ''}.</div>}
           {shown.map((r) => (
-            <button key={r.doc.id} className="recRow" onClick={() => setOpenId(r.doc.id)}>
+            <button key={r.doc.id} className={`recRow ${src ? 'src' : ''}`} onClick={() => setOpenId(r.doc.id)}>
               <b className="recRef">{r.ref}</b>
               <span>{niceDate(r.doc.doc_date)}</span>
               <span className="mono">{r.paper || '—'}</span>
               <span className="recWho">{r.who || '—'}</span>
               <span className="recWhere">{r.where || '—'}{!!r.doc.to_confirm?.length && <span className="fcTag confirm">To confirm</span>}</span>
+              {src && (r.doc.source === 'zoho' ? <ZohoTag grn={r.doc.zoho_grn} /> : <span className="small muted">Typed in Bohari</span>)}
             </button>
           ))}
-          {shown.length > 0 && <div className="recFoot">{shown.length} {shown.length === 1 ? 'entry' : 'entries'} · {periodLabel.toLowerCase()}</div>}
+          {shown.length > 0 && <div className="recFoot">{shown.length} {shown.length === 1 ? 'entry' : 'entries'} · {periodLabel.toLowerCase()}{src && fromZoho ? ` · ${fromZoho} from Zoho` : ''}{src && <button className="btn link inline" onClick={checkZohoNow}>Check Zoho now</button>}</div>}
         </section>
       ) : (
         <div className="recSplit">
@@ -153,17 +158,19 @@ function Detail({ row, cfg, onClose, onFix }: { row: Row; cfg: (typeof CFG)[RecK
     ...(d.kind === 'issue' ? [['Activity', d.activity], ['Issued to', d.party], ['Gemba', d.gemba], ['Time on the card', d.doc_time?.slice(0, 5)], ['SM / Supervisor', d.supervisor], ['Card no. (printed)', d.card_no]] as [string, string | null | undefined][] : []),
     ...(d.kind === 'return' ? [['Returned by', row.who], ['Gemba', row.where]] as [string, string | null | undefined][] : []),
     ...(d.kind === 'transfer_in' || d.kind === 'transfer_out' ? [[d.kind === 'transfer_out' ? 'Sent to' : 'Received from', d.party], ['Authorised by', d.authorised_by], ['Vehicle', d.vehicle]] as [string, string | null | undefined][] : []),
-    ['Saved', saved],
+    ...(d.source === 'zoho' ? [['Zoho receive', d.zoho_grn], ['Purchase order', d.zoho_po], ['Checked in Bohari', d.checked_at ? new Date(d.checked_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' }) : 'Not yet']] as [string, string | null | undefined][] : []),
+    [d.source === 'zoho' ? 'Brought in from Zoho' : 'Saved', saved],
   ];
   const showSub = d.kind === 'delivery' || d.kind === 'return' || d.lines.some((l) => l.subphase && l.subphase !== d.gemba);
   return (
     <section className="recDetail">
       <header>
-        <div><span className="recKicker">{{ DLV: 'Delivery', ISS: 'Withdrawal card', RET: 'Return', TRF: 'Project transfer' }[cfg.prefix]} · {cfg.tag}</span><h2>{row.ref}</h2></div>
+        <div><span className="recKicker">{d.source === 'zoho' && <ZohoTag />} {{ DLV: 'Delivery', ISS: 'Withdrawal card', RET: 'Return', TRF: 'Project transfer' }[cfg.prefix]} · {cfg.tag}</span><h2>{row.ref}</h2></div>
         <button className="btn ghost sm" onClick={onFix}><Icon name="fix" size={16} />Fix an error</button>
         <button className="btn ghost sm" onClick={() => window.print()}><Icon name="print" size={16} />Print</button>
         <button className="iconBtn" onClick={onClose} aria-label="Close"><Icon name="close" /></button>
       </header>
+      {d.source === 'zoho' && <div className="recZoho">Came in from Zoho by itself. If something on it is wrong, correct it in Zoho, then use Fix an error here.</div>}
       {!!d.to_confirm?.length && <div className="recConfirm">Some details are still to confirm on this entry. Fill them in from the check-in page.</div>}
       <dl className="recKv">{kv.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v || <span className="muted">—</span>}</dd></div>)}</dl>
       <div className="recLines">

@@ -125,6 +125,13 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
       async addSite(name, structure) { s.sites.push({ id: uid(), name, company: 'Comex Builders', ...(structure ?? {}) }); save(); },
       async alertContacts() { return Object.fromEntries(s.sites.map((x) => [x.id, { name: x.alert_name ?? null, phone: x.alert_phone ?? null }])); },
       async setAlertContact(siteId, c) { s.sites = s.sites.map((x) => (x.id === siteId ? { ...x, alert_name: c.name, alert_phone: c.phone } : x)); save(); },
+      async zohoProjects() { return Object.fromEntries(s.sites.map((x) => [x.id, x.name])); },
+      async setZohoProject() { /* demo */ },
+      async zohoConnections() { return []; },
+      async zohoPending() { return []; },
+      async assignPending() { /* demo */ },
+      async zohoItems() { return []; },
+      async matchZohoItem() { /* demo */ },
       async setStructure(id, structure) { s.sites = s.sites.map((x) => (x.id === id ? { ...x, ...structure } : x)); save(); },
       async renameSite(id, name) { s.sites = s.sites.map((x) => (x.id === id ? { ...x, name } : x)); save(); },
       async corrections() { return s.corrections; },
@@ -160,6 +167,11 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
       const st = s.sites.find((x) => x.id === SITE);
       return { name: st?.alert_name ?? 'Site admin', phone: st?.alert_phone ?? null, sent_at: st?.alert_sent_at ?? null, sent_by: st?.alert_sent_by ?? null };
     },
+    async zohoStatus() { return null; },
+    async zohoConnect() { throw new Error('Zoho connects in the live app only, not the demo.'); },
+    async zohoSync() { return { connected: false }; },
+    async zohoDisconnect() { /* demo */ },
+    async checkDelivery(docId) { s.docs = s.docs.map((d) => (d.id === docId ? { ...d, checked_at: new Date().toISOString() } : d)); save(); },
     async markAlertSent() {
       s.sites = s.sites.map((x) => (x.id === SITE ? { ...x, alert_sent_at: new Date().toISOString(), alert_sent_by: 'Abdirahman' } : x));
       save();

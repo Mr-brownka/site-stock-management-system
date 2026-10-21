@@ -5,6 +5,7 @@ import type { Doc, StepKey } from '../lib/types';
 import { fmt, Top, YesNo } from './ui';
 import { ask, toast } from './feedback';
 import { useSignal } from '../lib/signals';
+import { ZohoTag } from './Zoho';
 
 type Stage = 'ask' | 'form' | 'another' | 'summary';
 export const ADD_NOUN: Record<StepKey, string> = { deliveries: 'a delivery', issued: 'a card', returns: 'a return', transfers: 'a transfer' };
@@ -24,7 +25,13 @@ export function StepShell({ step, question, hint, another, formTitle, tone, rend
   const meta = STEPS.find((s) => s.key === step)!;
   const next = STEPS[meta.n] as (typeof STEPS)[number] | undefined;
   const locked = !!submission;
-  const [stage, setStage] = useState<Stage>(stepState(step) === 'todo' && !locked ? 'ask' : 'summary');
+  const fromZoho = docsToday.some((d) => meta.kinds.includes(d.kind) && d.source === 'zoho');
+  const [stage, setStage] = useState<Stage>(stepState(step) === 'todo' && !locked && !fromZoho ? 'ask' : 'summary');
+  const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const tick = async (d: Doc) => {
+    setChecked((c) => ({ ...c, [d.id]: true }));
+    try { await api.checkDelivery(d.id); await refresh(); } catch (e) { setChecked((c) => ({ ...c, [d.id]: false })); toast((e as Error).message, 'warn'); }
+  };
   const [busy, setBusy] = useState('');
   useSignal<StepKey>('step-form', (k) => { if (k === step) setStage('form'); });
   const docs = docsToday.filter((d) => meta.kinds.includes(d.kind));
@@ -67,9 +74,14 @@ export function StepShell({ step, question, hint, another, formTitle, tone, rend
               </div>
             )}
             {!docs.length && stepState(step) === 'none' && <div className="note info enter">Nothing recorded for this step today.</div>}
+            {fromZoho && (() => { const z = docs.filter((d) => d.source === 'zoho'); const n = z.filter((d) => d.checked_at || checked[d.id]).length; return (
+              <div className="zohoStepNote enter"><ZohoTag /><span><b>{z.length} deliver{z.length === 1 ? 'y' : 'ies'} came in from Zoho today.</b> Already in stock. Tick each one when it matches the paper delivery note. <span className="muted">{n} of {z.length} checked</span></span></div>
+            ); })()}
             {docs.map((d, i) => (
               <div key={d.id} className={`sumCard ${docTone?.(d) ?? ''}`} style={{ animationDelay: `${i * 0.06}s` }}>
-                <div className="between"><b>{docTitle(d)}{isLate(d) && <span className="pill late">Added</span>}{!!d.to_confirm?.length && <span className="fcTag confirm" style={{ marginLeft: 8, height: 22 }}>To confirm</span>}</b>{!locked && <button className="btn link" disabled={busy === d.id} onClick={() => remove(d)}>Remove</button>}</div>
+                <div className="between"><b>{d.source === 'zoho' && <ZohoTag grn={d.zoho_grn} />} {docTitle(d)}{isLate(d) && <span className="pill late">Added</span>}{!!d.to_confirm?.length && <span className="fcTag confirm" style={{ marginLeft: 8, height: 22 }}>To confirm</span>}</b>{d.source === 'zoho'
+                  ? <label className="zohoTick"><input type="checkbox" checked={!!(d.checked_at || checked[d.id])} disabled={!!(d.checked_at || checked[d.id])} onChange={() => tick(d)} />{d.checked_at || checked[d.id] ? 'Checked' : 'Matches the paper'}</label>
+                  : !locked && <button className="btn link" disabled={busy === d.id} onClick={() => remove(d)}>Remove</button>}</div>
                 {d.lines.map((l) => {
                   const it = itemById.get(l.item_id);
                   return <div className="ln" key={l.id}><span>{it?.name ?? 'Item'}{l.subphase ? <span className="muted"> · {l.subphase}</span> : null}</span><span className="mono">{fmt(l.qty)} {it?.unit}</span></div>;

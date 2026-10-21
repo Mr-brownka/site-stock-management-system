@@ -1,0 +1,183 @@
+// Reads goods received (purchase receives) from Zoho and turns them into Bohari deliveries.
+// Read-only towards Zoho. Each connection imports only receives whose Zoho Project is its own site.
+// Called by the app (for the signed-in person) or by a schedule with the service key ({ all: true }).
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.45.4';
+import { admin, caller, cors, json, refreshAccess, zget } from '../_shared/zoho.ts';
+
+type Conn = { user_id: string; site_id: string | null; org_id: string; api_domain: string; accounts_domain: string; refresh_token: string; api_kind: string | null; last_sync_at: string | null; imported: number };
+type Rec = Record<string, unknown>;
+type Parsed = { id: string; grn: string; po: string | null; date: string; vendor: string | null; project: string | null; subphase: string | null; dn: string | null; lines: { zid: string; name: string; unit: string | null; qty: number }[] };
+
+const norm = (s: unknown) => String(s ?? '').toLowerCase().replace(/''/g, '"').replace(/[\u2018\u2019\u201C\u201D]/g, '"').replace(/\s+/g, ' ').trim();
+const str = (v: unknown) => (v == null || v === '' ? null : String(v));
+
+/** Custom fields arrive as a list of {label, value} (or api_name/placeholder). Find one by label. */
+function custom(r: Rec, re: RegExp): string | null {
+  const list = (r.custom_fields as Rec[] | undefined) ?? [];
+  for (const f of list) {
+    const names = [f.label, f.api_name, f.placeholder, f.field_name].map((x) => String(x ?? ''));
+    if (names.some((n) => re.test(n))) return str(f.value_formatted ?? f.value);
+  }
+  const hash = (r.custom_field_hash as Rec | undefined) ?? {};
+  for (const [k, v] of Object.entries(hash)) if (re.test(k) && !/_unformatted$/.test(k)) return str(v);
+  return null;
+}
+
+function parse(r: Rec, po: Rec | null): Parsed {
+  const lines = ((r.line_items as Rec[] | undefined) ?? []).map((l) => ({
+    zid: String(l.item_id ?? l.line_item_id ?? ''), name: String(l.name ?? l.item_name ?? ''), unit: str(l.unit), qty: Number(l.quantity ?? l.quantity_received ?? 0),
+  })).filter((l) => l.zid && l.qty > 0);
+  return {
+    id: String(r.receive_id ?? r.purchasereceive_id ?? r.purchase_receive_id),
+    grn: String(r.receive_number ?? r.purchasereceive_number ?? ''),
+    po: str(r.purchaseorder_number ?? po?.purchaseorder_number),
+    date: String(r.date ?? r.receive_date ?? '').slice(0, 10),
+    vendor: str(r.vendor_name ?? po?.vendor_name),
+    project: custom(r, /project/i) ?? (po ? custom(po, /project/i) : null),
+    subphase: custom(r, /sub.?phase/i) ?? (po ? custom(po, /sub.?phase/i) : null),
+    dn: custom(r, /delivery.?note/i) ?? str(r.reference_number),
+    lines,
+  };
+}
+
+/** Which Zoho API answers for this organisation: Inventory's or Books'. */
+async function discover(api: string, token: string, org: string) {
+  for (const [kind, path] of [['inventory', '/inventory/v1/purchasereceives'], ['books', '/books/v3/purchasereceives']] as const) {
+    const r = await zget(api, token, path, { organization_id: org, per_page: '1' });
+    if (r.ok && Array.isArray(r.body.purchasereceives)) return kind;
+  }
+  return null;
+}
+const base = (kind: string) => (kind === 'books' ? '/books/v3' : '/inventory/v1');
+
+async function place(db: SupabaseClient, c: Conn, p: Parsed, siteId: string): Promise<'imported' | 'pending' | 'skip'> {
+  const { data: dup } = await db.from('documents').select('id').eq('zoho_receive_id', p.id).maybeSingle();
+  if (dup) return 'skip';
+  // Items: Zoho's item id first; otherwise the same name already in Bohari; otherwise wait for the admin.
+  const ids = [...new Set(p.lines.map((l) => l.zid))];
+  const { data: maps } = await db.from('zoho_item_map').select('zoho_item_id, item_id').in('zoho_item_id', ids);
+  const map = new Map((maps ?? []).filter((m) => m.item_id).map((m) => [m.zoho_item_id, m.item_id as number]));
+  const missing = p.lines.filter((l) => !map.has(l.zid));
+  if (missing.length) {
+    const { data: items } = await db.from('items').select('id, name');
+    const byName = new Map((items ?? []).map((i) => [norm(i.name), i.id as number]));
+    for (const l of missing) {
+      const hit = byName.get(norm(l.name));
+      if (hit) { map.set(l.zid, hit); await db.from('zoho_item_map').upsert({ zoho_item_id: l.zid, item_id: hit, zoho_name: l.name, zoho_unit: l.unit }); }
+      else await db.from('zoho_item_map').upsert({ zoho_item_id: l.zid, item_id: null, zoho_name: l.name, zoho_unit: l.unit }, { onConflict: 'zoho_item_id', ignoreDuplicates: true });
+    }
+  }
+  const unmatched = p.lines.filter((l) => !map.has(l.zid));
+  if (unmatched.length || !p.lines.length) {
+    await db.from('zoho_pending').upsert({ zoho_receive_id: p.id, site_id: siteId, project: p.project, grn: p.grn, receive_date: p.date || null, vendor: p.vendor,
+      reason: p.lines.length ? `Items to match: ${unmatched.map((l) => l.name).join(', ')}` : 'No items on the receive', payload: p });
+    return 'pending';
+  }
+  const toConfirm = [!p.subphase && 'subphase', !p.vendor && 'party'].filter(Boolean);
+  const { data: doc, error } = await db.from('documents').insert({
+    site_id: siteId, kind: 'delivery', doc_date: p.date, ref_no: p.dn ?? p.grn, party: p.vendor, created_by: c.user_id,
+    source: 'zoho', zoho_receive_id: p.id, zoho_grn: p.grn, zoho_po: p.po, to_confirm: toConfirm,
+  }).select('id').single();
+  if (error) { if (/duplicate/i.test(error.message)) return 'skip'; throw new Error(error.message); }
+  const { error: e2 } = await db.from('movements').insert(p.lines.map((l) => ({ document_id: doc.id, item_id: map.get(l.zid), qty: l.qty, subphase: p.subphase })));
+  if (e2) { await db.from('documents').delete().eq('id', doc.id); throw new Error(e2.message); }
+  await db.from('zoho_pending').delete().eq('zoho_receive_id', p.id);
+  return 'imported';
+}
+
+async function syncOne(db: SupabaseClient, c: Conn) {
+  const out = { imported: 0, pending: 0, seen: 0, kind: c.api_kind as string | null, projects: [] as string[] };
+  const projects = new Set<string>();
+  if (!c.site_id) throw new Error('Your Bohari account has no site yet.');
+  const { data: site } = await db.from('sites').select('name, zoho_project').eq('id', c.site_id).single();
+  const mine = norm(site?.zoho_project || site?.name);
+  // Receives waiting for item matches are retried first; the admin may have matched them since.
+  const { data: waiting } = await db.from('zoho_pending').select('payload').eq('site_id', c.site_id);
+  for (const w of waiting ?? []) { const r = await place(db, c, w.payload as Parsed, c.site_id); if (r === 'imported') out.imported++; }
+
+  const token = await refreshAccess(c.refresh_token, c.accounts_domain);
+  if (!out.kind) {
+    out.kind = await discover(c.api_domain, token, c.org_id);
+    if (!out.kind) throw new Error('Zoho did not allow reading purchase receives with this account.');
+    await db.from('zoho_connections').update({ api_kind: out.kind }).eq('user_id', c.user_id);
+  }
+  // First time: the last 14 days. After that, from 3 days before the last check (late edits in Zoho).
+  const since = new Date(c.last_sync_at ? new Date(c.last_sync_at).getTime() - 3 * 864e5 : Date.now() - 14 * 864e5).toISOString().slice(0, 10);
+  const poCache = new Map<string, Rec | null>();
+  for (let page = 1; page <= 10; page++) {
+    const r = await zget(c.api_domain, token, `${base(out.kind)}/purchasereceives`, { organization_id: c.org_id, page: String(page), per_page: '100', sort_column: 'date', sort_order: 'D' });
+    if (!r.ok) throw new Error(`Zoho answered ${r.status}: ${String(r.body.message ?? '')}`);
+    const list = (r.body.purchasereceives as Rec[]) ?? [];
+    let older = false;
+    for (const row of list) {
+      const date = String(row.date ?? '').slice(0, 10);
+      if (date && date < since) { older = true; continue; }
+      const id = String(row.receive_id ?? row.purchasereceive_id ?? '');
+      if (!id) continue;
+      out.seen++;
+      // Already brought in, already waiting for the admin, or known to be another site's: no need to ask Zoho again.
+      const [{ data: done }, { data: seen }, { data: waits }] = await Promise.all([
+        db.from('documents').select('id').eq('zoho_receive_id', id).maybeSingle(),
+        db.from('zoho_seen').select('project').eq('zoho_receive_id', id).maybeSingle(),
+        db.from('zoho_pending').select('zoho_receive_id').eq('zoho_receive_id', id).maybeSingle(),
+      ]);
+      if (done || waits) continue;
+      if (seen && norm(seen.project) !== mine) { if (seen.project) projects.add(seen.project); continue; }
+      const d = await zget(c.api_domain, token, `${base(out.kind)}/purchasereceives/${id}`, { organization_id: c.org_id });
+      const rec = (d.body.purchasereceive ?? d.body.purchase_receive ?? row) as Rec;
+      const poId = str(rec.purchaseorder_id ?? row.purchaseorder_id);
+      let po: Rec | null = null;
+      if (poId) {
+        if (!poCache.has(poId)) {
+          const pr = await zget(c.api_domain, token, `${base(out.kind)}/purchaseorders/${poId}`, { organization_id: c.org_id });
+          poCache.set(poId, (pr.body.purchaseorder as Rec) ?? null);
+        }
+        po = poCache.get(poId) ?? null;
+      }
+      const p = parse({ ...row, ...rec }, po);
+      if (p.project) projects.add(p.project);
+      if (!p.project) {
+        // No Project filled in Zoho: the admin decides which site it belongs to.
+        await db.from('zoho_pending').upsert({ zoho_receive_id: p.id, site_id: null, project: null, grn: p.grn, receive_date: p.date || null, vendor: p.vendor, reason: 'No Project in Zoho', payload: p }, { onConflict: 'zoho_receive_id', ignoreDuplicates: true });
+        continue;
+      }
+      if (norm(p.project) !== mine) { await db.from('zoho_seen').upsert({ zoho_receive_id: p.id, project: p.project }); continue; } // another site's: not ours
+      const res = await place(db, c, p, c.site_id);
+      if (res === 'imported') out.imported++; else if (res === 'pending') out.pending++;
+    }
+    if (older || !(r.body.page_context as Rec | undefined)?.has_more_page) break;
+  }
+  out.projects = [...projects];
+  await db.from('zoho_connections').update({ last_sync_at: new Date().toISOString(), last_error: null, imported: c.imported + out.imported }).eq('user_id', c.user_id);
+  return out;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
+  const db = admin();
+  let body: Rec = {};
+  try { body = await req.json(); } catch { /* no body */ }
+  const key = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
+  const all = body.all === true && key === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  let conns: Conn[] = [];
+  if (all) {
+    const { data } = await db.from('zoho_connections').select('*');
+    conns = (data ?? []) as Conn[];
+  } else {
+    const user = await caller(req, db);
+    if (!user) return json({ error: 'Sign in to Bohari first.' }, 401);
+    const { data } = await db.from('zoho_connections').select('*').eq('user_id', user.id).maybeSingle();
+    if (!data) return json({ connected: false });
+    conns = [data as Conn];
+  }
+  const results = [];
+  for (const c of conns) {
+    try { results.push({ user: c.user_id, ...(await syncOne(db, c)) }); }
+    catch (e) {
+      const msg = (e as Error).message;
+      await db.from('zoho_connections').update({ last_error: msg, last_sync_at: new Date().toISOString() }).eq('user_id', c.user_id);
+      results.push({ user: c.user_id, error: msg });
+    }
+  }
+  return json(all ? { results } : { connected: true, ...results[0] });
+});

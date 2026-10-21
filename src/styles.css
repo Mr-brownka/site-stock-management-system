@@ -1664,3 +1664,23 @@ button.railUser:hover { background: var(--side-2, #1E2322); }
 .asRight { background: #EFE7DE; padding: 22px; display: flex; flex-direction: column; gap: 10px; overflow: auto; }
 .asBubble { align-self: flex-end; max-width: 470px; background: #D9FDD3; border-radius: 10px 2px 10px 10px; padding: 8px 10px; font-family: Helvetica, Arial, sans-serif; font-size: 15px; line-height: 1.4; color: #111B21; box-shadow: 0 1px 1px rgba(0,0,0,.12); }
 @media (max-width: 860px) { .alertSheet { grid-template-columns: 1fr; } .asRight { max-height: 300px; } }
+
+/* Zoho Books link */
+.zohoTag { display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; font-size: 12.5px; color: #1A56C4; }
+.zohoTag b { height: 20px; padding: 0 6px; border-radius: 5px; background: #E8F0FE; color: #1A56C4; font-size: 11px; font-weight: 800; letter-spacing: .04em; display: inline-flex; align-items: center; }
+.zohoCard { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 14px 16px; border-radius: 14px; background: #fff; border: 1.5px solid #B7CDF5; text-align: left; }
+.zohoCard > div { flex: 1 1 260px; display: flex; flex-direction: column; gap: 2px; }
+.zohoCard > div span { color: #59625F; font-size: 14px; }
+.zohoCard.ok { border-color: #A9D8BD; }
+.zohoCard .btn { display: inline-flex; align-items: center; gap: 8px; }
+.zohoErr { color: #B42318 !important; }
+.welZoho { width: min(620px, 100%); margin: 4px auto 10px; }
+.zohoMenu .zohoDot { width: 9px; height: 9px; border-radius: 50%; background: #3FB27A; margin: 0 6px; flex: none; }
+.zohoMenu .zohoDot.off { background: #75807C; }
+.zohoMenu .zohoDot.err { background: #F2A49B; }
+.recRow.src { grid-template-columns: 120px 130px 150px minmax(0, 1.3fr) minmax(0, 1fr) 160px; }
+.recZoho { margin: 14px 22px 0; padding: 10px 14px; border-radius: 12px; background: #E8F0FE; color: #1A3F7A; font-size: 14px; }
+.recFoot .btn.link.inline { margin-left: 12px; }
+.zohoStepNote { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 12px; background: #E8F0FE; color: #1A3F7A; font-size: 14.5px; }
+.zohoTick { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; white-space: nowrap; }
+.zohoTick input { width: 18px; height: 18px; accent-color: #1B2120; }

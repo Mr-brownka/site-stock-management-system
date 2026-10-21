@@ -4,6 +4,7 @@ import { useStartTraining } from '../components/Training';
 import { niceDate, weekday } from '../lib/dates';
 import { useData } from '../lib/store';
 import { TRAINING_DAYS, trainingPlan } from '../lib/trainingPlan';
+import { ZohoStatusLine } from '../components/Zoho';
 
 /**
  * Start page for someone new: 5 working days of practice (Mon–Sat), then the first stock take
@@ -37,6 +38,7 @@ export function Welcome() {
       <span className="welHi">{plan.done ? 'Welcome back' : 'Welcome'}, {first}</span>
       <h1 className="welTitle">{title}</h1>
       <p className="welLead">{lead}</p>
+      {!preview && <div className="welZoho"><ZohoStatusLine /></div>}
 
       {!(preview && !hasStock) && <ol className="welDays" aria-label={`Training: ${plan.done} of ${TRAINING_DAYS} days done`}>
         {plan.tiles.map((t, i) => {
