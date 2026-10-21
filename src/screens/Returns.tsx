@@ -19,39 +19,29 @@ export function Returns() {
 
   const [stage, setStage] = useState<Stage>(stepState('returns') === 'todo' && !locked ? 'ask' : 'summary');
   const [back, setBack] = useState<Record<number, string>>({});
-  const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [loose, setLoose] = useState<LineDraft[]>([newLine()]);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
 
   const maxBack = (lineId: number, qty: number) => qty - (already.get(lineId) ?? 0);
-  const nextCard = cards.find((c) => !checked[c.id]);
-  const allChecked = cards.length > 0 && cards.every((c) => checked[c.id]);
-
-  const setLine = (card: Doc, lineId: number, v: string) => {
-    setBack({ ...back, [lineId]: v.replace(/[^0-9.]/g, '') });
-    setChecked({ ...checked, [card.id]: true });
-  };
-  const nothing = (card: Doc) => {
-    const b = { ...back };
-    card.lines.forEach((l) => (b[l.id] = '0'));
-    setBack(b);
-    setChecked({ ...checked, [card.id]: true });
-  };
+  // Only what came back is typed. A card left empty counts as fully used: no zeros to enter.
+  const hasBack = (c: Doc) => c.lines.some((l) => Number(back[l.id] || 0) > 0);
+  const withBack = cards.filter(hasBack).length;
+  const setLine = (lineId: number, v: string) => setBack({ ...back, [lineId]: v.replace(/[^0-9.]/g, '') });
 
   const saveCards = async () => {
     for (const c of cards) for (const l of c.lines) {
       const v = Number(back[l.id] || 0);
       if (v > maxBack(l.id, l.qty)) { setErr(`Card ${c.ref_no}: you can't return more ${itemById.get(l.item_id)?.name} than was issued.`); return; }
     }
-    if (!allChecked) { setErr('Check every card. Use "Nothing came back" for cards that were fully used.'); return; }
+    if (!withBack) { setErr('Type what came back on at least one card. If nothing came back, go back and answer No.'); return; }
     setBusy(true); setErr('');
     try {
       for (const c of cards) {
         const ls = c.lines.filter((l) => Number(back[l.id] || 0) > 0).map((l) => ({ item_id: l.item_id, qty: Number(back[l.id]), return_of: l.id, subphase: l.subphase }));
         if (ls.length) await api.saveDocument({ kind: 'return', doc_date: day, ref_no: c.ref_no }, ls);
       }
-      await refresh(); markStep('returns', 'done'); setBack({}); setChecked({}); setStage('summary');
+      await refresh(); markStep('returns', 'done'); setBack({}); setStage('summary');
     } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   };
 
@@ -78,16 +68,16 @@ export function Returns() {
 
         {stage === 'cards' && (
           <div className="stack enter">
-            <div className="note">Type what came back on each line. <b>Used</b> is worked out for you. Every card must be checked.</div>
+            <div className="note">Type only what came back. <b>Used</b> is worked out for you. Cards you leave empty count as fully used, so there's no need to enter zeros.</div>
             {cards.map((c) => {
-              const isNext = nextCard?.id === c.id;
+              const some = hasBack(c);
               return (
-                <div key={c.id} className="paperCard" style={isNext ? { borderColor: 'var(--accent)', boxShadow: '0 0 0 4px rgba(252,167,45,.15)' } : undefined}>
+                <div key={c.id} className="paperCard" style={some ? { borderColor: 'var(--accent)', boxShadow: '0 0 0 4px rgba(252,167,45,.15)' } : undefined}>
                   <div className="between">
                     <b className="mono" style={{ color: 'var(--error)', fontSize: 18 }}>Card {c.ref_no}</b>
-                    {checked[c.id] ? <span className="pill done">✓ Checked</span> : <span className="pill">To check</span>}
+                    {some ? <span className="pill done">↩ Returned</span> : <span className="pill">Fully used</span>}
                   </div>
-                  <div className="small muted">{c.activity} · {c.gemba} · {c.party}</div>
+                  <div className="small muted">{[c.activity, c.gemba, c.party].filter(Boolean).join(' · ') || 'Details to confirm'}</div>
                   <div className="retLine small muted" style={{ borderBottomWidth: 2 }}><span>Item</span><span className="num">Issued</span><span className="num">Back</span><span className="num">Used</span></div>
                   {c.lines.map((l) => {
                     const it = itemById.get(l.item_id);
@@ -98,17 +88,16 @@ export function Returns() {
                         <span>{it?.name}<span className="muted"> · {it?.unit}</span></span>
                         <span className="num">{fmt(l.qty)}</span>
                         <input className={`input num ${over ? 'bad' : ''}`} style={{ minHeight: 44 }} inputMode="decimal" aria-label={`${it?.name} back`} value={back[l.id] ?? ''} placeholder="0" disabled={max <= 0}
-                          onChange={(e) => setLine(c, l.id, e.target.value)} />
+                          onChange={(e) => setLine(l.id, e.target.value)} />
                         <span className="num" style={{ fontWeight: 700, color: over ? 'var(--error)' : 'var(--ink)' }}>{fmt(Math.max(0, usedOf(l.id, l.qty)))}</span>
                       </div>
                     );
                   })}
-                  {!checked[c.id] && <button className="btn ghost" onClick={() => nothing(c)}>Nothing came back</button>}
                 </div>
               );
             })}
             {err && <div className="note err" role="alert">{err}</div>}
-            <button className="btn accent" disabled={busy || !allChecked} onClick={saveCards}>{busy ? 'Saving…' : allChecked ? 'Save returns' : `Check ${cards.filter((c) => !checked[c.id]).length} more card(s)`}</button>
+            <button className="btn accent" disabled={busy} onClick={saveCards}>{busy ? 'Saving…' : `Save returns${withBack ? ` · ${withBack} card${withBack === 1 ? '' : 's'} with returns` : ''}${cards.length - withBack ? `, ${cards.length - withBack} fully used` : ''}`}</button>
             <button className="btn link" onClick={() => { setErr(''); setStage('loose'); }}>+ Return without a card (rare)</button>
           </div>
         )}
@@ -132,7 +121,7 @@ export function Returns() {
               const backTotal = c.lines.reduce((a, l) => a + (already.get(l.id) ?? 0), 0);
               return (
                 <div key={c.id} className="sumCard" style={{ animationDelay: `${i * 0.05}s` }}>
-                  <b>Card {c.ref_no} · {c.activity}, {c.gemba}</b>
+                  <b>Card {c.ref_no}{[c.activity, c.gemba].some(Boolean) ? ` · ${[c.activity, c.gemba].filter(Boolean).join(', ')}` : ''}</b>
                   {c.lines.map((l) => {
                     const it = itemById.get(l.item_id);
                     const b = already.get(l.id) ?? 0;
