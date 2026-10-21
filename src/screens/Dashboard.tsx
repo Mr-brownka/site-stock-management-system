@@ -68,9 +68,16 @@ export function Dashboard({ embedded = false }: { embedded?: boolean }) {
   const range = periodRange(period, date || day);
   useEffect(() => { if (!embedded) refresh(); }, [refresh, embedded]);
   // The check-in page's tiles can switch the dashboard (e.g. "Low stock" → Balances, low only).
-  useSignal<{ tab?: Tab; filter?: Filter; item?: number }>('dash', (d) => {
+  const [pulse, setPulse] = useState(false);
+  useSignal<{ tab?: Tab; filter?: Filter; item?: number; focus?: boolean; sort?: 'days' }>('dash', (d) => {
     if (d.tab) setTab(d.tab);
     if (d.filter) setFilter(d.filter);
+    if (d.sort === 'days') setSort({ k: 'days', dir: 1 });
+    // From "Items in store": land on the list with the search box ready, pulsing gently three times.
+    if (d.focus) {
+      setQ('');
+      setTimeout(() => { searchRef.current?.focus({ preventScroll: true }); setPulse(true); setTimeout(() => setPulse(false), 5200); }, 550);
+    }
     if (d.item != null) { setTab('bal'); setFilter('all'); setQ(''); setSel(d.item); }
     document.getElementById('dash')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
@@ -194,9 +201,9 @@ export function Dashboard({ embedded = false }: { embedded?: boolean }) {
               )}
             </div>
             <div className="tblBar">
-              <div className="searchWrap">
+              <div className={`searchWrap ${pulse ? 'pulse' : ''}`}>
                 <Icon name="search" size={18} />
-                <input ref={searchRef} className="search" type="search" placeholder="Search items" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search items" />
+                <input ref={searchRef} className="search" type="search" placeholder={`Search ${balances.length} items`} value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search items" />
                 <kbd>/</kbd>
               </div>
               <span className="small muted">{shown.length} of {balances.length} items</span>

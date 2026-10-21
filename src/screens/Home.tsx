@@ -57,7 +57,6 @@ export function Home() {
   const firstTodo = STEPS.find((s) => stateOf(s.key) === 'todo');
   const answered = states.every((s) => s !== 'todo');
   const done = states.filter((s) => s !== 'todo').length;
-  const entries = docsToday.filter((d) => d.kind !== 'opening').length;
   const first = user.name.split(' ')[0];
   const [showEntries, setShowEntries] = useState(false);
   const noneToday = (k: StepKey) => { const st = STEPS.find((x) => x.key === k)!; markStep(k, 'none'); toast(`${st.label}: nothing ${catchUp ? 'that day' : 'today'}`); };
@@ -109,7 +108,9 @@ export function Home() {
       go('submitted');
     } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   };
-  const toDash = (d: { tab: 'cons' | 'bal'; filter?: 'all' | 'low' | 'today'; item?: number }) => signal('dash', d);
+  const toDash = (d: { tab: 'cons' | 'bal'; filter?: 'all' | 'low' | 'today'; item?: number; focus?: boolean; sort?: 'days' }) => signal('dash', d);
+  // Items that will run out within a week at the rate the site is using them (not already finished).
+  const soon = balances.filter((b) => b.balance > 0).map((b) => ({ b, d: daysLeft(b) })).filter((x): x is { b: typeof x.b; d: number } => x.d != null && x.d <= 7).sort((a, z) => a.d - z.d);
   const attention = [...lowItems].sort((a, b) => (a.balance <= 0 ? -1 : 0) - (b.balance <= 0 ? -1 : 0) || (daysLeft(a) ?? 1e9) - (daysLeft(b) ?? 1e9)).slice(0, 6);
   const outCount = lowItems.filter((b) => b.balance <= 0).length;
   const lead = submission
@@ -174,7 +175,7 @@ export function Home() {
         </section>
       )}
       <section className="kpis" aria-label="Key figures">
-        <button className="kpi enter" onClick={() => toDash({ tab: 'bal', filter: 'all' })}>
+        <button className="kpi enter" onClick={() => toDash({ tab: 'bal', filter: 'all', focus: true })}>
           <span className="kpiLabel">Items in store</span>
           <Num value={balances.filter((b) => b.balance > 0).length} className="kpiNum" />
           <span className="kpiFoot">Open balances <Icon name="arrow" size={13} /></span>
@@ -184,10 +185,10 @@ export function Home() {
           <Num value={lowItems.length} className="kpiNum" />
           <span className="kpiFoot">{lowItems.length ? `${outCount} finished` : 'All good'}</span>
         </button>
-        <button className="kpi enter" style={{ animationDelay: '.08s' }} onClick={() => setShowEntries(true)}>
-          <span className="kpiLabel">{catchUp ? `Entries on ${wd}` : 'Entries today'}</span>
-          <Num value={entries} className="kpiNum" />
-          <span className="kpiFoot">{entries ? 'See the list' : 'Cards, notes, transfers'} <Icon name="arrow" size={13} /></span>
+        <button className={`kpi enter ${soon.length ? 'soon' : ''}`} style={{ animationDelay: '.08s' }} onClick={() => toDash({ tab: 'bal', filter: 'all', sort: 'days' })} title="At the rate the site is using it">
+          <span className="kpiLabel"><Icon name="clock" size={14} />Runs out within 7 days</span>
+          <Num value={soon.length} className="kpiNum" />
+          <span className="kpiFoot">{soon.length ? `${soon[0].b.name} first · ~${Math.max(1, Math.round(soon[0].d))} day${Math.round(soon[0].d) <= 1 ? '' : 's'}` : 'Nothing runs out this week'}</span>
         </button>
         <button className="kpi enter" style={{ animationDelay: '.12s' }} onClick={() => go('stocktake')}>
           <span className="kpiLabel">Last stock take</span>

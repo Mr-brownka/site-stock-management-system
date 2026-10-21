@@ -1912,3 +1912,14 @@ body.colDrag, body.colDrag * { cursor: col-resize !important; user-select: none 
 .stTakeView > header h2 { font-family: var(--display); font-size: 28px; line-height: 1.05; }
 .stTakeView .stViewSheet { overflow: auto; padding: 18px; }
 .stCell .stName { background: none !important; border: 0 !important; padding: 0 !important; min-height: 0 !important; box-shadow: none !important; color: var(--ink); font-weight: 500; }
+/* "Items in store" → the search box pulses gold three times, already focused */
+@keyframes searchPulse { 0% { box-shadow: 0 0 0 0 rgba(252,167,45,.55), 0 0 0 1.5px var(--accent); } 70% { box-shadow: 0 0 0 14px rgba(252,167,45,0), 0 0 0 1.5px var(--accent); } 100% { box-shadow: 0 0 0 0 rgba(252,167,45,0), 0 0 0 1.5px var(--accent); } }
+.searchWrap.pulse .search { border-color: var(--accent) !important; animation: searchPulse 1.6s ease-out 3; }
+.searchWrap.pulse .ic { color: var(--accent-text); }
+.searchWrap .search:focus { border-color: var(--accent); }
+.kpi.soon { box-shadow: inset 0 3px 0 var(--accent), var(--lift); }
+.kpi.soon .kpiNum { color: var(--accent-text); }
+.kpiLabel .ic { color: var(--accent-text); }
+.kpiFoot { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (prefers-reduced-motion: reduce) { .searchWrap.pulse .search { animation: none; box-shadow: 0 0 0 1.5px var(--accent); } }
+.kpiLabel { display: inline-flex; align-items: center; gap: 6px; }
