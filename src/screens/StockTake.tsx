@@ -293,35 +293,39 @@ export function StockTake() {
   );
 }
 
-const esc = (x: unknown) => String(x ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+/** "Sunday, 19 October 2026" */
+const longDay = (d: string) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).replace(/^(\w+) /, '$1, ');
+const partOfDay = () => { const h = Number(new Date().toLocaleString('en-GB', { hour: '2-digit', hour12: false, timeZone: 'Africa/Nairobi' })); return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'; };
 
-/** Email one stock take from the person's own Zoho Mail: a clear table, signed by them. */
+/** Email one stock take from the person's own Zoho Mail, with the count as an Excel file attached. */
 function ShareTake({ take, refName, onClose }: { take: Take; refName: string; onClose: () => void }) {
   const { site, company, user, itemById } = useData();
+  const asOf = `${site}’s stock take as of ${longDay(take.count_date)}`;
   const [to, setTo] = useState(() => { try { return localStorage.getItem('ssms-st-mail-to') ?? ''; } catch { return ''; } });
-  const [note, setNote] = useState('');
+  const [text, setText] = useState(() => `${partOfDay()},\n\nFind attached ${asOf}.\n\nRegards,\n${user.name}\n${site} Store`);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<{ text: string; reconnect?: boolean } | null>(null);
-  const subject = `Stock take ${refName} · ${site} · ${nice(take.count_date)}`;
   const rows = sorted(take.lines.map((l) => itemById.get(l.item_id)).filter(Boolean) as Item[]);
   const qty = new Map(take.lines.map((l) => [l.item_id, l.qty]));
-  const html = () => `<div style="font-family:Segoe UI,Arial,sans-serif;color:#1B2120;font-size:14px">
-${note.trim() ? `<p>${esc(note.trim()).replace(/\n/g, '<br>')}</p>` : ''}
-<p style="margin:0 0 4px;font-size:12px;letter-spacing:.1em;color:#8A5000;font-weight:bold">${esc((company || 'Comex Builders').toUpperCase())} · ${esc(site.toUpperCase())}</p>
-<h2 style="margin:0 0 6px">Stock take ${esc(refName)}</h2>
-<p style="margin:0 0 12px;color:#59625F">${esc(nice(take.count_date))}${take.start_time || take.end_time ? ` · ${esc(take.start_time ?? '–')} – ${esc(take.end_time ?? '–')}` : ''} · counted by ${esc(take.counted_by ?? '–')} · ${rows.length} items</p>
-<table style="border-collapse:collapse;font-size:13px;min-width:420px">
-<tr style="background:#FFF1DA"><th style="text-align:left;padding:6px 10px;border:1px solid #F0C99A">No.</th><th style="text-align:left;padding:6px 10px;border:1px solid #F0C99A">Item</th><th style="text-align:left;padding:6px 10px;border:1px solid #F0C99A">Unit</th><th style="text-align:right;padding:6px 10px;border:1px solid #F0C99A">Counted</th></tr>
-${rows.map((it, i) => `<tr><td style="padding:5px 10px;border:1px solid #EEE">${i + 1}</td><td style="padding:5px 10px;border:1px solid #EEE">${esc(it.name)}</td><td style="padding:5px 10px;border:1px solid #EEE">${esc(it.unit)}</td><td style="padding:5px 10px;border:1px solid #EEE;text-align:right;font-family:Consolas,monospace">${esc(fmt(qty.get(it.id) ?? 0))}</td></tr>`).join('\n')}
-</table>
-<p style="margin-top:16px">— ${esc(user.name)}, ${esc(site)} Store</p>
-<p style="color:#8A938F;font-size:11px">Sent from Bohari (Site Stock).</p></div>`;
+  const fileName = `${site} stock take ${take.count_date.split('-').reverse().join('-')}.xlsx`.replace(/[\\/:*?"<>|]/g, '-');
+  const excel = async () => {
+    const XLSX = await import('xlsx');
+    const ws = XLSX.utils.aoa_to_sheet([
+      [`${company || 'Comex Builders'} · ${site}`], [`Stock take ${refName}`], [longDay(take.count_date)],
+      [`Time: ${take.start_time ?? '–'} – ${take.end_time ?? '–'}`, '', `Counted by: ${take.counted_by ?? '–'}`], [],
+      ['No.', 'Item', 'Unit', 'Quantity counted'],
+      ...rows.map((it, i) => [i + 1, it.name, it.unit, qty.get(it.id) ?? 0]),
+    ]);
+    ws['!cols'] = [6, 40, 10, 18].map((wch) => ({ wch }));
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Stock take');
+    return XLSX.write(wb, { type: 'base64', bookType: 'xlsx' }) as string;
+  };
   const send = async () => {
     const list = to.split(/[,;\s]+/).map((x) => x.trim()).filter(Boolean);
     if (!list.length) { setErr({ text: 'Add who to send it to.' }); return; }
     setBusy(true); setErr(null);
     try {
-      const r = await api.sendMail({ to: list, subject, html: html() });
+      const r = await api.sendMail({ to: list, subject: asOf, text, attachment: { name: fileName, base64: await excel() } });
       if (r.ok) { try { localStorage.setItem('ssms-st-mail-to', to); } catch { /* ignore */ } toast(`Sent from ${r.from ?? 'your Zoho Mail'}`); onClose(); return; }
       setErr({ text: r.error ?? 'Not sent.', reconnect: r.reconnect });
     } catch (e) { setErr({ text: (e as Error).message }); } finally { setBusy(false); }
@@ -332,9 +336,9 @@ ${rows.map((it, i) => `<tr><td style="padding:5px 10px;border:1px solid #EEE">${
         <span className="daKicker">Email · from your Zoho Mail</span>
         <h2 id="stShareTitle">Send {refName}</h2>
         <label className="field"><span>To</span><input className="input" type="email" multiple value={to} onChange={(e) => setTo(e.target.value)} placeholder="name@comex.co.ke · separate several with commas" autoFocus /></label>
-        <div className="field"><span>Subject</span><div className="input locked fakeIn">{subject}</div></div>
-        <label className="field"><span>Note <i className="muted" style={{ fontStyle: 'normal', fontWeight: 400 }}>(optional)</i></span><textarea className="input" rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Please find this week’s stock take below." /></label>
-        <span className="small muted">The count goes as a table in the email: {rows.length} items, signed “{user.name}, {site} Store”.</span>
+        <div className="field"><span>Subject</span><div className="input locked fakeIn">{asOf}</div></div>
+        <label className="field"><span>Message</span><textarea className="input" rows={7} value={text} onChange={(e) => setText(e.target.value)} /></label>
+        <div className="stAttach"><span className="stAttachIc" aria-hidden="true">XLS</span><span><b>{fileName}</b><small>{rows.length} items · attached</small></span></div>
         {err && <div className="note err" role="alert">{err.text}{err.reconnect && <> <button className="btn link inline" onClick={() => api.zohoConnect(true).catch((e) => toast((e as Error).message, 'warn'))}>Allow Zoho Mail</button></>}</div>}
         <div className="row" style={{ gap: 10 }}>
           <button className="btn ghost sm" disabled={busy} onClick={onClose}>Cancel</button>

@@ -2019,4 +2019,9 @@ body.colDrag, body.colDrag * { cursor: col-resize !important; user-select: none 
   body.railDrag .shell { transition: none !important; }
   .toasts { left: calc(50% + var(--railW, 212px) / 2) !important; }
 }
-.stShareBox textarea.input { font-family: var(--body); min-height: 80px; padding: 10px 12px; resize: vertical; }
+.stShareBox textarea.input { font-family: var(--body); min-height: 180px; line-height: 1.45; padding: 10px 12px; resize: vertical; }
+.stAttach { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: #F3F8F4; border: 1px solid #D5E8DC; }
+.stAttachIc { width: 38px; height: 38px; border-radius: 9px; background: #1F7A4D; color: #fff; display: grid; place-items: center; font-size: 11px; font-weight: 800; letter-spacing: .04em; flex: none; }
+.stAttach span:last-child { display: flex; flex-direction: column; min-width: 0; }
+.stAttach b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stAttach small { color: #59625F; font-size: 12.5px; }
