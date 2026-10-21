@@ -48,6 +48,8 @@ export function ZohoAutoSync() {
       await loadZoho();
       if (r.error) { if (loud) toast(`Zoho: ${r.error}`, 'warn'); return; }
       if (r.imported) { await refresh(); refreshUnfinished(); toast(`${r.imported} deliver${r.imported === 1 ? 'y' : 'ies'} came in from Zoho`); }
+      // A big first check is done in parts; carry straight on with the next part.
+      if (r.more) setTimeout(() => { running.current = false; sync(loud); }, 1500);
       else if (loud) toast(r.pending ? `Zoho checked · ${r.pending} waiting for the admin to match items` : 'Zoho checked · nothing new');
     } finally { running.current = false; }
   }, [refresh, refreshUnfinished]);
@@ -88,7 +90,7 @@ export function ZohoStatusLine({ compact }: { compact?: boolean }) {
       );
   }
   // Zoho refused or the sign-in ran out: the fix is to connect again (and accept the permissions).
-  const reconnect = !!s.last_error && /allow|authori|expired|connect zoho again|invalid/i.test(s.last_error);
+  const reconnect = !!s.last_error && /allow|authori|expired|connect zoho again|invalid_(token|client|grant)/i.test(s.last_error);
   if (reconnect) {
     return compact
       ? <button className="railLink zohoMenu" onClick={connect} disabled={busy} title={s.last_error ?? ''}><span className="zohoDot err" /><span className="rlText">{busy ? 'Opening Zoho…' : 'Reconnect Zoho'}</span></button>

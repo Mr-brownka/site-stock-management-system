@@ -103,7 +103,7 @@ export interface Structure { basements: number; has_ground: boolean; floors: num
 export interface Draft { id: string; step: StepKey; doc_date: string; label: string; payload: Record<string, unknown>; created_at: string }
 
 export interface ZohoStatus { connected: boolean; zoho_email: string | null; last_sync_at: string | null; last_error: string | null; imported: number }
-export interface ZohoSyncResult { connected: boolean; imported?: number; pending?: number; seen?: number; projects?: string[]; error?: string }
+export interface ZohoSyncResult { connected: boolean; more?: boolean; imported?: number; pending?: number; seen?: number; projects?: string[]; error?: string }
 export interface ZohoPending { zoho_receive_id: string; site_id: string | null; project: string | null; grn: string | null; receive_date: string | null; vendor: string | null; reason: string | null }
 export interface ZohoItemMatch { zoho_item_id: string; item_id: number | null; zoho_name: string | null; zoho_unit: string | null }
 export interface ZohoConnection { user_id: string; full_name: string | null; site_id: string | null; zoho_email: string | null; last_sync_at: string | null; last_error: string | null; imported: number }

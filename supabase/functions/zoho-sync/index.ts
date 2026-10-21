@@ -100,7 +100,7 @@ async function place(db: SupabaseClient, c: Conn, p: Parsed, siteId: string): Pr
 }
 
 async function syncOne(db: SupabaseClient, c: Conn) {
-  const out = { imported: 0, pending: 0, seen: 0, kind: c.api_kind as string | null, projects: [] as string[] };
+  const out = { imported: 0, pending: 0, seen: 0, more: false, kind: c.api_kind as string | null, projects: [] as string[] };
   const projects = new Set<string>();
   if (!c.site_id) throw new Error('Your Bohari account has no site yet.');
   const { data: site } = await db.from('sites').select('name, zoho_project').eq('id', c.site_id).single();
@@ -116,16 +116,20 @@ async function syncOne(db: SupabaseClient, c: Conn) {
     await db.from('zoho_connections').update({ api_kind: out.kind }).eq('user_id', c.user_id);
   }
   // First time: the last 14 days. After that, from 3 days before the last check (late edits in Zoho).
-  const since = new Date(c.last_sync_at ? new Date(c.last_sync_at).getTime() - 3 * 864e5 : Date.now() - 14 * 864e5).toISOString().slice(0, 10);
+  // (Failed checks also stamp last_sync_at, so until something has come in, keep looking back 14 days.)
+  const since = new Date(c.last_sync_at && c.imported > 0 ? new Date(c.last_sync_at).getTime() - 3 * 864e5 : Date.now() - 14 * 864e5).toISOString().slice(0, 10);
   const poCache = new Map<string, Rec | null>();
-  for (let page = 1; page <= 10; page++) {
-    const r = await zget(c.api_domain, token, `${base(out.kind)}/purchasereceives`, { organization_id: c.org_id, page: String(page), per_page: '100', sort_column: 'date', sort_order: 'D' });
+  // Keep each run short (server time limit): at most 40 receives looked up; the next check carries on.
+  let lookups = 0;
+  pages: for (let page = 1; page <= 10; page++) {
+    const r = await zget(c.api_domain, token, `${base(out.kind)}/purchasereceives`, { organization_id: c.org_id, page: String(page), per_page: '100' });
     if (!r.ok) throw new Error(`Zoho answered ${r.status}: ${String(r.body.message ?? '')}`);
     const list = (r.body.purchasereceives as Rec[]) ?? [];
-    let older = false;
+    let fresh = 0; // rows on this page within the window (Zoho's own order isn't guaranteed)
     for (const row of list) {
       const date = String(row.date ?? '').slice(0, 10);
-      if (date && date < since) { older = true; continue; }
+      if (date && date < since) continue;
+      fresh++;
       const id = String(row.receive_id ?? row.purchasereceive_id ?? '');
       if (!id) continue;
       out.seen++;
@@ -137,6 +141,7 @@ async function syncOne(db: SupabaseClient, c: Conn) {
       ]);
       if (done || waits) continue;
       if (seen && norm(seen.project) !== mine) { if (seen.project) projects.add(seen.project); continue; }
+      if (++lookups > 40) { out.more = true; break pages; }
       const d = await zget(c.api_domain, token, `${base(out.kind)}/purchasereceives/${id}`, { organization_id: c.org_id });
       const rec = (d.body.purchasereceive ?? d.body.purchase_receive ?? row) as Rec;
       const poId = str(rec.purchaseorder_id ?? row.purchaseorder_id);
@@ -159,7 +164,7 @@ async function syncOne(db: SupabaseClient, c: Conn) {
       const res = await place(db, c, p, c.site_id);
       if (res === 'imported') out.imported++; else if (res === 'pending') out.pending++;
     }
-    if (older || !(r.body.page_context as Rec | undefined)?.has_more_page) break;
+    if (!fresh || !(r.body.page_context as Rec | undefined)?.has_more_page) break;
   }
   out.projects = [...projects];
   await db.from('zoho_connections').update({ last_sync_at: new Date().toISOString(), last_error: null, imported: c.imported + out.imported }).eq('user_id', c.user_id);
