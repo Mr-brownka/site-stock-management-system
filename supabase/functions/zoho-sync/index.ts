@@ -40,12 +40,17 @@ function parse(r: Rec, po: Rec | null): Parsed {
   };
 }
 
-/** Which Zoho API answers for this organisation: Inventory's or Books'. */
+/** Which Zoho API answers for this organisation: Inventory's or Books'. Records what each said, to diagnose. */
+const tried: string[] = [];
 async function discover(api: string, token: string, org: string) {
+  tried.length = 0;
   for (const [kind, path] of [['inventory', '/inventory/v1/purchasereceives'], ['books', '/books/v3/purchasereceives']] as const) {
     const r = await zget(api, token, path, { organization_id: org, per_page: '1' });
     if (r.ok && Array.isArray(r.body.purchasereceives)) return kind;
+    tried.push(`${kind} ${r.status} code ${String(r.body.code ?? '-')}: ${String(r.body.message ?? '').slice(0, 120)}`);
   }
+  const po = await zget(api, token, '/books/v3/purchaseorders', { organization_id: org, per_page: '1' });
+  tried.push(`books POs ${po.status} code ${String(po.body.code ?? '-')}: ${String(po.body.message ?? '').slice(0, 80)}`);
   return null;
 }
 const base = (kind: string) => (kind === 'books' ? '/books/v3' : '/inventory/v1');
@@ -98,7 +103,7 @@ async function syncOne(db: SupabaseClient, c: Conn) {
   const token = await refreshAccess(c.refresh_token, c.accounts_domain);
   if (!out.kind) {
     out.kind = await discover(c.api_domain, token, c.org_id);
-    if (!out.kind) throw new Error('Zoho did not allow reading purchase receives with this account.');
+    if (!out.kind) throw new Error(`Zoho did not allow reading purchase receives. ${tried.join(' | ')}`);
     await db.from('zoho_connections').update({ api_kind: out.kind }).eq('user_id', c.user_id);
   }
   // First time: the last 14 days. After that, from 3 days before the last check (late edits in Zoho).
