@@ -4,8 +4,9 @@
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.45.4';
 import { admin, caller, cors, json, refreshAccess, zget } from '../_shared/zoho.ts';
 
-type Conn = { user_id: string; site_id: string | null; org_id: string; api_domain: string; accounts_domain: string; refresh_token: string; api_kind: string | null; last_sync_at: string | null; imported: number };
+type Conn = { user_id: string; site_id: string | null; org_id: string; api_domain: string; accounts_domain: string; refresh_token: string; api_kind: string | null; last_sync_at: string | null; imported: number; import_from: string | null };
 type Rec = Record<string, unknown>;
+const dayOf = (v: unknown) => { const m = /^(\d{4}-\d{2}-\d{2})/.exec(String(v ?? '')); return m ? m[1] : ''; };
 type Parsed = { id: string; grn: string; po: string | null; date: string; vendor: string | null; project: string | null; subphase: string | null; dn: string | null; lines: { zid: string; name: string; unit: string | null; qty: number }[] };
 
 const norm = (s: unknown) => String(s ?? '').toLowerCase().replace(/''/g, '"').replace(/[\u2018\u2019\u201C\u201D]/g, '"').replace(/\s+/g, ' ').trim();
@@ -31,7 +32,7 @@ function parse(r: Rec, po: Rec | null): Parsed {
     id: String(r.receive_id ?? r.purchasereceive_id ?? r.purchase_receive_id),
     grn: String(r.receive_number ?? r.purchasereceive_number ?? ''),
     po: str(r.purchaseorder_number ?? po?.purchaseorder_number),
-    date: String(r.date ?? r.receive_date ?? '').slice(0, 10),
+    date: dayOf(r.date ?? r.receive_date),
     vendor: str(r.vendor_name ?? po?.vendor_name),
     project: custom(r, /project/i) ?? (po ? custom(po, /project/i) : null),
     subphase: custom(r, /sub.?phase/i) ?? (po ? custom(po, /sub.?phase/i) : null),
@@ -85,6 +86,7 @@ async function findTwin(db: SupabaseClient, siteId: string, p: Parsed, map: Map<
 }
 
 async function place(db: SupabaseClient, c: Conn, p: Parsed, siteId: string): Promise<'imported' | 'pending' | 'skip' | 'linked'> {
+  if (!c.import_from || !p.date || p.date < c.import_from) return 'skip';
   const { data: dup } = await db.from('documents').select('id').eq('zoho_receive_id', p.id).maybeSingle();
   if (dup) return 'skip';
   // Items: Zoho's item id first; otherwise the same name already in Bohari; otherwise wait for the admin.
@@ -136,6 +138,7 @@ async function place(db: SupabaseClient, c: Conn, p: Parsed, siteId: string): Pr
 }
 
 async function syncOne(db: SupabaseClient, c: Conn) {
+  if (!c.import_from) throw new Error('Zoho import is off until a start date is set.');
   const out = { imported: 0, pending: 0, linked: 0, seen: 0, more: false, kind: c.api_kind as string | null, projects: [] as string[] };
   const projects = new Set<string>();
   if (!c.site_id) throw new Error('Your Bohari account has no site yet.');
@@ -151,9 +154,11 @@ async function syncOne(db: SupabaseClient, c: Conn) {
     if (!out.kind) throw new Error(`Zoho did not allow reading purchase receives. ${tried.join(' | ')}`);
     await db.from('zoho_connections').update({ api_kind: out.kind }).eq('user_id', c.user_id);
   }
-  // First time: the last 14 days. After that, from 3 days before the last check (late edits in Zoho).
-  // (Failed checks also stamp last_sync_at, so until something has come in, keep looking back 14 days.)
-  const since = new Date(c.last_sync_at && c.imported > 0 ? new Date(c.last_sync_at).getTime() - 3 * 864e5 : Date.now() - 14 * 864e5).toISOString().slice(0, 10);
+  // Never earlier than the start date the store chose (nothing from before it is ever brought in).
+  // After the first check, look from 3 days before the last check (late edits in Zoho), but not before the start date.
+  const start = c.import_from!;
+  const recent = c.last_sync_at ? new Date(new Date(c.last_sync_at).getTime() - 3 * 864e5).toISOString().slice(0, 10) : start;
+  const since = recent > start ? recent : start;
   const poCache = new Map<string, Rec | null>();
   // Keep each run short (server time limit): at most 40 receives looked up; the next check carries on.
   let lookups = 0;
@@ -163,8 +168,8 @@ async function syncOne(db: SupabaseClient, c: Conn) {
     const list = (r.body.purchasereceives as Rec[]) ?? [];
     let fresh = 0; // rows on this page within the window (Zoho's own order isn't guaranteed)
     for (const row of list) {
-      const date = String(row.date ?? '').slice(0, 10);
-      if (date && date < since) continue;
+      const date = dayOf(row.date ?? row.receive_date ?? row.purchasereceive_date);
+      if (date && date < since) continue; // undated rows are checked below, after looking them up
       fresh++;
       const id = String(row.receive_id ?? row.purchasereceive_id ?? '');
       if (!id) continue;
@@ -190,6 +195,8 @@ async function syncOne(db: SupabaseClient, c: Conn) {
         po = poCache.get(poId) ?? null;
       }
       const p = parse({ ...row, ...rec }, po);
+      // Hard rule: no date, or before the start date → never brought in. Remembered so it isn't looked up again.
+      if (!p.date || p.date < start) { await db.from('zoho_seen').upsert({ zoho_receive_id: p.id, project: 'before start date' }); continue; }
       if (p.project) projects.add(p.project);
       if (!p.project) {
         // No Project filled in Zoho: the admin decides which site it belongs to.
