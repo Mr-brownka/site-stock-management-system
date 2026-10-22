@@ -1,7 +1,8 @@
 // Shared Zoho helpers for Bohari's edge functions. Read-only: nothing here writes to Zoho.
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2.45.4';
 
-export const APP_URL = Deno.env.get('BOHARI_APP_URL') ?? 'https://site-stock-management-system.vercel.app';
+/** Where people land after the Zoho sign-in. OSTOCK_APP_URL first; BOHARI_APP_URL still works. */
+export const APP_URL = (Deno.env.get('OSTOCK_APP_URL') ?? Deno.env.get('BOHARI_APP_URL') ?? 'https://ostock.co.ke').trim().replace(/\/+$/, '');
 export const REDIRECT_URI = `${Deno.env.get('SUPABASE_URL')}/functions/v1/zoho-callback`;
 export const ORG_ID = Deno.env.get('ZOHO_ORG_ID') ?? '838038949';
 export const SCOPES = Deno.env.get('ZOHO_SCOPES') ??
