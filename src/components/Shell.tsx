@@ -71,6 +71,8 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
   const toggleRec = () => { const v = !recOpen; setRecOpen(v); try { localStorage.setItem('ssms-records', v ? 'open' : 'closed'); } catch { /* ignore */ } };
   const [palette, setPalette] = useState(false);
   const [siteOpen, setSiteOpen] = useState(false);
+  const [sheet, setSheet] = useState<'records' | 'more' | null>(null);
+  useEffect(() => { setSheet(null); }, [screen]);
   // The gold menu highlight slides to the current page.
   const navRef = useRef<HTMLElement>(null);
   const [ink, setInk] = useState<{ top: number; height: number; opacity: number }>({ top: 0, height: 0, opacity: 0 });
@@ -194,6 +196,9 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
               </span>
             ))}
           </nav>
+          <span className={`tbMini ${submission ? 'ok' : min <= 0 ? 'late' : urgent ? 'soon' : ''}`} aria-hidden="true">
+            {submission ? <><Icon name="check" size={13} />Submitted</> : <><b>{done}/4</b>{min <= 0 ? 'Closed' : closeLabel(min).replace('Register closes in ', '')}</>}
+          </span>
           <button className="tbSearch" onClick={() => setPalette(true)} aria-label="Search items, pages and actions">
             <Icon name="search" size={16} /><span>Search items, pages, actions</span><kbd>Ctrl K</kbd>
           </button>
@@ -211,14 +216,62 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
 
       {TABBAR.includes(screen) && (
         <nav className="tabbar" aria-label="Main menu">
-          {NAV.map((n) => (
-            <button key={n.screen} aria-current={n.match.includes(screen) ? 'page' : undefined} onClick={() => go(n.screen)}>
-              <span className="tbIcon"><Icon name={n.icon} size={22} />{n.screen === 'home' && lowItems.length > 0 && <PulseDot />}</span>
-              {{ home: 'Dashboard', corrections: 'Fix', stocktake: 'Stock take' }[n.screen as string] ?? n.label}
-            </button>
-          ))}
-          <button onClick={() => signal('palette')}><span className="tbIcon"><Icon name="search" size={22} /></span>Search</button>
+          <button aria-current={CHECKIN.includes(screen) ? 'page' : undefined} onClick={() => { setSheet(null); go('home'); }}>
+            <span className="tbIcon"><Icon name="checkin" size={22} />{lowItems.length > 0 && <PulseDot />}</span>Dashboard
+          </button>
+          <button aria-current={RECORDS.some((r) => r.screen === screen) || screen === 'reports' || sheet === 'records' ? 'page' : undefined} onClick={() => setSheet(sheet === 'records' ? null : 'records')}>
+            <span className="tbIcon"><Icon name="list" size={22} /></span>Records
+          </button>
+          <button aria-current={screen === 'stocktake' ? 'page' : undefined} onClick={() => { setSheet(null); go('stocktake'); }}>
+            <span className="tbIcon"><Icon name="box" size={22} /></span>Stock take
+          </button>
+          <button aria-current={screen === 'corrections' ? 'page' : undefined} onClick={() => { setSheet(null); go('corrections'); }}>
+            <span className="tbIcon"><Icon name="fix" size={22} /></span>Fix
+          </button>
+          <button aria-current={screen === 'balances' || screen === 'consumption' || sheet === 'more' ? 'page' : undefined} onClick={() => setSheet(sheet === 'more' ? null : 'more')}>
+            <span className="tbIcon"><span className="tbAv">{initials}</span></span>More
+          </button>
         </nav>
+      )}
+      {sheet && (
+        <div className="mSheetBack" onClick={(e) => { if (e.target === e.currentTarget) setSheet(null); }}>
+          <section className="mSheet" role="dialog" aria-modal="true" aria-label={sheet === 'records' ? 'Records' : 'More'}>
+            <span className="mGrab" aria-hidden="true" />
+            {sheet === 'records' ? (
+              <>
+                <b className="mTitle">Records</b>
+                <div className="mRecs">
+                  {RECORDS.map((r) => (
+                    <button key={r.screen} className={`mRec ${r.tone}`} aria-current={screen === r.screen ? 'page' : undefined} onClick={() => { setSheet(null); go(r.screen); }}>
+                      <span className="mRecDot" aria-hidden="true" /><span>{r.label}</span><Icon name="arrow" size={16} />
+                    </button>
+                  ))}
+                </div>
+                <button className="mRow" onClick={() => { setSheet(null); go('reports'); }}><span className="mIc"><Icon name="report" size={20} /></span><span><b>Reports</b><small>17 reports · Excel or print</small></span><Icon name="arrow" size={16} /></button>
+              </>
+            ) : (
+              <>
+                <div className="mWho"><span className="avatar">{initials}</span><div><b>{user.name}</b><small>{user.role === 'admin' ? 'Admin' : 'Store'}{site ? ` · ${site}` : ''}{api.mode === 'demo' ? ' · demo' : ''}</small></div></div>
+                <button className="mToday" onClick={() => { setSheet(null); go('home'); setTimeout(() => signal('entries'), 120); }}>
+                  <Ring done={submission ? 4 : done} total={4} size={44} />
+                  <span><b>{submission ? 'Day submitted' : done === 4 ? 'Ready to submit' : 'Today’s entries'}</b><small>{submission ? 'All four steps done' : closeLabel(min)}</small></span>
+                </button>
+                <div className="mGrid">
+                  <button onClick={() => { setSheet(null); go('balances'); }}><span className="mIc"><Icon name="box" size={20} /></span>Balances</button>
+                  <button onClick={() => { setSheet(null); go('consumption'); }}><span className="mIc"><Icon name="chart" size={20} /></span>Consumption</button>
+                  <button onClick={() => { setSheet(null); setPalette(true); }}><span className="mIc"><Icon name="search" size={20} /></span>Search</button>
+                  <button onClick={() => { setSheet(null); go('reports'); }}><span className="mIc"><Icon name="report" size={20} /></span>Reports</button>
+                </div>
+                <div className="mList">
+                  {user.role === 'admin' && <button className="railLink" onClick={() => { setSheet(null); openAdmin(); }}><Icon name="user" /><span className="rlText">Admin</span></button>}
+                  <ZohoStatusLine compact />
+                  <StartTraining user={user} label="Training mode" />
+                  <button className="railLink signOut" onClick={signOut}><Icon name="out" /><span className="rlText">Sign out</span></button>
+                </div>
+              </>
+            )}
+          </section>
+        </div>
       )}
       {palette && <CommandPalette onClose={() => setPalette(false)} />}
     </div>

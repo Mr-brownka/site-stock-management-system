@@ -49,6 +49,8 @@ export function Admin({ user, onExit, onSignOut }: { user: User; onExit: () => v
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState('');
   const [menu, setMenu] = useState(false);
+  /** Phones: the admin menu slides in from the left. */
+  const [drawer, setDrawer] = useState(false);
   const day = today();
 
   const load = useCallback(async () => {
@@ -67,7 +69,7 @@ export function Admin({ user, onExit, onSignOut }: { user: User; onExit: () => v
     setBusy(key); setErr('');
     try { await fn(); await load(); } catch (e) { setErr((e as Error).message); toast((e as Error).message, 'warn'); } finally { setBusy(''); }
   };
-  const go = (n: Nav) => { setNav(n); window.scrollTo(0, 0); };
+  const go = (n: Nav) => { setNav(n); setDrawer(false); window.scrollTo(0, 0); };
 
   const waitingCount = (d?.profiles.filter((p) => p.status === 'pending').length ?? 0) + (d?.corr.filter((c) => c.status === 'pending').length ?? 0);
   const zohoCount = (d?.zitems.filter((z) => !z.item_id).length ?? 0) + (d?.pending.filter((p) => !p.site_id).length ?? 0);
@@ -84,7 +86,8 @@ export function Admin({ user, onExit, onSignOut }: { user: User; onExit: () => v
 
   return (
     <div className="ad">
-      <aside className="adRail" aria-label="Admin menu">
+      {drawer && <div className="adScrim" onClick={() => setDrawer(false)} aria-hidden="true" />}
+      <aside className={`adRail ${drawer ? 'open' : ''}`} aria-label="Admin menu">
         <div className="adBrand"><ComexLogo dark width={150} /><span className="adTag">ADMIN</span></div>
         <nav className="adNav">
           {LINKS.map((l) => (
@@ -114,6 +117,7 @@ export function Admin({ user, onExit, onSignOut }: { user: User; onExit: () => v
 
       <div className="adMain">
         <header className="adTop">
+          <button className="adMenuBtn" onClick={() => setDrawer(true)} aria-label="Open the menu"><Icon name="list" size={20} />{!!(waitingCount + zohoCount) && <i />}</button>
           <span className="adCrumb">{d?.sites[0]?.company || 'Comex Builders'} <span>/ {crumb}</span></span>
           <span className="adGrow" />
           <button className="adRefresh" onClick={() => { load(); toast('Up to date'); }} title="Refresh"><Icon name="swap" size={14} />Refresh</button>
@@ -298,7 +302,7 @@ function Approvals({ d, sel, setSel, busy, act }: { d: Data; sel: string | null;
   return (
     <div className="adStack">
       <Head title="Approvals" lead="Sign-ups and corrections, in one place. Oldest first." right={<Seg opts={[['wait', `Waiting ${waitN}`], ['done', 'Decided']]} value={view} onPick={(v) => { setView(v); setSel(null); }} />} />
-      <div className="adSplit">
+      <div className={`adSplit ${sel ? 'hasSel' : ''}`}>
         <section className="panel adList">
           {!rows.length && <div className="adAllClear"><span className="adTick"><Icon name="check" size={18} /></span><div><b>{view === 'wait' ? 'All caught up.' : 'Nothing decided yet.'}</b><small>{view === 'wait' ? 'New sign-ups and corrections appear here.' : ''}</small></div></div>}
           {rows.map((r) => (
@@ -314,6 +318,7 @@ function Approvals({ d, sel, setSel, busy, act }: { d: Data; sel: string | null;
             const c = choice ?? { site: p.site_id ?? d.sites[0]?.id ?? '', role: p.role };
             return (
               <div className="adDIn" key={cur.id}>
+                <button className="backPill adPhoneBack" onClick={() => setSel(null)}><Icon name="arrowL" size={16} />All requests</button>
                 <span className="adKick">Sign-up{p.site_id ? ` · ${name(p.site_id)}` : ''}</span>
                 <div className="adWho"><Av name={p.full_name} /><div><h2>{p.full_name}</h2><small>{p.email}{p.phone ? ` · ${p.phone}` : ''} · asked {ago(p.created_at)}</small></div></div>
                 {p.status === 'pending' ? (
@@ -341,6 +346,7 @@ function Approvals({ d, sel, setSel, busy, act }: { d: Data; sel: string | null;
             const others = c.movement_id && doc ? d.corr.filter((x) => x.id !== c.id && x.status === 'pending' && doc.lines.some((l) => l.id === x.movement_id)).length : 0;
             return (
               <div className="adDIn" key={cur.id}>
+                <button className="backPill adPhoneBack" onClick={() => setSel(null)}><Icon name="arrowL" size={16} />All requests</button>
                 <span className="adKick">{c.kind === 'fix' ? 'Fix an entry' : 'Recount'} · {name(c.site_id)}</span>
                 <h2>{doc ? `${KIND_LABEL[doc.kind] ?? 'Entry'}${doc.ref_no ? ` ${doc.ref_no}` : ''} · ${niceDate(doc.doc_date)}` : c.kind === 'recount' ? `${it?.name} · shelf count` : it?.name}</h2>
                 <small className="muted">Asked by {person.get(c.created_by)?.full_name ?? 'the store'} · {ago(c.created_at)} · “{c.reason}”{c.note ? ` · ${c.note}` : ''}</small>

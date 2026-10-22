@@ -20,6 +20,8 @@ export function Balances() {
   const [q, setQ] = useState('');
   const [sel, setSel] = useState<number | null>(null);
   const [sheet, setSheet] = useState(false);
+  /** Phones: the picked item opens as a sheet over the list. */
+  const [phoneOpen, setPhoneOpen] = useState(false);
 
   const status = (b: Balance) => (b.balance <= 0 ? 'Finished' : isLow(b) ? 'Running low' : 'Healthy');
   const counts = { all: balances.length, low: balances.filter((b) => b.balance > 0 && isLow(b)).length, out: balances.filter((b) => b.balance <= 0).length };
@@ -73,7 +75,7 @@ export function Balances() {
               const st = status(b);
               const fill = b.reorder_level ? Math.min(100, (b.balance / (b.reorder_level * 2.2)) * 100) : b.balance > 0 ? 60 : 0;
               return (
-                <button key={b.item_id} className={`balRow ${b.item_id === sel ? 'on' : ''}`} style={{ animationDelay: `${Math.min(i, 14) * 20}ms` }} onClick={() => setSel(b.item_id)}>
+                <button key={b.item_id} className={`balRow ${b.item_id === sel ? 'on' : ''}`} style={{ animationDelay: `${Math.min(i, 14) * 20}ms` }} onClick={() => { setSel(b.item_id); setPhoneOpen(true); }}>
                   <span className="crName">{b.name}</span>
                   <span className={`balBar ${st === 'Healthy' ? 'ok' : st === 'Finished' ? 'out' : 'low'}`} title={b.reorder_level ? `Reorder at ${fmt(b.reorder_level)}` : 'No reorder level set'}>
                     <i style={{ width: `${Math.max(b.balance > 0 ? 3 : 0, fill)}%` }} />{b.reorder_level ? <em style={{ left: `${100 / 2.2}%` }} /> : null}
@@ -86,8 +88,10 @@ export function Balances() {
           </div>
         </section>
 
-        <aside className="panel consDetail" aria-label="Item detail">
-          {cur ? <Detail key={cur.item_id} b={cur} st={status(cur)} days={daysLeft(cur)} recent={recent} day={day} onHistory={() => setSheet(true)} />
+        {phoneOpen && <div className="consScrim" onClick={() => setPhoneOpen(false)} aria-hidden="true" />}
+        <aside className={`panel consDetail ${phoneOpen ? 'open' : ''}`} aria-label="Item detail">
+          <button className="cdClose" onClick={() => setPhoneOpen(false)} aria-label="Close"><Icon name="close" size={18} /></button>
+          {cur ? <Detail key={cur.item_id} b={cur} st={status(cur)} days={daysLeft(cur)} recent={recent} day={day} onHistory={() => { setPhoneOpen(false); setSheet(true); }} />
             : <div className="pad muted">Pick an item.</div>}
         </aside>
       </div>

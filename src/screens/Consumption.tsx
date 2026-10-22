@@ -33,6 +33,8 @@ export function Consumption() {
   const [leaving, setLeaving] = useState<string | null>(null); // the chip that folds away on the left
   const [q, setQ] = useState('');
   const [sel, setSel] = useState<number | null>(null);
+  /** Phones: the picked item opens as a sheet over the list. */
+  const [phoneOpen, setPhoneOpen] = useState(false);
 
   useEffect(() => { try { localStorage.setItem('ssms-cons-period', period); } catch { /* ignore */ } }, [period]);
   useEffect(() => {
@@ -106,7 +108,7 @@ export function Consumption() {
             {lines === null && Array.from({ length: 6 }, (_, i) => <div key={i} className="consRow"><i className="skel" style={{ width: 20 }} /><i className="skel" style={{ width: `${40 + i * 7}%` }} /><i className="skel" /><i className="skel" style={{ width: 60 }} /></div>)}
             {lines && !shown.length && <div className="pad muted">{s ? `No item matches “${q}”.` : `Nothing was used ${floor ? `on ${floor} ` : ''}${periodText}.`}</div>}
             {shown.map((r, i) => (
-              <button key={r.id} className={`consRow ${r.id === sel ? 'on' : ''}`} style={{ animationDelay: `${Math.min(i, 12) * 25}ms` }} onClick={() => setSel(r.id)}>
+              <button key={r.id} className={`consRow ${r.id === sel ? 'on' : ''}`} style={{ animationDelay: `${Math.min(i, 12) * 25}ms` }} onClick={() => { setSel(r.id); setPhoneOpen(true); }}>
                 <span className="mono crNo">{i + 1}</span>
                 <span className="crName">{r.name}</span>
                 <span className="crBar" title={`${Math.round(r.share * 100)}% of the stock it had`}><i style={{ width: `${Math.max(4, r.share * 100)}%` }} /></span>
@@ -117,7 +119,9 @@ export function Consumption() {
           {rows.length > 0 && <div className="consFoot">Bars show how much of its stock each item used{floor ? ` · ${floor}` : ''}.</div>}
         </section>
 
-        <aside className="panel consDetail" aria-label="Item detail">
+        {phoneOpen && <div className="consScrim" onClick={() => setPhoneOpen(false)} aria-hidden="true" />}
+        <aside className={`panel consDetail ${phoneOpen ? 'open' : ''}`} aria-label="Item detail">
+          <button className="cdClose" onClick={() => setPhoneOpen(false)} aria-label="Close"><Icon name="close" size={18} /></button>
           {!cur ? <div className="pad muted">{lines === null ? 'Loading…' : 'Pick an item to see its days.'}</div> : <ItemDetail key={`${cur.id}-${floor}-${range.from}`} r={cur} before={before.get(cur.id)?.used ?? 0} days={eachDay(range.from, range.to).filter((d) => weekday(d) !== 'Sun' || (cur.u.byDay.get(d) ?? 0) > 0)} periodText={periodText} floor={floor} balance={balanceOf(cur.id)} />}
         </aside>
       </div>
