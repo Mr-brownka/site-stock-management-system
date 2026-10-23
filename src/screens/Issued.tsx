@@ -149,7 +149,7 @@ function CardForm({ done, again }: { done: () => void; again: () => Promise<void
           <div><Suggest bare nav="activity" label="Activity" value={activity} onChange={setActivity} options={acts} placeholder="e.g. Plaster" glow={g('activity')} inputClass={`mwcIn ${miss(!activity.trim())}`} onNext={() => goTo(cardNo.trim() ? `item${Math.max(0, firstEmpty)}` : 'cardNo')} /></div>
           <div>
             <label className="field bare"><span className="sr">Card No</span>
-              <input data-nav data-g="cardNo" className={`input mwcIn mono ${g('cardNo') ? 'next' : ''} ${dupe ? 'bad' : ''} ${miss(!cardNo.trim())}`} inputMode="numeric" value={cardNo} placeholder="Card no."
+              <input data-nav data-g="cardNo" className={`input mwcIn mwcCardNo mono ${g('cardNo') ? 'next' : ''} ${dupe ? 'bad' : ''} ${miss(!cardNo.trim())}`} inputMode="numeric" value={cardNo} placeholder="Card no."
                 onChange={(e) => setCardNo(e.target.value.replace(/[^0-9A-Za-z-]/g, ''))} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); afterHead(); } }} />
             </label>
           </div>

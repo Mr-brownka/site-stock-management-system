@@ -1200,7 +1200,10 @@ body:has(.trainBar) .topbar { top: 50px; }
 .mwcIn.next { background: #FFF4E0 !important; box-shadow: inset 0 0 0 2px var(--accent) !important; animation: none; }
 .mwcIn.bad { background: #FFF1EF !important; color: var(--error); }
 .mwcIn::placeholder { color: #B9C0BC; }
-.mwcCode { color: #C0392B; font-size: 26px; font-weight: 600; letter-spacing: .04em; }
+.mwcCode { color: var(--ink); letter-spacing: .04em; }
+/* The card number: the red printed number, big and centred. */
+.mwcCardNo { color: #C0392B !important; font-size: 26px !important; font-weight: 600; text-align: center; letter-spacing: .04em; }
+.mwcCardNo::placeholder { font-size: 17px; font-weight: 400; color: #B9C0BC; }
 .mwcWarn { padding: 8px 4px 0; color: var(--error); font-weight: 600; font-size: 14px; }
 .mwcGrid { display: grid; grid-template-columns: 48px minmax(0, 1fr) 100px 100px 240px; border-left: 1.5px solid #1B2120; border-top: 1.5px solid #1B2120; margin-top: 10px; }
 .mwcGrid > div { border-right: 1.5px solid #1B2120; border-bottom: 1.5px solid #1B2120; min-width: 0; position: relative; }
@@ -1236,7 +1239,7 @@ body:has(.trainBar) .topbar { top: 50px; }
   .mwcLogo { font-size: 9px; padding: 6px; }
   .mwcTitle { font-size: 12px; padding: 6px 4px; }
   .mwcWeek { flex-direction: column; gap: 0; padding: 4px; } .mwcWeek span { font-size: 11px; } .mwcWeek b { font-size: 18px; }
-  .mwcCode { font-size: 20px; }
+  .mwcCardNo { font-size: 24px !important; }
   .mwcIn { font-size: 16px; padding: 0 8px; }
   .mwcGrid { grid-template-columns: 30px minmax(0, 1fr) 64px 58px; }
   .mwcSideH, .mwcSideX { display: none; }
