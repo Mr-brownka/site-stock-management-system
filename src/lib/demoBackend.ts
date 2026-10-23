@@ -230,7 +230,7 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
     },
     async removeDocument(id) {
       const d = s.docs.find((x) => x.id === id);
-      if (d && s.submissions[d.doc_date]) throw new Error('This day has already been submitted.');
+      if (d && s.submissions[d.doc_date]) throw new Error('LOCKED');
       const gone = new Set(d?.lines.map((l) => l.id));
       s.docs = s.docs.filter((x) => x.id !== id).map((x) => ({ ...x, lines: x.lines.filter((l) => !(l.return_of && gone.has(l.return_of))) })).filter((x) => x.kind !== 'return' || x.lines.length);
       save();

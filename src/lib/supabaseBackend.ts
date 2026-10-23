@@ -371,8 +371,10 @@ export function supabaseBackend(url: string, key: string): Backend {
     },
 
     async removeDocument(id) {
-      const { error } = await sb.from('documents').delete().eq('id', id);
+      // A submitted day is locked: the database quietly removes nothing, so check that the entry really went.
+      const { data, error } = await sb.from('documents').delete().eq('id', id).select('id');
       if (error) fail(error);
+      if (!data?.length) throw new Error('LOCKED');
     },
 
     async documents(from, to) {

@@ -58,7 +58,7 @@ const missingText = (labels: string[]) =>
 
 /** One slim line on the check-in page per unfinished entry (the first shown, the rest behind "+ more"). */
 export function UnfinishedCard({ chip }: { chip?: boolean } = {}) {
-  const { unconfirmed, drafts, refreshUnfinished, openDraft, go, itemById, startCatchUp, realToday, day } = useData();
+  const { unconfirmed, drafts, refreshUnfinished, openDraft, go, itemById, startCatchUp, realToday, day, submission, pendingDays, refresh } = useData();
   const [finishing, setFinishing] = useState<Doc | null>(null);
   const [all, setAll] = useState(false);
   const n = unconfirmed.length + drafts.length;
@@ -74,6 +74,17 @@ export function UnfinishedCard({ chip }: { chip?: boolean } = {}) {
     if (!(await ask({ title: 'Delete this draft?', body: <p>{d.label}. Nothing from it was counted in stock, so nothing else changes.</p>, yes: 'Delete draft', tone: 'danger' }))) return;
     await api.deleteDraft(d.id); await refreshUnfinished(); toast('Draft deleted');
   };
+  // A saved entry still missing a detail: delete it while its day is open; once the day is submitted, Fix an error removes it (with a record).
+  const removeEntry = async (d: Doc, what: string) => {
+    const open = (d.doc_date === day && !submission) || pendingDays.some((p) => p.day === d.doc_date);
+    const toFix = async () => {
+      if (await ask({ title: 'This day is already submitted', body: <p>{what}. Entries in a submitted day are taken out with <b>Fix an error</b>, so the change is recorded and approved.</p>, yes: 'Open Fix an error' })) { setAll(false); go('corrections'); }
+    };
+    if (!open) return toFix();
+    if (!(await ask({ title: 'Delete this entry?', body: <p>{what}. It is counted in stock now, so the balance changes back when it is deleted.</p>, yes: 'Delete entry', tone: 'danger' }))) return;
+    try { await api.removeDocument(d.id); await Promise.all([refreshUnfinished(), refresh()]); toast('Entry deleted'); }
+    catch (e) { if ((e as Error).message === 'LOCKED') await toFix(); else toast((e as Error).message, 'warn'); }
+  };
   const rows = [
     ...unconfirmed.map((d) => {
       const labels = labelsFor(d.kind, d.to_confirm ?? []);
@@ -82,7 +93,8 @@ export function UnfinishedCard({ chip }: { chip?: boolean } = {}) {
         <div key={d.id} className="fbRow">
           <span className="fbIc" aria-hidden="true">!</span>
           <div className="fbText"><b className="fbMiss">{missingText(labels)}</b><span className="fbWhat">{labels.length > 2 ? `${labels.join(', ')} · ` : ''}{what}</span></div>
-          <button className="btn sm" onClick={() => { setAll(false); setFinishing(d); }}>{labels.length === 1 ? `Add ${labels[0].toLowerCase()}` : 'Fill in'}</button>
+          <span className="fbActs"><button className="fbDel" onClick={() => removeEntry(d, what)} aria-label={`Delete: ${what}`} title="Delete this entry"><Icon name="trash" size={17} /></button>
+            <button className="btn sm" onClick={() => { setAll(false); setFinishing(d); }}>{labels.length === 1 ? `Add ${labels[0].toLowerCase()}` : 'Fill in'}</button></span>
         </div>
       );
     }),
