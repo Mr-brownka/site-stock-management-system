@@ -5,20 +5,19 @@ import { toast } from './feedback';
 import { useZohoDeliveries } from './Zoho';
 import { openRecords } from './AddEntry';
 import { BackPill } from './BackPill';
+import { DatePick } from './DatePick';
 
 export const ADD_NOUN: Record<StepKey, string> = { deliveries: 'a delivery', issued: 'a card', returns: 'a return', transfers: 'a transfer' };
 const NEW_TITLE: Record<StepKey, string> = { deliveries: 'New delivery', issued: 'New withdrawal card', returns: 'New return', transfers: 'New project transfer' };
 
 /** The heading every entry page shares: where you came from, what you're entering, and for which day. */
 export function EntryHead({ step, title, sub, right }: { step: StepKey; title?: string; sub?: ReactNode; right?: ReactNode }) {
-  const { day, catchUp, submission } = useData();
-  const d = new Date(day + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
   return (
     <header className="entryHead enter">
       <BackPill />
       <div className="entryTitle">
         <div><h1>{title ?? NEW_TITLE[step]}</h1>{sub && <p>{sub}</p>}</div>
-        <span className={`entryDay ${catchUp ? 'catch' : ''}`}>{catchUp ? 'Catch-up · ' : ''}{d}{submission ? ' · added after submitting' : ''}</span>
+        <DatePick />
         {right}
       </div>
     </header>

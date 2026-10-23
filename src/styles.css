@@ -2684,3 +2684,67 @@ body.colDrag, body.colDrag * { cursor: col-resize !important; user-select: none 
 .mwc.stamped { animation: cardThud .32s .26s ease-out both; }
 @keyframes cardThud { 0% { transform: translateY(0); } 35% { transform: translateY(3px) scale(.995); } 100% { transform: none; } }
 @media (prefers-reduced-motion: reduce) { .stampMark.big { animation-duration: .01s; } .mwc.stamped { animation: none; } }
+
+/* ───────── Choose a date: chip + calendar ───────── */
+.dpWrap { position: relative; display: inline-flex; }
+.dpChip { gap: 6px; cursor: pointer; font: inherit; font-size: 13px; font-weight: 600; transition: border-color .15s, box-shadow .2s, transform .12s; }
+.dpChip:hover { border-color: #C9CFCC; box-shadow: 0 4px 12px rgba(18,23,22,.08); }
+.dpChip:active { transform: scale(.97); }
+.dpChip.on { border-color: var(--ink); box-shadow: 0 0 0 3px rgba(27,33,32,.08); }
+.dpChip .dpCaret { font-size: 10px; opacity: .55; transition: transform .2s; }
+.dpChip.on .dpCaret { transform: rotate(180deg); }
+.dpLate { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 99px; background: rgba(0,0,0,.06); }
+
+.dpPop { position: fixed; z-index: 200; width: 332px; padding: 16px 16px 12px; border-radius: 20px;
+  background: radial-gradient(120% 80% at 100% 0%, #2A3230 0%, #151A19 60%); color: #E8ECEA;
+  box-shadow: 0 30px 60px -18px rgba(10,14,13,.55), 0 0 0 1px rgba(255,255,255,.06) inset; transform-origin: top right; animation: dpIn .28s var(--spring) both; }
+@keyframes dpIn { from { opacity: 0; transform: translateY(-6px) scale(.94); } to { opacity: 1; transform: none; } }
+.dpHead { display: flex; flex-direction: column; gap: 2px; padding: 2px 4px 12px; border-bottom: 1px solid rgba(255,255,255,.08); }
+.dpKick { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); min-height: 14px; }
+.dpBig { font-family: var(--display); font-weight: 700; font-size: 38px; line-height: 1; letter-spacing: -.01em; color: #fff; animation: dpWord .22s ease-out both; }
+@keyframes dpWord { from { opacity: .2; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.dpSub { font-size: 13px; color: #9AA5A1; }
+.dpQuick { display: flex; gap: 6px; padding: 12px 0 4px; }
+.dpQuick button { flex: 1; height: 32px; border-radius: 10px; border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.04); color: #D7DDDA; font: 600 13px var(--body); cursor: pointer; transition: background .15s, border-color .15s; }
+.dpQuick button:hover { background: rgba(255,255,255,.09); }
+.dpQuick button.on { background: var(--accent); border-color: var(--accent); color: var(--ink); }
+.dpMonth { display: flex; align-items: center; justify-content: space-between; padding: 10px 2px 6px; overflow: hidden; }
+.dpMonth b { font-family: var(--display); font-size: 20px; font-weight: 700; letter-spacing: .01em; }
+.dpMonth b span { color: #75807C; font-weight: 600; }
+.dpMonth b.fromR { animation: dpSlideR .25s ease-out both; } .dpMonth b.fromL { animation: dpSlideL .25s ease-out both; }
+@keyframes dpSlideR { from { opacity: 0; transform: translateX(14px); } } @keyframes dpSlideL { from { opacity: 0; transform: translateX(-14px); } }
+.dpArrow { width: 32px; height: 32px; border-radius: 10px; border: 0; background: rgba(255,255,255,.06); color: #E8ECEA; display: grid; place-items: center; cursor: pointer; }
+.dpArrow.next svg { transform: rotate(180deg); }
+.dpArrow:hover:not(:disabled) { background: rgba(255,255,255,.12); }
+.dpArrow:disabled { opacity: .25; cursor: default; }
+.dpGrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.dpH { text-align: center; font-size: 11px; font-weight: 700; color: #6F7A76; padding: 4px 0; }
+.dpH.sun { color: #4E5855; }
+.dpDay { position: relative; aspect-ratio: 1; border: 0; border-radius: 12px; background: transparent; color: #E8ECEA; font: 600 14px var(--body); cursor: pointer; display: grid; place-items: center;
+  animation: dpPop .3s var(--spring) both; animation-delay: calc(var(--i) * 6ms); transition: background .12s, transform .12s; }
+@keyframes dpPop { from { opacity: 0; transform: scale(.7); } }
+.dpDay:hover:not(:disabled) { background: rgba(255,255,255,.1); transform: translateY(-1px); }
+.dpDay.sun { color: #7D8884; }
+.dpDay.today { box-shadow: inset 0 0 0 1.5px var(--accent); color: var(--accent); }
+.dpDay.sel { background: var(--accent); color: var(--ink); box-shadow: 0 6px 16px -4px rgba(252,167,45,.6); }
+.dpDay.sel.today { color: var(--ink); }
+.dpDay.off { color: #3C4543; cursor: default; }
+.dpDay i { position: absolute; bottom: 5px; left: 50%; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: #5FD39A; }
+.dpDay i.m { background: #FF6B5E; box-shadow: 0 0 0 3px rgba(255,107,94,.18); }
+.dpDay.sel i { background: var(--ink); box-shadow: none; }
+.dpFoot { display: flex; align-items: center; gap: 14px; padding: 12px 4px 2px; margin-top: 8px; border-top: 1px solid rgba(255,255,255,.08); font-size: 12px; color: #8A9591; }
+.dpFoot span { display: inline-flex; align-items: center; gap: 6px; }
+.dpFoot i { width: 6px; height: 6px; border-radius: 50%; background: #5FD39A; }
+.dpFoot i.m { background: #FF6B5E; }
+.dpToday { margin-left: auto; border: 0; background: none; color: var(--accent); font: 700 13px var(--body); cursor: pointer; padding: 4px 2px; }
+.dpToday:hover { text-decoration: underline; }
+@media (max-width: 640px) {
+  .dpPop { top: auto !important; left: 10px; right: 10px !important; bottom: calc(10px + env(safe-area-inset-bottom)); width: auto; transform-origin: bottom center; animation-name: dpUp; }
+  .dpScrim { display: block; }
+  @keyframes dpUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: none; } }
+}
+@media (prefers-reduced-motion: reduce) { .dpPop, .dpDay, .dpBig, .dpMonth b { animation: none !important; } }
+.entryHead { position: relative; z-index: 45; } /* its date calendar opens over the form below */
+
+.dpScrim { display: none; position: fixed; inset: 0; z-index: 199; background: rgba(15,20,19,.35); animation: fadeIn .2s ease-out both; }
+@media (max-width: 640px) { .dpScrim { display: block; } }
