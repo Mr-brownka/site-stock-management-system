@@ -106,8 +106,14 @@ async function place(db: SupabaseClient, c: Conn, p: Parsed, siteId: string): Pr
   const map = new Map((maps ?? []).filter((m) => m.item_id).map((m) => [m.zoho_item_id, m.item_id as number]));
   const missing = p.lines.filter((l) => !map.has(l.zid));
   if (missing.length) {
-    const { data: items } = await db.from('items').select('id, name');
-    const byName = new Map((items ?? []).map((i) => [norm(i.name), i.id as number]));
+    // Every item, page by page: one read stops at 1,000 rows and the list is longer than that.
+    const items: { id: number; name: string }[] = [];
+    for (let from = 0; ; from += 1000) {
+      const { data } = await db.from('items').select('id, name').order('id').range(from, from + 999);
+      items.push(...((data ?? []) as { id: number; name: string }[]));
+      if (!data || data.length < 1000) break;
+    }
+    const byName = new Map(items.map((i) => [norm(i.name), i.id]));
     for (const l of missing) {
       const hit = byName.get(norm(l.name));
       if (hit) { map.set(l.zid, hit); await db.from('zoho_item_map').upsert({ zoho_item_id: l.zid, item_id: hit, zoho_name: l.name, zoho_unit: l.unit }); }
