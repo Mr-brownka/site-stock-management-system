@@ -5,14 +5,14 @@ import { addDays, niceDate, weekdayName } from '../lib/dates';
 import { Icon } from './fx';
 import { toast } from './feedback';
 
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const HEADS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+export const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+export const HEADS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const BACK_DAYS = 90; // how far back an entry can be dated
 
-const ym = (d: string) => d.slice(0, 7);
-const shiftMonth = (m: string, n: number) => { const [y, mo] = m.split('-').map(Number); const t = new Date(Date.UTC(y, mo - 1 + n, 1)); return t.toISOString().slice(0, 7); };
+export const ym = (d: string) => d.slice(0, 7);
+export const shiftMonth = (m: string, n: number) => { const [y, mo] = m.split('-').map(Number); const t = new Date(Date.UTC(y, mo - 1 + n, 1)); return t.toISOString().slice(0, 7); };
 /** The month as rows of weeks, Monday first; null pads the edges. */
-function monthGrid(m: string): (string | null)[] {
+export function monthGrid(m: string): (string | null)[] {
   const [y, mo] = m.split('-').map(Number);
   const first = new Date(Date.UTC(y, mo - 1, 1));
   const days = new Date(Date.UTC(y, mo, 0)).getUTCDate();

@@ -9,9 +9,10 @@ import { Icon } from '../components/fx';
 import { fmt } from '../components/ui';
 import { toast } from '../components/feedback';
 import { BackPill } from '../components/BackPill';
+import { DateRange } from '../components/DateRange';
 
 type P = 'day' | 'week' | 'month' | 'pick';
-const PERIODS: [P, string][] = [['day', 'Today'], ['week', 'This week'], ['month', 'This month'], ['pick', 'Pick dates']];
+const PERIODS: [P, string][] = [['day', 'Today'], ['week', 'This week'], ['month', 'This month']];
 const SHOWN = 3; // floor chips visible beside "All floors"
 
 export function Consumption() {
@@ -86,10 +87,10 @@ export function Consumption() {
         <div className="phText"><h1>Consumption</h1><span className="phLead">What the site used {periodText}: issued minus what came back. Click an item to see its days.</span></div>
         <div className="phActions">
           <span className="seg consSeg" role="group" aria-label="Period">{PERIODS.map(([p, l]) => <button key={p} aria-pressed={period === p} onClick={() => setPeriod(p)}>{l}</button>)}</span>
+          <DateRange value={period === 'pick' ? { from, to } : null} max={day} onChange={(r) => { if (r) { setFrom(r.from); setTo(r.to); setPeriod('pick'); } else setPeriod('week'); }} />
           <button className="btn ghost sm" onClick={download} disabled={!rows.length}><Icon name="download" size={16} />Excel</button>
         </div>
       </header>
-      {period === 'pick' && <div className="consDates"><input type="date" className="input" value={from} max={to} onChange={(e) => setFrom(e.target.value || from)} aria-label="From" /> – <input type="date" className="input" value={to} min={from} max={day} onChange={(e) => setTo(e.target.value || to)} aria-label="To" /></div>}
 
       <div className="consGrid">
         <section className="panel consList" aria-label="Items used">

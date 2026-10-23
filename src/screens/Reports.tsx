@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { DateRange } from '../components/DateRange';
 import { toast } from '../components/feedback';
 import { Icon, Num } from '../components/fx';
 import { fmt, ItemPicker } from '../components/ui';
@@ -143,10 +144,7 @@ function ReportView({ def, onBack }: { def: Def; onBack: () => void }) {
               <div className="ppStrip">
                 {P.map((p) => <button key={p.k} className="ppChip" aria-pressed={from === p.from && to === p.to} onClick={() => { setFrom(p.from); setTo(p.to); }}><span>{p.label}</span><b>{p.from === p.to ? nice(p.from).slice(0, -5) : `${nice(p.from).slice(0, -5)} – ${nice(p.to).slice(0, -5)}`}</b></button>)}
               </div>
-              <div className="repDates">
-                <label className="field"><span>From</span><input className="input" type="date" value={from} max={to} onChange={(e) => e.target.value && setFrom(e.target.value)} /></label>
-                <label className="field"><span>To</span><input className="input" type="date" value={to} min={from} max={day} onChange={(e) => e.target.value && setTo(e.target.value)} /></label>
-              </div>
+              <div className="repDates"><DateRange value={P.some((p) => from === p.from && to === p.to) ? null : { from, to }} max={day} onChange={(r) => { if (r) { setFrom(r.from); setTo(r.to); } }} /></div>
             </>
           )}
           {asOf && (
@@ -156,7 +154,7 @@ function ReportView({ def, onBack }: { def: Def; onBack: () => void }) {
                 {[['Today', day], ['Yesterday', addDays(day, -1)], ['End of last week', addDays(weekStart(day), -1)], ['End of last month', prevMonthEnd(day)]].map(([l, d]) => (
                   <button key={l} className="ppChip" aria-pressed={to === d} onClick={() => setTo(d)}><span>{l}</span><b>{nice(d).slice(0, -5)}</b></button>
                 ))}
-                <label className="ppChip"><span>Another day</span><input className="dateInChip" type="date" value={to} max={day} onChange={(e) => e.target.value && setTo(e.target.value)} /></label>
+                <DateRange single value={{ from: to, to }} max={day} onChange={(r) => { if (r) setTo(r.to); }} />
               </div>
             </>
           )}

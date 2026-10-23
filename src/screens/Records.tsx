@@ -10,6 +10,7 @@ import { fmt } from '../components/ui';
 import { toast } from '../components/feedback';
 import { checkZohoNow, useZohoDeliveries, ZohoRefresh, ZohoTag } from '../components/Zoho';
 import { BackPill } from '../components/BackPill';
+import { DateRange, rangeLabel, type Range } from '../components/DateRange';
 
 export type RecKey = 'deliveries' | 'issued' | 'returns' | 'transfers';
 type Row = { doc: Doc; ref: string; paper: string; who: string; where: string };
@@ -28,8 +29,8 @@ export const REC_SCREENS: { screen: Screen; key: RecKey; label: string }[] = [
   { screen: 'rec-transfers', key: 'transfers', label: 'Project transfers' },
 ];
 
-type Period = 'today' | 'week' | '30' | 'month' | 'all' | 'pick';
-const PERIODS: [Period, string][] = [['today', 'Today'], ['week', 'This week'], ['30', 'Last 30 days'], ['month', 'This month'], ['all', 'All time'], ['pick', 'Pick dates']];
+type Period = 'today' | 'week' | '30' | 'month' | 'all';
+const PERIODS: [Period, string][] = [['all', 'All time'], ['today', 'Today'], ['week', 'This week'], ['30', 'Last 30 days'], ['month', 'This month']];
 
 const Svg = ({ d, size = 20 }: { d: string; size?: number }) => <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true"><path d={d} fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 
@@ -37,11 +38,11 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
   const { day, itemById, go, site, company } = useData();
   const C = CFG[key];
   const [all, setAll] = useState<Doc[] | null>(null);
-  const [period, setPeriod] = useState<Period>(() => (takePeriod() as Period | null) ?? '30');
+  // Every list opens on all time, newest first. "Choose a date" (next to the search) narrows it to a day or a range.
+  const [period, setPeriod] = useState<Period>(() => { const p = takePeriod() as Period | null; return p && PERIODS.some(([k]) => k === p) ? p : 'all'; });
+  const [pick, setPick] = useState<Range>(null);
   const { add, modal } = useAddEntry();
   const cols = useCols(key);
-  const [from, setFrom] = useState(addDays(day, -29));
-  const [to, setTo] = useState(day);
   const [q, setQ] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
   const [menu, setMenu] = useState(false);
@@ -62,17 +63,17 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
         : key === 'returns' ? (d.ref_no === 'No card' ? 'Without a card' : card?.party ?? '') : `${d.kind === 'transfer_out' ? 'To' : 'From'} ${d.party ?? '…'}`;
       const where = key === 'transfers' ? (d.kind === 'transfer_out' ? '↗ Out' : '↙ In') : key === 'issued' ? d.gemba ?? subs.join(', ') : subs.join(', ') || card?.gemba || '';
       return { doc: d, ref: `${C.prefix}-${String(d.sys_no ?? i + 1).padStart(4, '0')}`, paper: d.ref_no ?? '', who, where };
-    }).reverse();
+    }).sort((a, b) => b.doc.doc_date.localeCompare(a.doc.doc_date) || b.doc.created_at.localeCompare(a.doc.created_at)); // latest date first
   }, [all, C, key]);
 
   const range = useMemo(() => {
+    if (pick) return [pick.from, pick.to];
     if (period === 'today') return [day, day];
     if (period === 'week') return [weekStart(day), day];
     if (period === '30') return [addDays(day, -29), day];
     if (period === 'month') return [day.slice(0, 8) + '01', day];
-    if (period === 'all') return ['2000-01-01', day];
-    return [from, to];
-  }, [period, day, from, to]);
+    return ['2000-01-01', day];
+  }, [period, day, pick]);
   const shown = useMemo(() => {
     const s = q.trim().toLowerCase();
     return rows.filter((r) => r.doc.doc_date >= range[0] && r.doc.doc_date <= range[1] && (!s || [r.ref, r.paper, r.who, r.where, ...r.doc.lines.map((l) => itemById.get(l.item_id)?.name ?? '')].some((x) => x.toLowerCase().includes(s))));
@@ -81,13 +82,14 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
   // Deliveries show where each came from once any came from Zoho.
   const src = key === 'deliveries' && rows.some((r) => r.doc.zoho_grn);
   const fromZoho = shown.filter((r) => r.doc.zoho_grn).length;
-  const periodLabel = PERIODS.find(([p]) => p === period)![1];
+  const periodLabel = pick ? rangeLabel(pick) : PERIODS.find(([p]) => p === period)![1];
+  const marks = useMemo(() => new Set(rows.map((r) => r.doc.doc_date)), [rows]);
 
   const addNew = () => add(key);
   const download = async () => {
     setMenu(false);
     const XLSX = await import('xlsx');
-    const head = [[`${company || 'Comex Builders'} · ${site}`], [C.title], [period === 'all' ? 'All time' : `${niceDate(range[0])} – ${niceDate(range[1])}`], []];
+    const head = [[`${company || 'Comex Builders'} · ${site}`], [C.title], [!pick && period === 'all' ? 'All time' : `${niceDate(range[0])} – ${niceDate(range[1])}`], []];
     const body = [['System ref', 'Date', C.paper, C.who, C.where, 'Item', 'Qty', 'Unit', 'Sub-phase'],
       ...shown.flatMap((r) => r.doc.lines.map((l) => { const it = itemById.get(l.item_id); return [r.ref, r.doc.doc_date, r.paper, r.who, r.where, it?.name ?? '', l.qty, it?.unit ?? '', l.subphase ?? '']; }))];
     const ws = XLSX.utils.aoa_to_sheet([...head, ...body]);
@@ -108,10 +110,13 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
         <h1>{C.title}</h1>
         <label className="recPeriod">
           <span className="sr">Period</span>
-          <select value={period} onChange={(e) => setPeriod(e.target.value as Period)}>{PERIODS.map(([p, l]) => <option key={p} value={p}>{l}</option>)}</select>
+          <select value={pick ? '' : period} onChange={(e) => { setPick(null); setPeriod(e.target.value as Period); }}>
+            {pick && <option value="">{rangeLabel(pick)}</option>}
+            {PERIODS.map(([p, l]) => <option key={p} value={p}>{l}</option>)}
+          </select>
         </label>
-        {period === 'pick' && <span className="recDates"><input type="date" className="input" value={from} max={to} onChange={(e) => setFrom(e.target.value)} aria-label="From" /> – <input type="date" className="input" value={to} min={from} max={day} onChange={(e) => setTo(e.target.value)} aria-label="To" /></span>}
         <span className="abGrow" />
+        <DateRange value={pick} onChange={setPick} max={day} marks={marks} />
         <label className="recSearch"><Icon name="search" size={16} /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Search ${C.title.toLowerCase()}`} aria-label={`Search ${C.title}`} /></label>
         {zohoOnly
           ? <ZohoRefresh />

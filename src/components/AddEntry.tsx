@@ -16,7 +16,7 @@ export const setPendingDir = (d: 'in' | 'out') => { pendingDir = d; };
 /** A records page opened from the check-in shows today's entries first. */
 let pendingPeriod: string | null = null;
 export const takePeriod = () => { const p = pendingPeriod; pendingPeriod = null; return p; };
-export function openRecords(go: (s: Screen) => void, key: StepKey, period = 'today') { pendingPeriod = period; go(REC_OF[key]); }
+export function openRecords(go: (s: Screen) => void, key: StepKey, period = 'all') { pendingPeriod = period; go(REC_OF[key]); }
 
 /** "Sent to or received from?" Two clear choices, then straight into the form. */
 export function DirectionPick({ onPick, onClose }: { onPick: (d: 'in' | 'out') => void; onClose: () => void }) {

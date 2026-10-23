@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { DateRange } from '../components/DateRange';
 import { createPortal } from 'react-dom';
 import { SiteLogo } from '../components/Brand';
 import { toast } from '../components/feedback';
@@ -155,7 +156,7 @@ export function StockTake() {
         <div className="entryTitle"><div><h1>{first ? 'First stock take' : 'New stock take'}</h1><p>{imported ? 'Numbers from your file are filled in. Check them, then save.' : 'Type each count as you go, or copy it from the sheet. Enter moves to the next item.'}</p></div></div>
       </header>
       <section className="panel stHeadBar">
-        <label className="field"><span>Date of the count</span><input className="input" type="date" value={head.date} max={day} onChange={(e) => setHead({ ...head, date: e.target.value || day })} /></label>
+        <div className="field"><span>Date of the count</span><DateRange single value={{ from: head.date, to: head.date }} max={day} onChange={(r) => setHead({ ...head, date: r?.from ?? day })} /></div>
         <TimeBoxes label="Start" value={head.start} onChange={(v) => setHead({ ...head, start: v })} glow={!head.start} />
         <TimeBoxes label="End" value={head.end} onChange={(v) => setHead({ ...head, end: v })} onDone={() => (rowsRef.current?.querySelector('input.stIn') as HTMLInputElement | null)?.focus()} />
         <label className="field stBy"><span>Counted by</span><input className="input" value={head.by} onChange={(e) => setHead({ ...head, by: e.target.value })} /></label>

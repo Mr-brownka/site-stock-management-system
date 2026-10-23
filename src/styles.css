@@ -2826,3 +2826,10 @@ button.tbChip.dpTop.catch { background: var(--accent-soft); color: #6B3D00; }
 .fbDel:hover { background: var(--red-soft); color: var(--error); border-color: #F4C7C2; }
 .fbDel:active { transform: scale(.92); }
 .fbDel:focus-visible { outline: 2px solid var(--error); outline-offset: 2px; }
+
+/* Choose a date (filters): same chip and calendar as the entry date, plus ranges. */
+.drChip.set { background: var(--ink); color: #fff; border-color: var(--ink); }
+.drClear { margin-left: 2px; width: 18px; height: 18px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 14px; line-height: 1; background: rgba(255,255,255,.18); cursor: pointer; }
+.drClear:hover { background: rgba(255,255,255,.32); }
+.dpQuick.wrap { flex-wrap: wrap; } .dpQuick.wrap button { flex: 1 1 auto; padding: 0 10px; }
+.dpDay.inRange { background: rgba(252,167,45,.16); border-radius: 8px; color: #FFD9A0; }
