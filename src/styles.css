@@ -2755,3 +2755,61 @@ button.tbChip.dpTop:hover { box-shadow: 0 0 0 1.5px var(--line) inset; }
 button.tbChip.dpTop.on { box-shadow: 0 0 0 1.5px var(--ink) inset; }
 button.tbChip.dpTop.catch { background: var(--accent-soft); color: #6B3D00; }
 .tbChip .dpCaret { font-size: 9px; opacity: .55; }
+
+/* ───────── Evening check-in: Start here, then one question at a time ───────── */
+.procStart { flex: none; align-self: center; margin-right: 12px; height: 40px; padding: 0 16px 0 18px; border: 0; border-radius: 12px; background: var(--ink); color: #fff;
+  font: 700 15px var(--body); display: inline-flex; align-items: center; gap: 8px; cursor: pointer; position: relative;
+  box-shadow: 0 8px 20px -8px rgba(27,33,32,.55); transition: transform .12s, box-shadow .2s; animation: startPulse 2.4s ease-out infinite; }
+.procStart:hover { transform: translateY(-1px); box-shadow: 0 12px 26px -8px rgba(27,33,32,.6); }
+.procStart:active { transform: scale(.97); }
+.procStart.cont { background: var(--accent); color: var(--ink); }
+@keyframes startPulse { 0% { box-shadow: 0 8px 20px -8px rgba(27,33,32,.55), 0 0 0 0 rgba(252,167,45,.55); } 70% { box-shadow: 0 8px 20px -8px rgba(27,33,32,.55), 0 0 0 12px rgba(252,167,45,0); } 100% { box-shadow: 0 8px 20px -8px rgba(27,33,32,.55), 0 0 0 0 rgba(252,167,45,0); } }
+
+.evBack { z-index: 150; background: rgba(15,20,19,.42); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+.evCard { position: relative; width: min(420px, 100%); background: #fff; border-radius: 24px; padding: 22px 22px 16px; display: flex; flex-direction: column; gap: 16px;
+  box-shadow: 0 40px 80px -24px rgba(10,14,13,.55); animation: evPop .34s var(--spring) both; }
+.evCard.md { width: min(500px, 100%); padding: 26px 26px 18px; }
+.evCard.lg { width: min(520px, 100%); padding: 26px 26px 18px; }
+@keyframes evPop { from { opacity: 0; transform: translateY(14px) scale(.95); } to { opacity: 1; transform: none; } }
+.evSteps { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; }
+.evSteps li { flex: 1; display: flex; flex-direction: column; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #A3ACA8; }
+.evSteps li i { height: 4px; border-radius: 4px; background: #E7EAE8; }
+.evSteps li.done { color: var(--ok); } .evSteps li.done i { background: var(--ok); }
+.evSteps li.now { color: var(--ink); } .evSteps li.now i { background: var(--accent); box-shadow: 0 0 0 3px rgba(252,167,45,.2); }
+.evAsk { display: flex; flex-direction: column; gap: 14px; }
+.evKick { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; color: var(--accent-dark); }
+.evAsk h2 { margin: 0; font-family: var(--display); font-weight: 700; font-size: 30px; line-height: 1.04; letter-spacing: -.01em; color: var(--ink); }
+.evCard.md .evAsk h2, .evCard.lg .evAsk h2 { font-size: 34px; }
+.evChoices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.evChoices.three { grid-template-columns: 1fr 1fr; } .evChoices.three .evNo { grid-column: 1 / -1; }
+.evYes, .evNo { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 16px 16px 14px; border-radius: 16px; font: inherit; cursor: pointer; transition: transform .12s, box-shadow .2s, background .15s; }
+.evYes { background: var(--ink); color: #fff; border: 0; box-shadow: 0 10px 22px -10px rgba(27,33,32,.6); }
+.evYes svg { position: absolute; right: 14px; top: 16px; opacity: .7; transition: transform .15s; }
+.evYes:hover svg { transform: translateX(3px); opacity: 1; }
+.evNo { background: #fff; color: var(--ink); border: 1.5px solid #D5DAD7; }
+.evNo:hover { border-color: var(--ink); }
+.evYes:active, .evNo:active { transform: scale(.98); }
+.evYes b, .evNo b { font-size: 17px; }
+.evYes small { font-size: 13px; color: #A9B3AF; } .evNo small { font-size: 13px; color: var(--muted); }
+.evYes:focus-visible, .evNo:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.evKeys { font-size: 12px; color: #9AA39F; } .evKeys kbd { font: 600 11px var(--mono); padding: 1px 6px; border-radius: 5px; border: 1px solid #D5DAD7; background: #F6F7F6; }
+.evSum { display: flex; flex-direction: column; border: 1px solid var(--line-2); border-radius: 14px; overflow: hidden; }
+.evSum div { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-bottom: 1px solid var(--line-2); color: var(--muted); }
+.evSum div:last-child { border-bottom: 0; }
+.evSum div span { flex: 1; color: var(--ink); font-weight: 600; }
+.evSum div b { font: 600 13px var(--mono); }
+.evSum div.has b { color: var(--ok); }
+.evGo { height: 54px; border: 0; border-radius: 14px; background: var(--accent); color: var(--ink); font: 800 17px var(--body); display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer; box-shadow: 0 12px 24px -10px rgba(252,167,45,.8); transition: transform .12s; }
+.evGo:hover { transform: translateY(-1px); } .evGo:disabled { opacity: .6; }
+.evAsk .btn.link { align-self: center; }
+.evQuit { align-self: center; border: 0; background: none; color: #9AA39F; font: 600 13px var(--body); cursor: pointer; padding: 4px 8px; }
+.evQuit:hover { color: var(--ink); }
+@media (max-width: 640px) {
+  .evBack { place-items: end center; padding: 10px; }
+  .evCard, .evCard.md, .evCard.lg { width: 100%; padding: 20px 18px 14px; animation-name: evUp; }
+  @keyframes evUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: none; } }
+  .evAsk h2, .evCard.md .evAsk h2, .evCard.lg .evAsk h2 { font-size: 28px; }
+  .evChoices { grid-template-columns: 1fr; }
+  .procStart { height: 36px; padding: 0 12px; font-size: 14px; margin-right: 8px; }
+}
+@media (prefers-reduced-motion: reduce) { .evCard, .procStart { animation: none; } }

@@ -3,6 +3,7 @@ import { checkLines, fmt, newLine, type LineDraft } from '../components/ui';
 import { LineTable } from '../components/LineTable';
 import { EntryHead } from '../components/StepShell';
 import { openRecords } from '../components/AddEntry';
+import { entrySaved } from '../components/EveningFlow';
 import { toast } from '../components/feedback';
 import { api } from '../lib/api';
 import { useData } from '../lib/store';
@@ -45,7 +46,7 @@ export function Returns() {
         const ls = c.lines.filter((l) => Number(back[l.id] || 0) > 0).map((l) => ({ item_id: l.item_id, qty: Number(back[l.id]), return_of: l.id, subphase: l.subphase }));
         if (ls.length) await api.saveDocument({ kind: 'return', doc_date: day, ref_no: c.ref_no }, ls);
       }
-      await refresh(); markStep('returns', 'done'); setBack({}); toast('Saved to returned to store'); openRecords(go, 'returns');
+      await refresh(); markStep('returns', 'done'); setBack({}); toast('Saved to returned to store'); entrySaved('returns', day, go);
     } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   };
 
@@ -55,7 +56,7 @@ export function Returns() {
     setBusy(true); setErr('');
     try {
       await api.saveDocument({ kind: 'return', doc_date: day, ref_no: 'No card' }, loose.filter((l) => l.item).map((l) => ({ item_id: l.item!.id, qty: Number(l.qty) })));
-      await refresh(); markStep('returns', 'done'); setLoose([newLine()]); toast('Saved to returned to store'); openRecords(go, 'returns');
+      await refresh(); markStep('returns', 'done'); setLoose([newLine()]); toast('Saved to returned to store'); entrySaved('returns', day, go);
     } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   };
 

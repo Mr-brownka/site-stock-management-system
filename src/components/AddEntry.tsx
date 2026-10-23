@@ -11,6 +11,7 @@ export const REC_OF: Record<StepKey, Screen> = { deliveries: 'rec-deliveries', i
 /** The direction picked in the transfer pop-up, read once by the transfer form. */
 let pendingDir: 'in' | 'out' | null = null;
 export const takeDir = () => { const d = pendingDir; pendingDir = null; return d; };
+export const setPendingDir = (d: 'in' | 'out') => { pendingDir = d; };
 
 /** A records page opened from the check-in shows today's entries first. */
 let pendingPeriod: string | null = null;

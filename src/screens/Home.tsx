@@ -18,6 +18,7 @@ import { ADD_NOUN } from '../components/StepShell';
 import type { StepKey, StepState } from '../lib/types';
 import { openRecords, useAddEntry } from '../components/AddEntry';
 import { useZohoDeliveries, ZohoTag } from '../components/Zoho';
+import { startEvening, useFlow } from '../components/EveningFlow';
 
 const STEP_ICON: Record<string, string> = { deliveries: 'truck', issued: 'card', returns: 'back', transfers: 'swap' };
 
@@ -59,6 +60,11 @@ export function Home() {
   const done = states.filter((s) => s !== 'todo').length;
   const first = user.name.split(' ')[0];
   const [showEntries, setShowEntries] = useState(false);
+  // The evening check-in starts at the withdrawal cards (deliveries come in by themselves or are added any time).
+  const flowStage = useFlow(day);
+  const guided = !submission && !locked;
+  const startHere: StepKey = 'issued';
+  const start = () => startEvening(day, go, docsToday.some((d) => d.kind === 'issue'));
   const noneToday = (k: StepKey) => { const st = STEPS.find((x) => x.key === k)!; markStep(k, 'none'); toast(`${st.label}: nothing ${catchUp ? 'that day' : 'today'}`); };
   useSignal('entries', () => setShowEntries(true));
   const movedToday = new Set(docsToday.flatMap((d) => d.lines.map((l) => l.item_id))).size;
@@ -70,7 +76,7 @@ export function Home() {
     if (states[i] === 'done') return { text: 'Done', detail: `${ds.length} entr${ds.length === 1 ? 'y' : 'ies'} · ${lines} line${lines === 1 ? '' : 's'}`, cls: 'done' };
     if (s.key === 'deliveries' && zohoOnly) return { text: '', detail: ds.length ? `${ds.length} came in from Zoho today` : 'Received in Zoho · they appear here by themselves', cls: 'zoho' };
     if (states[i] === 'none') return { text: catchUp ? 'None that day' : 'None today', detail: 'Nothing to enter', cls: 'none' };
-    if (!submission && firstTodo?.key === s.key) return { text: 'Next', detail: ds.length ? `${ds.length} entered during the day` : s.desc, cls: 'next' };
+    if (!submission && (!locked ? s.key === 'issued' : firstTodo?.key === s.key)) return { text: 'Next', detail: ds.length ? `${ds.length} entered during the day` : s.desc, cls: 'next' };
     return { text: 'Not started', detail: ds.length ? `${ds.length} entered during the day` : s.desc, cls: '' };
   };
 
@@ -206,15 +212,20 @@ export function Home() {
                 <button className="procMain" onClick={() => openRecords(go, s.key)} title={`See ${s.label.toLowerCase()}`}>
                   <span className="procDot">{st.cls === 'done' ? <Icon name="check" size={16} /> : st.cls === 'none' || st.cls === 'zoho' ? '–' : s.n}</span>
                   <span className="procIc"><Icon name={STEP_ICON[s.key]} size={18} /></span>
-                  <span className="procText"><b>{s.label}{!submission && !locked && firstTodo?.key === s.key && <span className="startHere">Start here</span>}</b><span>{st.detail}</span></span>
+                  <span className="procText"><b>{s.label}</b><span>{st.detail}</span></span>
                 </button>
+                {guided && s.key === startHere && (
+                  <button className={`procStart ${flowStage ? 'cont' : ''}`} onClick={start} title="Cards, returns, transfers, then submit: one question at a time">
+                    {flowStage ? 'Continue' : 'Start here'}<Icon name="arrow" size={16} />
+                  </button>
+                )}
                 <span className="procActs">
-                  {st.cls === 'zoho' ? <ZohoTag /> : states[i] === 'todo' && !submission
+                  {st.cls === 'zoho' ? <ZohoTag /> : guided && s.key === startHere ? null : guided ? <span className={`stPill ${st.cls === 'done' ? 'ok' : 'idle'}`}>{st.cls === 'done' ? 'Done' : st.cls === 'none' ? st.text : 'Waiting'}</span> : states[i] === 'todo' && !submission
                     ? <button className="procNone" onClick={() => noneToday(s.key)} title={`Nothing for ${s.label.toLowerCase()} ${catchUp ? 'that day' : 'today'}`}>None today</button>
                     : states[i] === 'none' && !submission && !(s.key === 'deliveries' && zohoOnly)
                       ? <button className="stPill idle asBtn" onClick={() => markStep(s.key, 'todo')} title="Undo">{st.text}</button>
                       : <span className={`stPill ${st.cls === 'done' ? 'ok' : st.cls === 'next' ? 'warn' : 'idle'}`}>{st.text}</span>}
-                  {canAdd
+                  {guided ? null : canAdd
                     ? <button className="procAdd" onClick={() => add(s.key)} aria-label={`Add ${ADD_NOUN[s.key]}`} title={`Add ${ADD_NOUN[s.key]}`}><Icon name="plus" size={18} /></button>
                     : <span className="procAdd off" title="Deliveries come in from Zoho" aria-hidden="true" />}
                 </span>

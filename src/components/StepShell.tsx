@@ -1,4 +1,6 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { useSignal } from '../lib/signals';
+import { entrySaved } from './EveningFlow';
 import { STEPS, useData } from '../lib/store';
 import type { Doc, StepKey } from '../lib/types';
 import { toast } from './feedback';
@@ -33,19 +35,22 @@ export function StepShell({ step, renderForm, sub }: {
   question?: string; hint?: string; another?: string; formTitle?: string; tone?: 'out' | 'in';
   docTone?: (d: Doc) => '' | 'out' | 'in'; docTitle?: (d: Doc) => string;
 }) {
-  const { markStep, refresh, go } = useData();
+  const { markStep, refresh, go, day } = useData();
+  // The evening flow asks for "another one": the form starts again, empty.
+  const [formKey, setFormKey] = useState(0);
+  useSignal<StepKey>('flow-again', (k) => { if (k === step) setFormKey((n) => n + 1); });
   const meta = STEPS.find((s) => s.key === step)!;
   // With Zoho on, deliveries are received in Zoho only: there is no form to fill here.
   const zohoOnly = useZohoDeliveries() && step === 'deliveries';
   useEffect(() => { if (zohoOnly) openRecords(go, step); }, [zohoOnly, go, step]);
 
-  const saved = async () => { await refresh(); markStep(step, 'done'); toast(`Saved to ${meta.label.toLowerCase()}`); openRecords(go, step); };
+  const saved = async () => { await refresh(); markStep(step, 'done'); toast(`Saved to ${meta.label.toLowerCase()}`); entrySaved(step, day, go); };
   const again = async () => { await refresh(); markStep(step, 'done'); toast('Saved · ready for the next one'); };
 
   return (
     <div className="entryPage">
       <EntryHead step={step} sub={sub} />
-      {!zohoOnly && renderForm(saved, again)}
+      {!zohoOnly && <div key={formKey} className="formSlot">{renderForm(saved, again)}</div>}
     </div>
   );
 }

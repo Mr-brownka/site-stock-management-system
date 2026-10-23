@@ -7,6 +7,7 @@ import { signal, useSignal } from '../lib/signals';
 import { ComexLogo, SiteLogo } from './Brand';
 import { ZohoAutoSync, ZohoStatusLine } from './Zoho';
 import { DatePick } from './DatePick';
+import { EveningFlow } from './EveningFlow';
 import { Icon, PulseDot, Ring, useMinutesToClose } from './fx';
 import { StartTraining } from './Training';
 import { CommandPalette } from './CommandPalette';
@@ -213,6 +214,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
           </div>
         </header>
         <div className="screen" key={screen}>{children}</div>
+        <EveningFlow screen={screen} />
       </div>
 
       {TABBAR.includes(screen) && (
