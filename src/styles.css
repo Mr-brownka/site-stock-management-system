@@ -2748,3 +2748,10 @@ body.colDrag, body.colDrag * { cursor: col-resize !important; user-select: none 
 
 .dpScrim { display: none; position: fixed; inset: 0; z-index: 199; background: rgba(15,20,19,.35); animation: fadeIn .2s ease-out both; }
 @media (max-width: 640px) { .dpScrim { display: block; } }
+
+/* The date in the top bar opens the same calendar. */
+button.tbChip.dpTop { border: 0; font: inherit; cursor: pointer; gap: 6px; transition: background .15s, box-shadow .15s; }
+button.tbChip.dpTop:hover { box-shadow: 0 0 0 1.5px var(--line) inset; }
+button.tbChip.dpTop.on { box-shadow: 0 0 0 1.5px var(--ink) inset; }
+button.tbChip.dpTop.catch { background: var(--accent-soft); color: #6B3D00; }
+.tbChip .dpCaret { font-size: 9px; opacity: .55; }

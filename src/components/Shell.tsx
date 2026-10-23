@@ -6,6 +6,7 @@ import { longDate, weekdayName } from '../lib/dates';
 import { signal, useSignal } from '../lib/signals';
 import { ComexLogo, SiteLogo } from './Brand';
 import { ZohoAutoSync, ZohoStatusLine } from './Zoho';
+import { DatePick } from './DatePick';
 import { Icon, PulseDot, Ring, useMinutesToClose } from './fx';
 import { StartTraining } from './Training';
 import { CommandPalette } from './CommandPalette';
@@ -205,7 +206,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
           <div className="tbChips">
             {syncing && <span className="tbChip sync" role="status"><span className="syncDot" aria-hidden="true" />Updating…</span>}
             {projectWeek != null && <span className="tbChip" title="Project week">Week {projectWeek}</span>}
-            <span className="tbChip"><Icon name="calendar" size={14} />{dateChip}</span>
+            <DatePick trigger="top" label={dateChip} />
             {!catchUp && <span className={`tbChip status ${submission ? 'ok' : min <= 0 ? 'late' : urgent ? 'soon' : ''}`}>
               {submission ? <><Icon name="check" size={14} />Submitted</> : <>{min <= 0 ? <PulseDot /> : <Icon name="clock" size={14} />}{closeLabel(min).replace('Register ', '')}</>}
             </span>}

@@ -25,7 +25,7 @@ function monthGrid(m: string): (string | null)[] {
 
 /** "Choose a date": the small chip on an entry page. Opens a calendar to enter a paper for another day
  *  (a card that came in late, a photo that was unclear). Picking today goes back to normal. */
-export function DatePick() {
+export function DatePick({ trigger = 'chip', label }: { trigger?: 'chip' | 'top'; label?: string } = {}) {
   const { day, realToday, catchUp, startCatchUp, endCatchUp, recent, pendingDays, submission } = useData();
   const [open, setOpen] = useState(false);
   const [month, setMonth] = useState(ym(day));
@@ -72,13 +72,19 @@ export function DatePick() {
 
   return (
     <div className="dpWrap" ref={wrap}>
-      <button type="button" className={`entryDay dpChip ${catchUp ? 'catch' : ''} ${open ? 'on' : ''}`} onClick={() => setOpen((v) => !v)} aria-haspopup="dialog" aria-expanded={open}
-        title={catchUp ? `Entering for ${niceDate(day)}` : 'Enter this for another day'}>
-        <Icon name="calendar" size={14} />
-        {catchUp ? niceDate(day) : 'Choose a date'}
-        {submission ? <span className="dpLate">day submitted</span> : null}
-        <span className="dpCaret" aria-hidden="true">▾</span>
-      </button>
+      {trigger === 'top' ? (
+        <button type="button" className={`tbChip dpTop ${catchUp ? 'catch' : ''} ${open ? 'on' : ''}`} onClick={() => setOpen((v) => !v)} aria-haspopup="dialog" aria-expanded={open} title="Change the working date">
+          <Icon name="calendar" size={14} />{label ?? niceDate(day)}<span className="dpCaret" aria-hidden="true">▾</span>
+        </button>
+      ) : (
+        <button type="button" className={`entryDay dpChip ${catchUp ? 'catch' : ''} ${open ? 'on' : ''}`} onClick={() => setOpen((v) => !v)} aria-haspopup="dialog" aria-expanded={open}
+          title={catchUp ? `Entering for ${niceDate(day)}` : 'Enter this for another day'}>
+          <Icon name="calendar" size={14} />
+          {catchUp ? niceDate(day) : 'Choose a date'}
+          {submission ? <span className="dpLate">day submitted</span> : null}
+          <span className="dpCaret" aria-hidden="true">▾</span>
+        </button>
+      )}
       {open && createPortal(<>
         <div className="dpScrim" aria-hidden="true" />
         <div ref={pop} className="dpPop" role="dialog" aria-label="Choose the date for this entry" style={pos ? { top: pos.top, right: pos.right } : undefined}>
