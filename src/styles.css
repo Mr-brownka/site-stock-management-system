@@ -2651,16 +2651,18 @@ body.colDrag, body.colDrag * { cursor: col-resize !important; user-select: none 
 }
 @media (max-width: 1023px) { .shell.hasTab .actionBar { bottom: calc(72px + env(safe-area-inset-bottom)); } }
 
-/* Zoho Books refresh: logo on a white chip, arrows that spin while Zoho is being checked. */
+/* Zoho Books refresh: a clean white button with Zoho's own logo; the arrows spin while Zoho is being checked. */
 .zbMark { display: block; object-fit: contain; }
-.zohoRefresh { gap: 10px; }
-.zohoRefresh .zrLogo { width: 26px; height: 26px; border-radius: 8px; background: #fff; display: grid; place-items: center; flex: none; }
-.zohoRefresh .zrLogo .zohoTag b { height: 18px; padding: 0 4px; font-size: 9px; }
-.zohoRefresh .zrSpin { display: inline-grid; place-items: center; opacity: .75; }
-.zohoRefresh.busy { cursor: progress; }
-.zohoRefresh.busy .zrSpin { animation: zrSpin .8s linear infinite; opacity: 1; }
+.recNew.zohoRefresh { background: #fff; color: var(--ink); border: 1.5px solid #D6DCE6; padding: 0 14px 0 12px; gap: 9px; box-shadow: 0 1px 2px rgba(18,23,22,.06); }
+.recNew.zohoRefresh:hover { border-color: #3E7CC4; box-shadow: 0 6px 16px rgba(62,124,196,.18); }
+.recNew.zohoRefresh > span { width: auto; height: auto; background: none; border-radius: 0; color: inherit; }
+.recNew.zohoRefresh > .zrSpin { color: #3E7CC4; }
+.zohoRefresh .zrLogo { display: inline-grid; place-items: center; flex: none; }
+.zohoRefresh .zrSpin { display: inline-grid; place-items: center; color: #3E7CC4; margin-left: 2px; }
+.zohoRefresh.busy { cursor: progress; border-color: #3E7CC4; background: #F3F8FD; }
+.zohoRefresh.busy .zrSpin { animation: zrSpin .8s linear infinite; }
 .zohoRefresh:disabled { opacity: 1; }
-.btn.zohoRefresh .zrLogo { background: transparent; width: auto; height: auto; }
+.btn.zohoRefresh { gap: 8px; }
 @keyframes zrSpin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .zohoRefresh.busy .zrSpin { animation-duration: 2.4s; } }
 

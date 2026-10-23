@@ -20,7 +20,7 @@ const ago = (iso: string | null) => {
 export function ZohoBooksMark({ size = 20 }: { size?: number }) {
   const [ok, setOk] = useState(true);
   return ok
-    ? <img className="zbMark" src="/brand/zoho-books.png" alt="Zoho Books" width={size} height={size} onError={() => setOk(false)} />
+    ? <img className="zbMark" src="/brand/zoho-books.png" alt="" aria-hidden="true" width={size} height={size} onError={() => setOk(false)} />
     : <span className="zohoTag"><b>ZOHO</b></span>;
 }
 
@@ -104,8 +104,8 @@ export function ZohoRefresh({ className = 'recNew zohoRefresh', label = 'Refresh
   const busy = useZohoSyncing();
   return (
     <button className={`${className} ${busy ? 'busy' : ''}`} onClick={checkZohoNow} disabled={busy} aria-busy={busy}
-      title="Bring in goods received in Zoho Books">
-      <span className="zrLogo"><ZohoBooksMark size={18} /></span>
+      title="Bring in goods received in Zoho Books" aria-label={busy ? "Refreshing from Zoho Books" : "Refresh from Zoho Books"}>
+      <span className="zrLogo"><ZohoBooksMark size={20} /></span>
       {busy ? 'Refreshing…' : label}
       <span className="zrSpin" aria-hidden="true"><Icon name="refresh" size={16} /></span>
     </button>
