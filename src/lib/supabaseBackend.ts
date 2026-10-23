@@ -194,12 +194,26 @@ export function supabaseBackend(url: string, key: string): Backend {
   const sb: SupabaseClient = createClient(url, key, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
   // The signed-in person's own site. Admins can read every site, so everyday screens filter by this.
   let siteCache: Promise<string> | null = null;
-  const mySite = () => (siteCache ??= (async () => {
-    const { data: u } = await sb.auth.getUser();
-    const { data } = await sb.from('profiles').select('site_id').eq('id', u.user?.id ?? '').maybeSingle();
+  // Which site the signed-in person belongs to. Only a real answer is kept: a failed lookup is retried next time
+  // and raises an error, instead of quietly pointing at "no site" (which made the store look empty and
+  // opened "Set up your store" until the page was refreshed).
+  let siteUser: string | null = null;
+  const lookupSite = async () => {
+    const { data: ses } = await sb.auth.getSession();
+    let uid = ses.session?.user.id;
+    if (!uid) { const { data: u } = await sb.auth.getUser(); uid = u.user?.id; }
+    if (!uid) throw new Error('Your sign-in has expired. Sign in again.');
+    const { data, error } = await sb.from('profiles').select('site_id').eq('id', uid).maybeSingle();
+    if (error) throw new Error(error.message);
+    siteUser = uid;
     return (data?.site_id as string) ?? '00000000-0000-0000-0000-000000000000';
-  })());
-  sb.auth.onAuthStateChange((event) => { if (event === 'PASSWORD_RECOVERY') recovery = true; if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') siteCache = null; });
+  };
+  const mySite = () => (siteCache ??= lookupSite().catch((e) => { siteCache = null; throw e; }));
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === 'PASSWORD_RECOVERY') recovery = true;
+    // The browser re-confirms the sign-in now and then (e.g. on coming back to the tab): same person, same site.
+    if (event === 'SIGNED_OUT' || (event === 'SIGNED_IN' && session?.user.id !== siteUser)) siteCache = null;
+  });
 
   return {
     mode: 'live',

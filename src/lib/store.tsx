@@ -109,8 +109,13 @@ export function DataProvider({ user, go, signOut, openAdmin, children }: { user:
   useEffect(() => { setMarks(readMarks(day)); }, [day]);
   const [error, setError] = useState('');
 
+  const hadStock = useRef(false);
   const refresh = useCallback(async () => {
     const [b, r, s] = await Promise.all([api.balances(), api.documents(addDays(realToday, -27), realToday), api.submission(day)]);
+    // A store that had stock a moment ago can't suddenly have none: that is a hiccup in loading, not an empty store.
+    // Keep what is shown (the next refresh corrects it) rather than sending the person to "Set up your store".
+    if (!b.length && hadStock.current) return;
+    hadStock.current = b.length > 0;
     setBalances(b); setRecent(r); setDocs(r.filter((x) => x.doc_date === day)); setSubmission(s);
   }, [day, realToday]);
 
@@ -130,7 +135,7 @@ export function DataProvider({ user, go, signOut, openAdmin, children }: { user:
     let cached: Cache | null = null;
     if (api.mode === 'live') { try { cached = JSON.parse(localStorage.getItem(cacheKey) || 'null'); } catch { cached = null; } }
     if (cached?.items?.length) {
-      setSite(cached.site); setCompany(cached.company); setItems(cached.items); setBalances(cached.balances);
+      setSite(cached.site); setCompany(cached.company); setItems(cached.items); setBalances(cached.balances); hadStock.current = cached.balances.length > 0;
       if (cached.day === day) { setRecent(cached.recent); setDocs(cached.recent.filter((x) => x.doc_date === day)); setSubmission(cached.submission); }
       setSyncing(true);
       bootDone({ quick: true });
