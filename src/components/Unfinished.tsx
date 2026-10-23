@@ -71,8 +71,8 @@ export function UnfinishedCard({ chip }: { chip?: boolean } = {}) {
     go(st.screen);
   };
   const discard = async (d: Draft) => {
-    if (!(await ask({ title: 'Discard this draft?', body: <p>{d.label}. Nothing from it was counted in stock, so nothing else changes.</p>, yes: 'Discard draft', tone: 'danger' }))) return;
-    await api.deleteDraft(d.id); await refreshUnfinished(); toast('Draft discarded');
+    if (!(await ask({ title: 'Delete this draft?', body: <p>{d.label}. Nothing from it was counted in stock, so nothing else changes.</p>, yes: 'Delete draft', tone: 'danger' }))) return;
+    await api.deleteDraft(d.id); await refreshUnfinished(); toast('Draft deleted');
   };
   const rows = [
     ...unconfirmed.map((d) => {
@@ -90,7 +90,7 @@ export function UnfinishedCard({ chip }: { chip?: boolean } = {}) {
       <div key={d.id} className="fbRow draft">
         <span className="fbIc" aria-hidden="true"><Icon name="list" size={14} /></span>
         <div className="fbText"><b className="fbMiss">Draft not finished</b><span className="fbWhat">{d.label} · {shortDay(d.doc_date)} · not counted in stock</span></div>
-        <span className="fbActs"><button className="btn link" onClick={() => discard(d)}>Discard</button><button className="btn sm" onClick={() => openIt(d)}>Finish</button></span>
+        <span className="fbActs"><button className="fbDel" onClick={() => discard(d)} aria-label={`Delete draft: ${d.label}`} title="Delete this draft"><Icon name="trash" size={17} /></button><button className="btn sm" onClick={() => openIt(d)}>Finish</button></span>
       </div>
     )),
   ];

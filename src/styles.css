@@ -2820,3 +2820,9 @@ button.tbChip.dpTop.catch { background: var(--accent-soft); color: #6B3D00; }
 .procRow.dim .procDot { background: #EEF0EE !important; color: #9AA39F !important; border-color: #E1E4E1 !important; animation: none !important; }
 .procRow.dim .procActs .stPill, .procRow.dim .procActs .zohoTag { opacity: .55; filter: grayscale(1); }
 .procRow.dim:hover .procMain { opacity: .7; }
+
+/* Delete a draft: a quiet bin that turns red on hover. */
+.fbDel { width: 36px; height: 36px; flex: none; border-radius: 10px; border: 1px solid transparent; background: transparent; color: #8A9490; display: inline-grid; place-items: center; cursor: pointer; transition: background .15s, color .15s, border-color .15s, transform .12s; }
+.fbDel:hover { background: var(--red-soft); color: var(--error); border-color: #F4C7C2; }
+.fbDel:active { transform: scale(.92); }
+.fbDel:focus-visible { outline: 2px solid var(--error); outline-offset: 2px; }
