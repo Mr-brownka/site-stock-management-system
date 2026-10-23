@@ -2813,3 +2813,10 @@ button.tbChip.dpTop.catch { background: var(--accent-soft); color: #6B3D00; }
   .procStart { height: 36px; padding: 0 12px; font-size: 14px; margin-right: 8px; }
 }
 @media (prefers-reduced-motion: reduce) { .evCard, .procStart { animation: none; } }
+
+/* Deliveries sits outside the evening steps (Zoho or added any time): shown greyed out. */
+.procRow.dim { background: transparent !important; }
+.procRow.dim .procMain { opacity: .45; filter: grayscale(1); }
+.procRow.dim .procDot { background: #EEF0EE !important; color: #9AA39F !important; border-color: #E1E4E1 !important; animation: none !important; }
+.procRow.dim .procActs .stPill, .procRow.dim .procActs .zohoTag { opacity: .55; filter: grayscale(1); }
+.procRow.dim:hover .procMain { opacity: .7; }

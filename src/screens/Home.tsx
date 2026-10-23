@@ -208,7 +208,7 @@ export function Home() {
             const st = status(i);
             const canAdd = !(s.key === 'deliveries' && zohoOnly);
             return (
-              <div key={s.key} className={`procRow ${st.cls}`}>
+              <div key={s.key} className={`procRow ${st.cls} ${s.key === 'deliveries' ? 'dim' : ''}`}>
                 <button className="procMain" onClick={() => openRecords(go, s.key)} title={`See ${s.label.toLowerCase()}`}>
                   <span className="procDot">{st.cls === 'done' ? <Icon name="check" size={16} /> : st.cls === 'none' || st.cls === 'zoho' || s.key === 'deliveries' ? '–' : i /* deliveries is not numbered: 1 issued, 2 returns, 3 transfers */}</span>
                   <span className="procIc"><Icon name={STEP_ICON[s.key]} size={18} /></span>
