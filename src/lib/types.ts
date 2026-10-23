@@ -112,6 +112,10 @@ export interface ZohoLogRow { zoho_receive_id: string; site_id: string | null; p
   status: 'imported' | 'linked' | 'waiting' | 'no_project' | 'other_site' | 'before_start'; detail: string | null; lines: { name: string; unit: string | null; qty: number }[] | null; updated_at: string }
 /** One Zoho check: how many receives Zoho listed, and what came of them. */
 export interface ZohoRun { site_id: string | null; at: string; listed: number; recent: number; imported: number; waiting: number; linked: number; other_site: number; note: string | null }
+/** Incoming deliveries (Zoho purchase orders) for the dashboard. */
+export interface IncomingLine { name: string; unit: string | null; ordered: number; received: number }
+export interface IncomingOrder { id: string; po: string; vendor: string | null; date: string; expected: string | null; status: string; lines: IncomingLine[]; lastIn?: string | null; grns?: { grn: string; date: string; lines: string }[] }
+export interface Incoming { connected: boolean; error?: string; checked_at?: string; today?: string; week?: { from: string; to: string }; next?: { from: string; to: string }; thisWeek?: IncomingOrder[]; nextWeek?: IncomingOrder[]; part?: IncomingOrder[] }
 export interface ZohoItemMatch { zoho_item_id: string; item_id: number | null; zoho_name: string | null; zoho_unit: string | null }
 export interface ZohoConnection { user_id: string; full_name: string | null; site_id: string | null; zoho_email: string | null; last_sync_at: string | null; last_error: string | null; imported: number }
 
@@ -260,6 +264,8 @@ export interface Backend {
   /** Sends an email from the signed-in person's Zoho Mail. */
   sendMail(m: { to: string[]; cc?: string[]; subject: string; html?: string; text?: string; attachment?: { name: string; base64: string } }): Promise<{ ok?: boolean; error?: string; reconnect?: boolean; from?: string }>;
   zohoSync(): Promise<ZohoSyncResult>;
+  /** What is expected this week and next, and what is still owed on part deliveries (from Zoho). */
+  incoming(): Promise<Incoming>;
   zohoDisconnect(): Promise<void>;
   checkDelivery(docId: string): Promise<void>;
   /** Entries saved with details still to confirm, newest first. */

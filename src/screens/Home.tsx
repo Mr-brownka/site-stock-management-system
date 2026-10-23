@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Icon, Num, PulseDot, greeting, useMinutesToClose } from '../components/fx';
-import { signal, useSignal } from '../lib/signals';
+import { useSignal } from '../lib/signals';
 import { closeLabel } from '../components/Shell';
 import { api, progressStore } from '../lib/api';
-import { Dashboard } from './Dashboard';
 import { fmt } from '../components/ui';
 import { longDate, niceDate, periodRange, today, weekday, weekdayName } from '../lib/dates';
 import { consumption } from '../lib/consumption';
@@ -17,14 +16,16 @@ import { ask, toast } from '../components/feedback';
 import { ADD_NOUN } from '../components/StepShell';
 import type { StepKey, StepState } from '../lib/types';
 import { openRecords, useAddEntry } from '../components/AddEntry';
-import { useZohoDeliveries, ZohoTag } from '../components/Zoho';
-import { startEvening, useFlow } from '../components/EveningFlow';
+import { useZohoDeliveries } from '../components/Zoho';
+import { openItems } from './Dashboard';
+import { continueEvening, startEvening, useFlow } from '../components/EveningFlow';
+import { IncomingPanel, useOnTheWay } from '../components/Incoming';
+import { Ring, useIsPhone } from '../components/Ring';
 
-const STEP_ICON: Record<string, string> = { deliveries: 'truck', issued: 'card', returns: 'back', transfers: 'swap' };
 
 export function Home() {
   const { day, user, balances, docsToday, stepState, submission, refresh, go, signOut, lowItems, daysLeft, itemById, recent,
-    realToday, catchUp, pendingDays, startCatchUp, endCatchUp, closeDay, refreshPending, drafts, markStep } = useData();
+    realToday, catchUp, pendingDays, startCatchUp, endCatchUp, closeDay, refreshPending, drafts } = useData();
   const zohoOnly = useZohoDeliveries();
   const { add, modal: addModal } = useAddEntry();
   // With Zoho on, deliveries come in by themselves: that step never waits for an answer.
@@ -63,9 +64,23 @@ export function Home() {
   // The evening check-in starts at the withdrawal cards (deliveries come in by themselves or are added any time).
   const flowStage = useFlow(day);
   const guided = !submission && !locked;
-  const startHere: StepKey = 'issued';
   const start = () => startEvening(day, go, docsToday.some((d) => d.kind === 'issue'));
-  const noneToday = (k: StepKey) => { const st = STEPS.find((x) => x.key === k)!; markStep(k, 'none'); toast(`${st.label}: nothing ${catchUp ? 'that day' : 'today'}`); };
+  // Evening mode: from 2 hours before the register closes (or once started) the process moves to the top and glows.
+  const phone = useIsPhone();
+  const evening = guided && (min <= 120 || done > 0 || !!flowStage);
+  const procTop = phone || evening;
+  const inStore = balances.filter((b) => b.balance > 0).length;
+  // This week's use by day (Mon–Sun): what was issued, for the little bar chart.
+  const { weekBars, todayIdx } = useMemo(() => {
+    const from = periodRange('week', day).from;
+    const bars = Array(7).fill(0) as number[];
+    recent.filter((d) => d.kind === 'issue' && d.doc_date >= from && d.doc_date <= day).forEach((d) => {
+      const i = (new Date(d.doc_date + 'T00:00:00Z').getUTCDay() + 6) % 7; bars[i] += d.lines.reduce((a, l) => a + Number(l.qty), 0);
+    });
+    return { weekBars: bars, todayIdx: (new Date(day + 'T00:00:00Z').getUTCDay() + 6) % 7 };
+  }, [recent, day]);
+  const onWay = useOnTheWay();
+  const coming = lowItems.map((b) => [b.name, onWay.get(b.name.toLowerCase())] as [string, string | undefined]).filter((x): x is [string, string] => !!x[1]).slice(0, 3);
   useSignal('entries', () => setShowEntries(true));
   const movedToday = new Set(docsToday.flatMap((d) => d.lines.map((l) => l.item_id))).size;
 
@@ -115,7 +130,7 @@ export function Home() {
       go('submitted');
     } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   };
-  const toDash = (d: { tab: 'cons' | 'bal'; filter?: 'all' | 'low' | 'today'; item?: number; focus?: boolean; sort?: 'days' }) => signal('dash', d);
+  const toDash = (d: { tab: 'cons' | 'bal'; filter?: 'all' | 'low' | 'today'; item?: number; focus?: boolean; sort?: 'days' }) => openItems(go, d);
   // This week's consumption: the item using the biggest share of its stock leads the tile.
   const weekUse = useMemo(() => {
     const from = periodRange('week', day).from;
@@ -127,8 +142,54 @@ export function Home() {
   const outCount = lowItems.filter((b) => b.balance <= 0).length;
   const lead = submission
     ? `Day submitted at ${new Date(submission.submitted_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' })}. Balances are final for today.`
-    : answered ? 'All four steps are answered. Submit the day to lock it.'
-      : done ? `${done} of 4 steps done. Next: ${firstTodo!.label.toLowerCase()}.` : `Four quick steps. ${closeLabel(min)}.`;
+    : answered ? 'All three steps are answered. Submit the day to lock it.'
+      : done ? `${STEPS.filter((x) => x.key !== 'deliveries' && stateOf(x.key) !== 'todo').length} of 3 steps done. Next: ${firstTodo?.label.toLowerCase() ?? 'submit the day'}.` : `Three quick steps. ${closeLabel(min)}.`;
+
+  // ───── Today's process (design 3): a ring that fills, three step tiles, then Submit.
+  const STEP3: StepKey[] = ['issued', 'returns', 'transfers'];
+  const done3 = STEP3.filter((k) => stateOf(k) !== 'todo').length;
+  const flowStep: StepKey | 'submit' | null = !flowStage ? null : /issued|Card/.test(flowStage) ? 'issued' : /eturns/.test(flowStage) ? 'returns' : /ransfer/.test(flowStage) ? 'transfers' : 'submit';
+  const nowKey: StepKey | 'submit' | null = !guided ? null : flowStep ?? 'issued';
+  const go3 = () => (flowStage ? continueEvening(day, go) : start());
+  const delDocs = docsToday.filter((d) => d.kind === 'delivery').length;
+  const procPanel = (
+    <section id="proc" className={`panel proc3 enter ${evening && !phone ? 'glow' : ''} ${locked ? 'lockedPanel' : ''}`} aria-label="Today’s process" aria-disabled={locked || undefined}>
+      <div className="p3Lead">
+        <Ring p={submission ? 1 : done3 / 3} size={88} stroke={10} label={submission ? '✓' : `${done3}/3`} tone="amber" dark />
+        <span className="p3LT">
+          <b>{catchUp ? `${wd}’s process` : 'Today’s process'}</b>
+          <span>{submission ? `Submitted at ${new Date(submission.submitted_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' })}` : closeLabel(min)}</span>
+          <button className="p3Del" onClick={() => openRecords(go, 'deliveries')}>Deliveries: {zohoOnly ? `${delDocs} in from Zoho` : delDocs ? `${delDocs} entered` : 'none yet'}</button>
+        </span>
+      </div>
+      <div className="p3Steps">
+        {STEP3.map((k) => {
+          const i = STEPS.findIndex((x) => x.key === k); const s = STEPS[i]; const st = status(i); const v = stateOf(k);
+          const isNow = nowKey === k;
+          return (
+            <div key={k} className={`p3Tile ${isNow ? 'now' : ''} ${v}`}>
+              <button className="p3Head" onClick={() => openRecords(go, k)} title={`See ${s.label.toLowerCase()}`}>
+                <span className="p3Dot">{v === 'done' ? <Icon name="check" size={14} /> : v === 'none' ? '–' : i}</span><b>{s.label}</b>
+              </button>
+              <span className="p3Desc">{v === 'todo' ? s.desc : st.detail}</span>
+              <span className="p3Act">
+                {isNow ? <button className="p3Go" onClick={go3}>{flowStage ? 'Continue' : 'Start here'}<Icon name="arrow" size={16} /></button>
+                  : <span className={`p3Pill ${v}`}>{v === 'done' ? 'Done' : v === 'none' ? (catchUp ? 'None that day' : 'None today') : 'Waiting'}</span>}
+                {!guided && !locked && <button className="procAdd" onClick={() => add(k)} aria-label={`Add ${ADD_NOUN[k]}`} title={`Add ${ADD_NOUN[k]}`}><Icon name="plus" size={18} /></button>}
+              </span>
+            </div>
+          );
+        })}
+        <div className={`p3Submit ${submission ? 'done' : answered ? 'ready' : ''} ${nowKey === 'submit' ? 'now' : ''}`}>
+          {submission ? <><Icon name="check" size={18} /><b>Day submitted</b><button className="btn link" onClick={() => go('submitted')}>Summary</button></>
+            : answered ? <button className="p3Go" disabled={busy} onClick={submit}>{busy ? 'Submitting…' : 'Submit the day'}<Icon name="check" size={16} /></button>
+            : <><b>Submit the day</b><small>After the 3 steps</small></>}
+        </div>
+      </div>
+      {err && <div className="note err" role="alert" style={{ margin: 12 }}>{err}</div>}
+      {locked && <div className="lockNote">Today opens after the earlier day{pendingDays.length === 1 ? '' : 's'} above.</div>}
+    </section>
+  );
 
   return (
     <div className="page home">
@@ -141,16 +202,16 @@ export function Home() {
           </> : <>
             <span className="phKicker">Evening check-in · {longDate(day)}{api.mode === 'demo' ? ' · Demo' : ''}</span>
             <h1>{greeting()}, {first}</h1>
-            <span className="phLead">{locked ? (pendingDays.length === 1 ? `Finish ${weekdayName(pendingDays[0].day)} first.` : `Finish ${pendingDays.length} earlier days first, oldest first.`) : lead}</span>
+            <span className={`phLead ${evening ? 'cta' : ''}`}>{locked ? (pendingDays.length === 1 ? `Finish ${weekdayName(pendingDays[0].day)} first.` : `Finish ${pendingDays.length} earlier days first, oldest first.`)
+              : evening ? (flowStep && flowStep !== 'issued' ? `Next: ${flowStep === 'submit' ? 'submit the day' : STEPS.find((x) => x.key === flowStep)!.label.toLowerCase()}.` : 'Time to enter today’s papers.') : lead}</span>
           </>}
         </div>
         <div className="phActions">
           <UnfinishedCard chip />
           <button className="btn ghost sm" onClick={() => setShowEntries(true)}><Icon name="list" size={16} />{catchUp ? `${wd}’s entries` : 'Today’s entries'}</button>
+          {evening && <button className="btn accent sm phStart" onClick={go3}>{flowStage ? 'Continue' : 'Start'}<Icon name="arrow" size={16} /></button>}
           {locked ? null : submission ? (
             <button className="btn sm" onClick={() => go('submitted')}>Today’s summary<Icon name="arrow" size={16} /></button>
-          ) : answered ? (
-            <button className="btn accent sm" disabled={busy} onClick={submit}>{busy ? 'Submitting…' : 'Submit the day'}<Icon name="check" size={16} /></button>
           ) : null}
         </div>
       </header>
@@ -175,73 +236,28 @@ export function Home() {
           { day: realToday, kind: 'today', label: 'TODAY', sub: catchUp ? 'After these' : 'Waiting' },
         ]} />
       )}
-      <section className="kpis" aria-label="Key figures">
-        <button className="kpi enter" onClick={() => toDash({ tab: 'bal', filter: 'all', focus: true })}>
-          <span className="kpiLabel">All items</span>
-          <Num value={balances.length} className="kpiNum" />
-          <span className="kpiFoot">Search the list <Icon name="arrow" size={13} /></span>
+      {procTop && procPanel}
+      <section className="kpis k3" aria-label="Key figures">
+        <button className="kpi3 ink enter" onClick={() => toDash({ tab: 'bal', filter: 'all', focus: true })}>
+          <span className="k3Txt"><span className="k3L">All items</span><span className="k3N"><Num value={balances.length} /></span><span className="k3F">Search the list <Icon name="arrow" size={12} /></span></span>
+          <span className="k3Ic"><Icon name="box" size={24} /></span>
         </button>
-        <button className={`kpi enter ${lowItems.length ? 'alert' : ''}`} style={{ animationDelay: '.04s' }} onClick={() => toDash({ tab: 'bal', filter: 'low' })}>
-          <span className="kpiLabel">{lowItems.length > 0 && <PulseDot />}Low stock</span>
-          <Num value={lowItems.length} className="kpiNum" />
-          <span className="kpiFoot">{lowItems.length ? `${outCount} finished` : 'All good'}</span>
+        <button className="kpi3 red enter" style={{ animationDelay: '.05s' }} onClick={() => toDash({ tab: 'bal', filter: 'low' })}>
+          <span className="k3Txt"><span className="k3L">{lowItems.length > 0 && <PulseDot />}Low stock</span><span className="k3N"><Num value={lowItems.length} /></span><span className="k3F">{lowItems.length ? `${outCount} finished` : 'All good'} <Icon name="arrow" size={12} /></span></span>
+          <Ring p={balances.length ? lowItems.length / balances.length : 0} label={String(lowItems.length)} tone="red" />
         </button>
-        <button className={`kpi enter ${weekUse.n ? 'cons' : ''}`} style={{ animationDelay: '.08s' }} onClick={() => go('consumption')}>
-          <span className="kpiLabel"><Icon name="chart" size={14} />Consumption</span>
-          <span className="kpiNum">{weekUse.top ? <><Num value={weekUse.top.used} /><span className="kpiUnit">{weekUse.top.it?.unit} this week</span></> : '0'}</span>
-          <span className="kpiFoot">{weekUse.top ? (weekUse.top.it?.name ?? 'Item') : 'Nothing used yet this week'} <Icon name="arrow" size={13} /></span>
+        <button className="kpi3 amber enter" style={{ animationDelay: '.1s' }} onClick={() => go('consumption')}>
+          <span className="k3Txt"><span className="k3L">Consumption</span><span className="k3N">{weekUse.top ? <><Num value={weekUse.top.used} /><small>{weekUse.top.it?.unit} this week</small></> : '0'}</span><span className="k3F">{weekUse.top ? `${weekUse.top.it?.name ?? 'Item'} most` : 'Nothing used yet'} <Icon name="arrow" size={12} /></span></span>
+          <span className="k3Bars" aria-hidden="true">{weekBars.map((v, i) => <i key={i} className={i === todayIdx ? 'on' : ''} style={{ height: `${Math.max(8, (v / (Math.max(...weekBars) || 1)) * 100)}%` }} />)}</span>
         </button>
-        <button className="kpi enter" style={{ animationDelay: '.12s' }} onClick={() => go('balances')}>
-          <span className="kpiLabel">Balances</span>
-          <span className="kpiNum"><Num value={balances.filter((b) => b.balance > 0).length} /><span className="kpiUnit">in store</span></span>
-          <span className="kpiFoot">{movedToday ? `${movedToday} changed today` : 'Open balances'} <Icon name="arrow" size={13} /></span>
+        <button className="kpi3 green enter" style={{ animationDelay: '.15s' }} onClick={() => go('balances')}>
+          <span className="k3Txt"><span className="k3L">Balances</span><span className="k3N"><Num value={inStore} /><small>in store</small></span><span className="k3F">{movedToday ? `${movedToday} changed today` : 'Open balances'} <Icon name="arrow" size={12} /></span></span>
+          <Ring p={balances.length ? inStore / balances.length : 0} label={`${balances.length ? Math.round((inStore / balances.length) * 100) : 0}%`} tone="green" />
         </button>
       </section>
 
-      <div className="homeGrid">
-        <section className={`panel process enter ${locked ? 'lockedPanel' : ''}`} aria-label="Today’s process" aria-disabled={locked || undefined}>
-          <header className="panelHead">
-            <span className="phTitle"><b>{catchUp ? `${wd}’s process` : 'Today’s process'}</b><span className="muted small">{submission ? 'Submitted' : `${done} of 4 done`}</span></span>
-          </header>
-          <div className="procBar" aria-hidden="true"><i style={{ width: `${((submission ? 4 : done) / 4) * 100}%` }} /></div>
-          {STEPS.map((s, i) => {
-            const st = status(i);
-            const canAdd = !(s.key === 'deliveries' && zohoOnly);
-            return (
-              <div key={s.key} className={`procRow ${st.cls} ${s.key === 'deliveries' ? 'dim' : ''}`}>
-                <button className="procMain" onClick={() => openRecords(go, s.key)} title={`See ${s.label.toLowerCase()}`}>
-                  <span className="procDot">{st.cls === 'done' ? <Icon name="check" size={16} /> : st.cls === 'none' || st.cls === 'zoho' || s.key === 'deliveries' ? '–' : i /* deliveries is not numbered: 1 issued, 2 returns, 3 transfers */}</span>
-                  <span className="procIc"><Icon name={STEP_ICON[s.key]} size={18} /></span>
-                  <span className="procText"><b>{s.label}</b><span>{st.detail}</span></span>
-                </button>
-                {guided && s.key === startHere && (
-                  <button className={`procStart ${flowStage ? 'cont' : ''}`} onClick={start} title="Cards, returns, transfers, then submit: one question at a time">
-                    {flowStage ? 'Continue' : 'Start here'}<Icon name="arrow" size={16} />
-                  </button>
-                )}
-                <span className="procActs">
-                  {st.cls === 'zoho' ? <ZohoTag /> : guided && s.key === startHere ? null : guided ? <span className={`stPill ${st.cls === 'done' ? 'ok' : 'idle'}`}>{st.cls === 'done' ? 'Done' : st.cls === 'none' ? st.text : 'Waiting'}</span> : states[i] === 'todo' && !submission
-                    ? <button className="procNone" onClick={() => noneToday(s.key)} title={`Nothing for ${s.label.toLowerCase()} ${catchUp ? 'that day' : 'today'}`}>None today</button>
-                    : states[i] === 'none' && !submission && !(s.key === 'deliveries' && zohoOnly)
-                      ? <button className="stPill idle asBtn" onClick={() => markStep(s.key, 'todo')} title="Undo">{st.text}</button>
-                      : <span className={`stPill ${st.cls === 'done' ? 'ok' : st.cls === 'next' ? 'warn' : 'idle'}`}>{st.text}</span>}
-                  {guided ? null : canAdd
-                    ? <button className="procAdd" onClick={() => add(s.key)} aria-label={`Add ${ADD_NOUN[s.key]}`} title={`Add ${ADD_NOUN[s.key]}`}><Icon name="plus" size={18} /></button>
-                    : <span className="procAdd off" title="Deliveries come in from Zoho" aria-hidden="true" />}
-                </span>
-              </div>
-            );
-          })}
-          {!submission && (
-            <footer className="panelFoot">
-              <span className="small muted">{catchUp ? `Submitting locks ${wd}. Balances update as if it was entered on ${wd}.` : 'Submitting locks today. Cards can be entered during the day too.'}</span>
-              <button className="btn accent sm" disabled={!answered || busy} onClick={submit}>{busy ? 'Submitting…' : 'Submit the day'}</button>
-            </footer>
-          )}
-          {err && <div className="note err" role="alert" style={{ margin: 12 }}>{err}</div>}
-          {locked && <div className="lockNote">Today opens after the earlier day{pendingDays.length === 1 ? '' : 's'} above.</div>}
-        </section>
-
+      <div className="homeGrid g3">
+        <IncomingPanel />
         <aside className="homeAside">
           <section className="panel enter" aria-label="Needs attention" style={{ animationDelay: '.06s' }}>
             <header className="panelHead"><b>{lowItems.length > 0 && <PulseDot />}Needs attention</b>{lowItems.length > 0 && <button className="btn link" onClick={() => toDash({ tab: 'bal', filter: 'low' })}>All {lowItems.length}</button>}</header>
@@ -255,12 +271,12 @@ export function Home() {
                 </button>
               );
             })}
+            {coming.length > 0 && <div className="attWay">On their way: {coming.map(([n, w]) => `${n} (${w})`).join(' · ')}</div>}
             <AlertButton />
           </section>
         </aside>
       </div>
-
-      <Dashboard embedded />
+      {!procTop && procPanel}
 
       <div className="between small homeFoot">
         <span className="muted">Signed in as {user.name}</span>

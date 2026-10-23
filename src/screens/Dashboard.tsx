@@ -41,6 +41,11 @@ function usage(lines: Line[]): Map<number, Use> {
   return m;
 }
 
+type Jump = { tab?: Tab; filter?: Filter; item?: number; focus?: boolean; sort?: 'days' };
+let pendingJump: Jump | null = null;
+/** Open the Items page (the full item list), optionally filtered or on one item. */
+export function openItems(go: (s: 'dashboard') => void, d: Jump = {}) { pendingJump = d; go('dashboard'); }
+
 export function Dashboard({ embedded = false }: { embedded?: boolean }) {
   const { day, balances, refresh, siteLabel, isLow, lowItems, docsToday, recent, daysLeft } = useData();
   // Remember the last view; a link from another screen (low stock, balances after today) wins.
@@ -70,7 +75,7 @@ export function Dashboard({ embedded = false }: { embedded?: boolean }) {
   useEffect(() => { if (!embedded) refresh(); }, [refresh, embedded]);
   // The check-in page's tiles can switch the dashboard (e.g. "Low stock" → Balances, low only).
   const [pulse, setPulse] = useState(false);
-  useSignal<{ tab?: Tab; filter?: Filter; item?: number; focus?: boolean; sort?: 'days' }>('dash', (d) => {
+  const jump = (d: Jump) => {
     if (d.tab) setTab(d.tab);
     if (d.filter) setFilter(d.filter);
     if (d.sort === 'days') setSort({ k: 'days', dir: 1 });
@@ -81,7 +86,9 @@ export function Dashboard({ embedded = false }: { embedded?: boolean }) {
     }
     if (d.item != null) { setTab('bal'); setFilter('all'); setQ(''); setSel(d.item); }
     document.getElementById('dash')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
+  };
+  useSignal<Jump>('dash', jump);
+  useEffect(() => { if (pendingJump) { const d = pendingJump; pendingJump = null; jump(d); } }); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setLines(null); api.linesBetween(range.from, range.to).then(setLines); }, [range.from, range.to]);
   // Press "/" to jump to the search box.
   useEffect(() => {

@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { AdminApi, Backend, Balance, CorrectionRequest, Doc, DocInput, Draft, Field, Item, Line, LineInput, Profile, SiteDoc, SiteInfo, StockTake, Submission, User, ZohoConnection, ZohoItemMatch, ZohoLogRow, ZohoRun, ZohoPending, ZohoStatus, ZohoSyncResult } from './types';
+import type { AdminApi, Backend, Balance, CorrectionRequest, Doc, DocInput, Draft, Field, Item, Line, LineInput, Profile, SiteDoc, SiteInfo, StockTake, Submission, User, ZohoConnection, ZohoItemMatch, ZohoLogRow, ZohoRun, Incoming, ZohoPending, ZohoStatus, ZohoSyncResult } from './types';
 
 const PAGE = 1000;
 
@@ -276,6 +276,11 @@ export function supabaseBackend(url: string, key: string): Backend {
       const { data, error } = await sb.functions.invoke('zoho-mail', { body: m });
       if (error) return { error: error.message };
       return data as { ok?: boolean; error?: string; reconnect?: boolean; from?: string };
+    },
+    async incoming() {
+      const { data, error } = await sb.functions.invoke('zoho-incoming', { body: {} });
+      if (error) return { connected: true, error: error.message };
+      return data as Incoming;
     },
     async zohoSync() {
       const { data, error } = await sb.functions.invoke('zoho-sync', { body: {} });

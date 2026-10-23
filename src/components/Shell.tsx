@@ -7,14 +7,14 @@ import { signal, useSignal } from '../lib/signals';
 import { ComexLogo, SiteLogo } from './Brand';
 import { ZohoAutoSync, ZohoStatusLine } from './Zoho';
 import { DatePick } from './DatePick';
-import { EveningFlow } from './EveningFlow';
+import { continueEvening, EveningFlow, stageFor, startEvening } from './EveningFlow';
 import { Icon, PulseDot, Ring, useMinutesToClose } from './fx';
 import { StartTraining } from './Training';
 import { CommandPalette } from './CommandPalette';
 import { Welcome } from '../screens/Welcome';
 import { isTrained } from '../lib/trainingPlan';
 
-const CHECKIN: Screen[] = ['home', 'dashboard', 'submitted'];
+const CHECKIN: Screen[] = ['home', 'submitted'];
 const NAV: { screen: Screen; label: string; icon: string; match: Screen[] }[] = [
   { screen: 'home', label: 'Dashboard', icon: 'checkin', match: CHECKIN },
   { screen: 'stocktake', label: 'Stock take', icon: 'box', match: ['stocktake'] },
@@ -55,7 +55,7 @@ const readRail = () => { try { return localStorage.getItem('ssms-rail') === 'min
 const readRailW = () => { try { const v = Number(localStorage.getItem('ssms-rail-w')); return v >= 180 && v <= 340 ? v : 212; } catch { return 212; } };
 
 export function AppShell({ screen, children }: { screen: Screen; children: ReactNode }) {
-  const { user, site, go, signOut, openAdmin, stepState, submission, lowItems, balances, day, projectWeek, syncing, catchUp, endCatchUp } = useData();
+  const { user, site, go, signOut, openAdmin, stepState, submission, lowItems, balances, day, projectWeek, syncing, catchUp, endCatchUp, docsToday } = useData();
   const [mini, setMini] = useState(readRail);
   // The menu can be dragged wider or narrower by its right edge; each person's width is remembered.
   const [railW, setRailW] = useState(readRailW);
@@ -90,6 +90,12 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
     document.addEventListener('keydown', k);
     return () => document.removeEventListener('keydown', k);
   }, []);
+  // The status chip in the top bar: straight to the next evening step (or today's summary once submitted).
+  const toNext = () => {
+    if (submission) { go('submitted'); return; }
+    if (stageFor(day)) continueEvening(day, go);
+    else startEvening(day, go, docsToday.some((d) => d.kind === 'issue'));
+  };
   const toggleRail = () => { const v = !mini; setMini(v); try { localStorage.setItem('ssms-rail', v ? 'mini' : 'full'); } catch { /* ignore */ } };
 
   // A store with no stock take yet starts on the welcome page.
@@ -98,7 +104,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
   const onboarding = api.mode !== 'training' && user.role !== 'admin' && (!isTrained(user) || !balances.length);
   if (onboarding && !(screen === 'stocktake' && isTrained(user))) return <><ZohoAutoSync /><Welcome /></>;
   if (screen === 'welcome' || (!balances.length && (screen === 'home' || screen === 'dashboard'))) return <><ZohoAutoSync /><Welcome /></>;
-  const done = STEPS.filter((s) => stepState(s.key) !== 'todo').length;
+  const done = STEPS.filter((s) => s.key !== 'deliveries' && stepState(s.key) !== 'todo').length; // the three evening steps
   const urgent = !submission && min < 60;
   const trail = crumbs(screen);
   const dateChip = new Date(day + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
@@ -125,6 +131,9 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
             Records<span className={`rgChev ${recOpen ? 'open' : ''}`} aria-hidden="true"><svg viewBox="0 0 24 24" width="12" height="12"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
           </button>
           {recOpen && <>
+            <button className="railLink railSub items" title="Items" aria-current={screen === 'dashboard' ? 'page' : undefined} onClick={() => go('dashboard')}>
+              <span className="rsDot" aria-hidden="true" /><span className="rlText">Items</span>
+            </button>
             {RECORDS.map((r) => (
               <button key={r.screen} className={`railLink railSub ${r.tone}`} title={r.label} aria-current={screen === r.screen || screen === r.entry ? 'page' : undefined} onClick={() => go(r.screen)}>
                 <span className="rsDot" aria-hidden="true" /><span className="rlText">{r.label}</span>
@@ -140,10 +149,10 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
           </button>
         </nav>
         <div className={`railToday ${urgent ? 'urgent' : ''}`}>
-          <Ring done={submission ? 4 : done} total={4} size={44} />
+          <Ring done={submission ? 3 : done} total={3} size={44} />
           <div className="rlText">
-            <b>{submission ? 'Day submitted' : done === 4 ? 'Ready to submit' : 'Today’s entries'}</b>
-            <span>{submission ? 'All four steps done' : closeLabel(min)}</span>
+            <b>{submission ? 'Day submitted' : done === 3 ? 'Ready to submit' : 'Today’s entries'}</b>
+            <span>{submission ? 'All three steps done' : closeLabel(min)}</span>
           </div>
         </div>
         <div className="railUserWrap">
@@ -198,9 +207,9 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
               </span>
             ))}
           </nav>
-          <span className={`tbMini ${submission ? 'ok' : min <= 0 ? 'late' : urgent ? 'soon' : ''}`} aria-hidden="true">
-            {submission ? <><Icon name="check" size={13} />Submitted</> : <><b>{done}/4</b>{min <= 0 ? 'Closed' : closeLabel(min).replace('Register closes in ', '')}</>}
-          </span>
+          <button className={`tbMini ${submission ? 'ok' : min <= 0 ? 'late' : urgent ? 'soon' : ''}`} onClick={toNext} aria-label={submission ? 'Day submitted' : 'Go to the next step'}>
+            {submission ? <><Icon name="check" size={13} />Submitted</> : <><b>{done}/3</b>{min <= 0 ? 'Closed' : closeLabel(min).replace('Register closes in ', '')}</>}
+          </button>
           <button className="tbSearch" onClick={() => setPalette(true)} aria-label="Search items, pages and actions">
             <Icon name="search" size={16} /><span>Search items, pages, actions</span><kbd>Ctrl K</kbd>
           </button>
@@ -208,9 +217,9 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
             {syncing && <span className="tbChip sync" role="status"><span className="syncDot" aria-hidden="true" />Updating…</span>}
             {projectWeek != null && <span className="tbChip" title="Project week">Week {projectWeek}</span>}
             <DatePick trigger="top" label={dateChip} />
-            {!catchUp && <span className={`tbChip status ${submission ? 'ok' : min <= 0 ? 'late' : urgent ? 'soon' : ''}`}>
+            {!catchUp && <button className={`tbChip status ${submission ? 'ok' : min <= 0 ? 'late' : urgent ? 'soon' : ''}`} onClick={toNext} title={submission ? 'Today’s summary' : 'Go to the next step'}>
               {submission ? <><Icon name="check" size={14} />Submitted</> : <>{min <= 0 ? <PulseDot /> : <Icon name="clock" size={14} />}{closeLabel(min).replace('Register ', '')}</>}
-            </span>}
+            </button>}
           </div>
         </header>
         <div className="screen" key={screen}>{children}</div>
@@ -244,6 +253,9 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
               <>
                 <b className="mTitle">Records</b>
                 <div className="mRecs">
+                  <button className="mRec items" aria-current={screen === 'dashboard' ? 'page' : undefined} onClick={() => { setSheet(null); go('dashboard'); }}>
+                    <span className="mRecDot" aria-hidden="true" /><span>Items</span><Icon name="arrow" size={16} />
+                  </button>
                   {RECORDS.map((r) => (
                     <button key={r.screen} className={`mRec ${r.tone}`} aria-current={screen === r.screen ? 'page' : undefined} onClick={() => { setSheet(null); go(r.screen); }}>
                       <span className="mRecDot" aria-hidden="true" /><span>{r.label}</span><Icon name="arrow" size={16} />
@@ -256,8 +268,8 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
               <>
                 <div className="mWho"><span className="avatar">{initials}</span><div><b>{user.name}</b><small>{user.role === 'admin' ? 'Admin' : 'Store'}{site ? ` · ${site}` : ''}{api.mode === 'demo' ? ' · demo' : ''}</small></div></div>
                 <button className="mToday" onClick={() => { setSheet(null); go('home'); setTimeout(() => signal('entries'), 120); }}>
-                  <Ring done={submission ? 4 : done} total={4} size={44} />
-                  <span><b>{submission ? 'Day submitted' : done === 4 ? 'Ready to submit' : 'Today’s entries'}</b><small>{submission ? 'All four steps done' : closeLabel(min)}</small></span>
+                  <Ring done={submission ? 3 : done} total={3} size={44} />
+                  <span><b>{submission ? 'Day submitted' : done === 3 ? 'Ready to submit' : 'Today’s entries'}</b><small>{submission ? 'All three steps done' : closeLabel(min)}</small></span>
                 </button>
                 <div className="mGrid">
                   <button onClick={() => { setSheet(null); go('balances'); }}><span className="mIc"><Icon name="box" size={20} /></span>Balances</button>

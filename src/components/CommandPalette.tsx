@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { openItems } from '../screens/Dashboard';
 import { STEPS, useData, type Screen } from '../lib/store';
 import { signal } from '../lib/signals';
 import { fmt } from './ui';
@@ -23,7 +24,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     const suggested: Cmd[] = [];
     if (!submission && next) suggested.push({ id: 's-next', group: 'Suggested', label: `Continue check-in · ${next.label}`, hint: `Step ${next.n} of 4`, icon: 'arrow', run: to(next.screen) });
     if (!submission && !next) suggested.push({ id: 's-submit', group: 'Suggested', label: 'Submit the day', hint: 'All four steps are answered', icon: 'check', run: to('home') });
-    if (lowItems.length) suggested.push({ id: 's-low', group: 'Suggested', label: `Show low stock (${lowItems.length})`, icon: 'alert', run: () => { go('home'); signal('dash', { tab: 'bal', filter: 'low' }); } });
+    if (lowItems.length) suggested.push({ id: 's-low', group: 'Suggested', label: `Show low stock (${lowItems.length})`, icon: 'alert', run: () => { openItems(go, { tab: 'bal', filter: 'low' }); } });
     suggested.push({ id: 's-ent', group: 'Suggested', label: `Today’s entries (${entries})`, icon: 'list', run: () => { go('home'); signal('entries'); } });
 
     const pages: Cmd[] = [
@@ -36,14 +37,14 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     if (user.role === 'admin') pages.push({ id: 'p-adm', group: 'Pages', label: 'Admin', hint: 'People, sites, approvals', icon: 'user', run: openAdmin });
 
     const actions: Cmd[] = [
-      { id: 'a-bal', group: 'Actions', label: 'Store balances', icon: 'chart', run: () => { go('home'); signal('dash', { tab: 'bal', filter: 'all' }); } },
+      { id: 'a-bal', group: 'Actions', label: 'Store balances', icon: 'chart', run: () => { openItems(go, { tab: 'bal', filter: 'all' }); } },
       { id: 'a-print', group: 'Actions', label: 'Print the stock take sheet', icon: 'print', run: to('stocktake') },
       { id: 'a-out', group: 'Actions', label: 'Sign out', icon: 'out', run: signOut },
     ];
     const items: Cmd[] = balances.map((b) => ({
       id: `i-${b.item_id}`, group: 'Items', label: b.name, icon: 'box',
       hint: `${fmt(b.balance)} ${b.unit} in store`, tone: b.balance <= 0 ? 'out' : isLow(b) ? 'low' : undefined,
-      run: () => { go('home'); signal('dash', { tab: 'bal', item: b.item_id }); },
+      run: () => { openItems(go, { tab: 'bal', item: b.item_id }); },
     }));
     return [...suggested, ...pages, ...actions, ...items];
   }, [balances, docsToday, go, isLow, lowItems.length, openAdmin, signOut, stepState, submission, user.role]);

@@ -37,6 +37,14 @@ export function startEvening(day: string, go: (s: Screen) => void, cardsAlready 
   set({ day, stage: 'issued' }); signal('step-form', 'issued'); go('issued');
 }
 
+/** "Continue": back to the entry page the flow was on (a question that is waiting shows by itself). */
+export function continueEvening(day: string, go: (s: Screen) => void) {
+  const st = stageFor(day);
+  if (!st) { startEvening(day, go); return; }
+  const step = ENTRY[st] as 'issued' | 'returns' | 'transfers' | undefined;
+  if (step) { signal('step-form', step); go(SCREEN[step]); } else set({ day, stage: st }); // re-show the question
+}
+
 /** Called by an entry form after saving. In the evening flow the next question pops up; otherwise the records list opens. */
 export function entrySaved(step: StepKey, day: string, go: (s: Screen) => void) {
   const st = stageFor(day);
