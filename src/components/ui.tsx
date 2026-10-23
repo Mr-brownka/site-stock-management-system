@@ -136,9 +136,16 @@ export function Suggest({ label, value, onChange, options, placeholder, autoFocu
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const q = value.trim().toLowerCase();
-  const matches = useMemo(() => (q && !(showAll && options.some((o) => o.toLowerCase() === q)) ? options.filter((o) => o.toLowerCase().includes(q) && o.toLowerCase() !== q) : options).slice(0, showAll ? 12 : 6), [q, options, showAll]);
+  // Best first: names that start with what's typed, then a word in the name that does, then anything containing it.
+  const score = (o: string) => { const n = o.toLowerCase(); return n.startsWith(q) ? 0 : n.split(/[\s&,/()-]+/).some((w) => w.startsWith(q)) ? 1 : 2; };
+  const matches = useMemo(() => (q && !(showAll && options.some((o) => o.toLowerCase() === q))
+    ? options.filter((o) => o.toLowerCase().includes(q) && o.toLowerCase() !== q).sort((a, z) => score(a) - score(z) || a.length - z.length)
+    : options).slice(0, showAll ? 12 : 6), [q, options, showAll]); // eslint-disable-line react-hooks/exhaustive-deps
   const place = useDropPlace(box, open && matches.length > 0, matches.length);
   const known = options.some((o) => o.toLowerCase() === q);
+  // What Enter takes when nothing is highlighted: the top name, if it starts with (or has a word starting with) what's typed, or the only match.
+  const auto = q && !known && matches.length && (matches.length === 1 || score(matches[0]) < 2) ? 0 : -1;
+  const shown = active >= 0 ? active : auto;
   const choose = (v: string) => { onChange(v); setOpen(false); setActive(-1); };
   const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setActive((a) => Math.min(a + 1, matches.length - 1)); return; }
@@ -147,7 +154,7 @@ export function Suggest({ label, value, onChange, options, placeholder, autoFocu
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       // The highlighted name, or the only name that matches what's typed so far.
-      const pick = open && active >= 0 ? matches[active] : q && matches.length === 1 && !known ? matches[0] : undefined;
+      const pick = shown >= 0 ? matches[shown] : undefined;
       if (pick) choose(pick);
       setOpen(false);
       if (onNext) onNext(e.currentTarget); else focusNext(e.currentTarget);
@@ -161,7 +168,7 @@ export function Suggest({ label, value, onChange, options, placeholder, autoFocu
         role="combobox" aria-expanded={open && matches.length > 0} aria-autocomplete="list" />
       {open && matches.length > 0 && (
         <div {...place} role="listbox">
-          {matches.map((m, i) => <button type="button" key={m} role="option" aria-selected={i === active} onMouseDown={(e) => e.preventDefault()} onClick={() => choose(m)}>{m}</button>)}
+          {matches.map((m, i) => <button type="button" key={m} role="option" aria-selected={i === shown} onMouseDown={(e) => e.preventDefault()} onClick={() => choose(m)}>{m}</button>)}
         </div>
       )}
       {q && !known && !bare && <span className="hint new">New name. It will be remembered for next time.</span>}
