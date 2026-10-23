@@ -67,6 +67,7 @@ const ICONS: Record<string, ReactNode> = {
   panel: <><rect x="3" y="4" width="18" height="16" rx="2" {...P} /><path d="M9 4v16" {...P} /></>,
   print: <><path d="M7 9V3h10v6M7 17H4v-7h16v7h-3" {...P} /><rect x="7" y="14" width="10" height="7" {...P} /></>,
   download: <><path d="M12 4v11M7 10l5 5 5-5M4 20h16" {...P} /></>,
+  refresh: <><path d="M20 11a8 8 0 0 0-14.6-4.5M4 4v4h4M4 13a8 8 0 0 0 14.6 4.5M20 20v-4h-4" {...P} /></>,
   alert: <><path d="M12 3l10 18H2L12 3z" {...P} /><path d="M12 10v5M12 18h.01" {...P} /></>,
   list: <><path d="M9 6h12M9 12h12M9 18h12M4 6h.01M4 12h.01M4 18h.01" {...P} /></>,
   sort: <><path d="M8 4v16M4 8l4-4 4 4M16 20V4M12 16l4 4 4-4" {...P} /></>,

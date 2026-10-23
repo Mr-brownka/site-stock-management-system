@@ -43,7 +43,7 @@ export function Home() {
   const markClosed = async (d: { day: string; holiday: string | null }) => {
     setClosing(true);
     try {
-      await closeDay(d.day, d.holiday ?? 'Store closed');
+      await closeDay(d.day, d.holiday ?? 'Works closed');
       toast(`${weekdayName(d.day)} ${niceDate(d.day).split(' ').slice(1).join(' ')} marked Closed`);
       const rest = await refreshPending();
       setAskDay(null);
@@ -135,15 +135,13 @@ export function Home() {
           </> : <>
             <span className="phKicker">Evening check-in · {longDate(day)}{api.mode === 'demo' ? ' · Demo' : ''}</span>
             <h1>{greeting()}, {first}</h1>
-            <span className="phLead">{locked ? `${pendingDays.length} earlier day${pendingDays.length === 1 ? '' : 's'} need${pendingDays.length === 1 ? 's' : ''} you before today.` : lead}</span>
+            <span className="phLead">{locked ? (pendingDays.length === 1 ? `Finish ${weekdayName(pendingDays[0].day)} first.` : `Finish ${pendingDays.length} earlier days first, oldest first.`) : lead}</span>
           </>}
         </div>
         <div className="phActions">
           <UnfinishedCard chip />
           <button className="btn ghost sm" onClick={() => setShowEntries(true)}><Icon name="list" size={16} />{catchUp ? `${wd}’s entries` : 'Today’s entries'}</button>
-          {locked ? (
-            <button className="btn sm" onClick={() => beginCatchUp(pendingDays[0].day)}>Enter {weekdayName(pendingDays[0].day)}’s papers<Icon name="arrow" size={16} /></button>
-          ) : submission ? (
+          {locked ? null : submission ? (
             <button className="btn sm" onClick={() => go('submitted')}>Today’s summary<Icon name="arrow" size={16} /></button>
           ) : answered ? (
             <button className="btn accent sm" disabled={busy} onClick={submit}>{busy ? 'Submitting…' : 'Submit the day'}<Icon name="check" size={16} /></button>
@@ -152,32 +150,24 @@ export function Home() {
       </header>
 
 
+      {/* Missed days: the question lives inside the day itself, no separate reminder box. */}
       {(locked || catchUp) && (
         <DayStrip days={[
-          ...pendingDays.map((p): DayCell => ({ day: p.day, kind: p.day === day ? 'current' : catchUp || p.holiday ? 'holiday' : 'missing',
-            sub: p.day === day ? 'Entering now' : p.holiday ?? (catchUp ? 'Next' : 'Not submitted') })),
+          ...pendingDays.map((p, i): DayCell => {
+            const ask = locked && i === 0;
+            return {
+              day: p.day, kind: p.day === day ? 'current' : catchUp || p.holiday ? 'holiday' : 'missing',
+              sub: p.day === day ? 'Entering now'
+                : ask ? (p.holiday ? `${p.holiday}. Were works closed?` : 'You did not submit records. Were works closed?')
+                : p.holiday ?? (catchUp ? 'Next' : `After ${weekdayName(pendingDays[i - 1]?.day ?? p.day)}`),
+              actions: ask ? <>
+                <button className="dsBtn" disabled={closing} onClick={() => markClosed(p)}>Yes, closed</button>
+                <button className="dsBtn go" onClick={() => beginCatchUp(p.day)}>No, enter records<Icon name="arrow" size={15} /></button>
+              </> : undefined,
+            };
+          }),
           { day: realToday, kind: 'today', label: 'TODAY', sub: catchUp ? 'After these' : 'Waiting' },
         ]} />
-      )}
-      {locked && (
-        <section className="panel catchCard enter" aria-label="Days to catch up">
-          <header className="ccHead">
-            <span className="ccBang" aria-hidden="true">!</span>
-            <div><b>{pendingDays.length} day{pendingDays.length === 1 ? '' : 's'} need{pendingDays.length === 1 ? 's' : ''} you before today</b><span>Do them in order. Each one is saved under its own date, not today’s.</span></div>
-          </header>
-          {pendingDays.map((p, i) => (
-            <div key={p.day} className="ccRow">
-              <div className="ccText"><b>{weekdayName(p.day)} {niceDate(p.day).split(' ').slice(1).join(' ')}{p.holiday ? ` · ${p.holiday}` : ''}</b>
-                <span>{i === 0 ? (p.holiday ? 'Public holiday. Was the store open?' : 'Nothing entered and not submitted') : `After ${weekdayName(pendingDays[i - 1].day)}`}</span></div>
-              {i === 0 ? (
-                <span className="ccActs">
-                  <button className="btn link" disabled={closing} onClick={() => markClosed(p)}>Store was closed</button>
-                  <button className="btn sm" onClick={() => beginCatchUp(p.day)}>Enter {weekdayName(p.day)}’s papers<Icon name="arrow" size={16} /></button>
-                </span>
-              ) : <span className="stPill idle">Waiting</span>}
-            </div>
-          ))}
-        </section>
       )}
       <section className="kpis" aria-label="Key figures">
         <button className="kpi enter" onClick={() => toDash({ tab: 'bal', filter: 'all', focus: true })}>
@@ -274,13 +264,13 @@ export function Home() {
         <div className="sheetBack dayAskBack">
           <section className="dayAsk" role="dialog" aria-modal="true" aria-labelledby="dayAskTitle">
             <span className="daDone"><Icon name="check" size={14} />{catchUp ? `${wd} submitted` : 'Earlier day done'}</span>
-            <h2 id="dayAskTitle">Was the store open on {weekdayName(askDay.day)} {niceDate(askDay.day).split(' ').slice(1).join(' ')}?</h2>
+            <h2 id="dayAskTitle">Were works closed on {weekdayName(askDay.day)} {niceDate(askDay.day).split(' ').slice(1).join(' ')}?</h2>
             {askDay.holiday && <p className="muted">It was {askDay.holiday}, a public holiday.</p>}
             <button className="daChoice dark" disabled={closing} onClick={() => markClosed(askDay)}>
-              <span><b>No, the store was closed</b><small>Nothing came in or went out. {weekdayName(askDay.day)} is marked Closed.</small></span><Icon name="arrow" size={20} />
+              <span><b>Yes, works were closed</b><small>Nothing came in or went out. {weekdayName(askDay.day)} is marked Closed.</small></span><Icon name="arrow" size={20} />
             </button>
             <button className="daChoice" disabled={closing} onClick={() => { const d = askDay.day; setAskDay(null); beginCatchUp(d); }}>
-              <span><b>Yes, it was open</b><small>Enter {weekdayName(askDay.day)}’s papers the same way.</small></span><Icon name="arrow" size={20} />
+              <span><b>No, there was work</b><small>Enter {weekdayName(askDay.day)}’s records the same way.</small></span><Icon name="arrow" size={20} />
             </button>
             <button className="btn link" onClick={() => { setAskDay(null); endCatchUp(); setRunTotal(0); }}>Decide later</button>
           </section>

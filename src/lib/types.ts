@@ -107,6 +107,11 @@ export interface Draft { id: string; step: StepKey; doc_date: string; label: str
 export interface ZohoStatus { connected: boolean; zoho_email: string | null; last_sync_at: string | null; last_error: string | null; imported: number }
 export interface ZohoSyncResult { connected: boolean; more?: boolean; imported?: number; pending?: number; seen?: number; projects?: string[]; error?: string }
 export interface ZohoPending { zoho_receive_id: string; site_id: string | null; project: string | null; grn: string | null; receive_date: string | null; vendor: string | null; reason: string | null }
+/** One goods-received note the Zoho check looked at, and what became of it (admin log). */
+export interface ZohoLogRow { zoho_receive_id: string; site_id: string | null; project: string | null; grn: string | null; po: string | null; vendor: string | null; receive_date: string | null;
+  status: 'imported' | 'linked' | 'waiting' | 'no_project' | 'other_site' | 'before_start'; detail: string | null; lines: { name: string; unit: string | null; qty: number }[] | null; updated_at: string }
+/** One Zoho check: how many receives Zoho listed, and what came of them. */
+export interface ZohoRun { site_id: string | null; at: string; listed: number; recent: number; imported: number; waiting: number; linked: number; other_site: number; note: string | null }
 export interface ZohoItemMatch { zoho_item_id: string; item_id: number | null; zoho_name: string | null; zoho_unit: string | null }
 export interface ZohoConnection { user_id: string; full_name: string | null; site_id: string | null; zoho_email: string | null; last_sync_at: string | null; last_error: string | null; imported: number }
 
@@ -213,6 +218,9 @@ export interface AdminApi {
   zohoPending(): Promise<ZohoPending[]>;
   assignPending(receiveId: string, siteId: string): Promise<void>;
   zohoItems(): Promise<ZohoItemMatch[]>;
+  /** Everything the Zoho check has looked at (newest first), and the last checks per site. */
+  zohoLog(): Promise<ZohoLogRow[]>;
+  zohoRuns(): Promise<ZohoRun[]>;
   matchZohoItem(zohoItemId: string, itemId: number): Promise<void>;
   corrections(): Promise<CorrectionRequest[]>;
   decide(id: string, approve: boolean, note?: string): Promise<void>;

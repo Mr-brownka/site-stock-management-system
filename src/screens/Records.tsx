@@ -8,7 +8,7 @@ import { takePeriod, useAddEntry } from '../components/AddEntry';
 import { Icon } from '../components/fx';
 import { fmt } from '../components/ui';
 import { toast } from '../components/feedback';
-import { checkZohoNow, useZohoDeliveries, ZohoTag } from '../components/Zoho';
+import { checkZohoNow, useZohoDeliveries, ZohoRefresh, ZohoTag } from '../components/Zoho';
 import { BackPill } from '../components/BackPill';
 
 export type RecKey = 'deliveries' | 'issued' | 'returns' | 'transfers';
@@ -114,7 +114,7 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
         <span className="abGrow" />
         <label className="recSearch"><Icon name="search" size={16} /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Search ${C.title.toLowerCase()}`} aria-label={`Search ${C.title}`} /></label>
         {zohoOnly
-          ? <button className="recNew" onClick={checkZohoNow} title="Deliveries are received in Zoho and come in by themselves"><span><Icon name="download" size={16} /></span>Check Zoho now</button>
+          ? <ZohoRefresh />
           : <button className="recNew" onClick={addNew}><span><Icon name="plus" size={16} /></span>New</button>}
         <div className="recMore">
           <button className="recDots" onClick={() => setMenu((v) => !v)} aria-label="More" aria-expanded={menu}>···</button>
@@ -140,7 +140,7 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
               {src && (r.doc.zoho_grn ? <ZohoTag grn={r.doc.zoho_grn} /> : <span className="small muted">Typed in Bohari</span>)}
             </button>
           ))}
-          {shown.length > 0 && <div className="recFoot">{shown.length} {shown.length === 1 ? 'entry' : 'entries'} · {periodLabel.toLowerCase()}{src && fromZoho ? ` · ${fromZoho} from Zoho` : ''}{src && <button className="btn link inline" onClick={checkZohoNow}>Check Zoho now</button>}</div>}
+          {shown.length > 0 && <div className="recFoot">{shown.length} {shown.length === 1 ? 'entry' : 'entries'} · {periodLabel.toLowerCase()}{src && fromZoho ? ` · ${fromZoho} from Zoho` : ''}{src && <button className="btn link inline" onClick={checkZohoNow}>Refresh from Zoho</button>}</div>}
         </section>
       ) : (
         <div className="recSplit">

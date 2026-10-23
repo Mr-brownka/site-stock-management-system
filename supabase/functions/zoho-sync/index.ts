@@ -65,6 +65,17 @@ async function discover(api: string, token: string, org: string) {
 }
 const base = (kind: string) => (kind === 'books' ? '/books/v3' : '/inventory/v1');
 
+type Status = 'imported' | 'linked' | 'waiting' | 'no_project' | 'other_site' | 'before_start';
+/** The admin's log of every receive the check looked at. Never fails the sync (the table may not exist yet). */
+async function log(db: SupabaseClient, p: Parsed, status: Status, siteId: string | null, detail: string | null = null) {
+  try {
+    await db.from('zoho_log').upsert({
+      zoho_receive_id: p.id, site_id: siteId, project: p.project, grn: p.grn || null, po: p.po, vendor: p.vendor, receive_date: p.date || null,
+      status, detail, lines: p.lines.map((l) => ({ name: l.name, unit: l.unit, qty: l.qty })), updated_at: new Date().toISOString(),
+    });
+  } catch { /* log only */ }
+}
+
 const digits = (s: unknown) => String(s ?? '').replace(/\D/g, '').replace(/^0+/, '');
 /** A delivery already typed in Bohari for the same receive: same delivery note number (digits only),
  *  or same day, same vendor and the same items and quantities. Only unlinked, hand-typed ones. */
@@ -162,7 +173,11 @@ async function syncOne(db: SupabaseClient, c: Conn) {
   const mine = norm(site?.zoho_project || site?.name);
   // Receives waiting for item matches are retried first; the admin may have matched them since.
   const { data: waiting } = await db.from('zoho_pending').select('payload').eq('site_id', c.site_id);
-  for (const w of waiting ?? []) { const r = await place(db, c, w.payload as Parsed, c.site_id); if (r === 'imported') out.imported++; }
+  for (const w of waiting ?? []) {
+    const wp = w.payload as Parsed;
+    const r = await place(db, c, wp, c.site_id);
+    if (r === 'imported') { out.imported++; await log(db, wp, 'imported', c.site_id); }
+  }
 
   const token = await refreshAccess(c.refresh_token, c.accounts_domain);
   if (!out.kind) {
@@ -178,15 +193,31 @@ async function syncOne(db: SupabaseClient, c: Conn) {
   const poCache = new Map<string, Rec | null>();
   // Keep each run short (server time limit): at most 40 receives looked up; the next check carries on.
   let lookups = 0;
+  // Ask Zoho for newest first. If it refuses the sort, read every page (up to 1,000 receives):
+  // stopping at the first page of old receives is what hid new ones before.
+  let sorted = true, newestFirst = false, listed = 0, inWindow = 0, other = 0;
+  const firstDates: string[] = [];
   pages: for (let page = 1; page <= 10; page++) {
-    const r = await zget(c.api_domain, token, `${base(out.kind)}/purchasereceives`, { organization_id: c.org_id, page: String(page), per_page: '100' });
+    const q: Record<string, string> = { organization_id: c.org_id, page: String(page), per_page: '100' };
+    if (sorted) Object.assign(q, { sort_column: 'date', sort_order: 'D' });
+    let r = await zget(c.api_domain, token, `${base(out.kind)}/purchasereceives`, q);
+    if (!r.ok && sorted) {
+      sorted = false; delete q.sort_column; delete q.sort_order;
+      r = await zget(c.api_domain, token, `${base(out.kind)}/purchasereceives`, q);
+    }
     if (!r.ok) throw new Error(`Zoho answered ${r.status}: ${String(r.body.message ?? '')}`);
     const list = (r.body.purchasereceives as Rec[]) ?? [];
-    let fresh = 0; // rows on this page within the window (Zoho's own order isn't guaranteed)
+    listed += list.length;
+    const dates = list.map((row) => dayOf(row.date ?? row.receive_date ?? row.purchasereceive_date)).filter(Boolean);
+    if (page === 1) {
+      firstDates.push(dates[0] ?? '', dates[dates.length - 1] ?? '');
+      newestFirst = sorted && dates.length > 1 && dates.every((d, i) => i === 0 || d <= dates[i - 1]);
+    }
+    let fresh = 0; // rows on this page within the window
     for (const row of list) {
       const date = dayOf(row.date ?? row.receive_date ?? row.purchasereceive_date);
       if (date && date < since) continue; // undated rows are checked below, after looking them up
-      fresh++;
+      fresh++; inWindow++;
       const id = String(row.receive_id ?? row.purchasereceive_id ?? '');
       if (!id) continue;
       out.seen++;
@@ -197,7 +228,7 @@ async function syncOne(db: SupabaseClient, c: Conn) {
         db.from('zoho_pending').select('zoho_receive_id').eq('zoho_receive_id', id).maybeSingle(),
       ]);
       if (done || waits) continue;
-      if (seen && norm(seen.project) !== mine) { if (seen.project) projects.add(seen.project); continue; }
+      if (seen && norm(seen.project) !== mine) { if (seen.project) projects.add(seen.project); other++; continue; }
       if (++lookups > 40) { out.more = true; break pages; }
       const d = await zget(c.api_domain, token, `${base(out.kind)}/purchasereceives/${id}`, { organization_id: c.org_id });
       const rec = (d.body.purchasereceive ?? d.body.purchase_receive ?? row) as Rec;
@@ -212,19 +243,29 @@ async function syncOne(db: SupabaseClient, c: Conn) {
       }
       const p = parse({ ...row, ...rec }, po);
       // Hard rule: no date, or before the start date → never brought in. Remembered so it isn't looked up again.
-      if (!p.date || p.date < start) { await db.from('zoho_seen').upsert({ zoho_receive_id: p.id, project: 'before start date' }); continue; }
+      if (!p.date || p.date < start) { await db.from('zoho_seen').upsert({ zoho_receive_id: p.id, project: 'before start date' }); await log(db, p, 'before_start', null, `Before the start date (${start})`); continue; }
       if (p.project) projects.add(p.project);
       if (!p.project) {
         // No Project filled in Zoho: the admin decides which site it belongs to.
         await db.from('zoho_pending').upsert({ zoho_receive_id: p.id, site_id: null, project: null, grn: p.grn, receive_date: p.date || null, vendor: p.vendor, reason: 'No Project in Zoho', payload: p }, { onConflict: 'zoho_receive_id', ignoreDuplicates: true });
+        await log(db, p, 'no_project', null, 'No Project filled in Zoho');
         continue;
       }
-      if (norm(p.project) !== mine) { await db.from('zoho_seen').upsert({ zoho_receive_id: p.id, project: p.project }); continue; } // another site's: not ours
+      if (norm(p.project) !== mine) { await db.from('zoho_seen').upsert({ zoho_receive_id: p.id, project: p.project }); await log(db, p, 'other_site', null, `Project “${p.project}”`); other++; continue; } // another site's: not ours
       const res = await place(db, c, p, c.site_id);
-      if (res === 'imported') out.imported++; else if (res === 'pending') out.pending++; else if (res === 'linked') out.linked++;
+      if (res === 'imported') { out.imported++; await log(db, p, 'imported', c.site_id); }
+      else if (res === 'pending') {
+        out.pending++;
+        const { data: w } = await db.from('zoho_pending').select('reason').eq('zoho_receive_id', p.id).maybeSingle();
+        await log(db, p, 'waiting', c.site_id, w?.reason ?? null);
+      } else if (res === 'linked') { out.linked++; await log(db, p, 'linked', c.site_id, 'Already typed in by hand; linked to Zoho'); }
     }
-    if (!fresh || !(r.body.page_context as Rec | undefined)?.has_more_page) break;
+    if (!(r.body.page_context as Rec | undefined)?.has_more_page) break;
+    if (newestFirst && !fresh) break; // newest first and this whole page is older: nothing newer further on
   }
+  const note = `Zoho listed ${listed} receive(s)${sorted ? (newestFirst ? ', newest first' : '') : ', unsorted'}; first page ${firstDates.filter(Boolean).join(' → ') || 'empty'}; ${inWindow} since ${since}.`;
+  console.log(JSON.stringify({ site: c.site_id, note, imported: out.imported, waiting: out.pending, linked: out.linked, other }));
+  try { await db.from('zoho_runs').insert({ user_id: c.user_id, site_id: c.site_id, listed, recent: inWindow, imported: out.imported, waiting: out.pending, linked: out.linked, other_site: other, note }); } catch { /* log only */ }
   out.projects = [...projects];
   try { out.newInZoho = await checkNewItems(db, c, token, out.kind); } catch { /* not important enough to fail the sync */ }
   await db.from('zoho_connections').update({ last_sync_at: new Date().toISOString(), last_error: null, imported: c.imported + out.imported }).eq('user_id', c.user_id);

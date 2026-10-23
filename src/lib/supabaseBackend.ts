@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { AdminApi, Backend, Balance, CorrectionRequest, Doc, DocInput, Draft, Field, Item, Line, LineInput, Profile, SiteDoc, SiteInfo, StockTake, Submission, User, ZohoConnection, ZohoItemMatch, ZohoPending, ZohoStatus, ZohoSyncResult } from './types';
+import type { AdminApi, Backend, Balance, CorrectionRequest, Doc, DocInput, Draft, Field, Item, Line, LineInput, Profile, SiteDoc, SiteInfo, StockTake, Submission, User, ZohoConnection, ZohoItemMatch, ZohoLogRow, ZohoRun, ZohoPending, ZohoStatus, ZohoSyncResult } from './types';
 
 const PAGE = 1000;
 
@@ -98,6 +98,18 @@ function adminApi(sb: SupabaseClient): AdminApi {
       const { data, error } = await sb.from('zoho_item_map').select('zoho_item_id, item_id, zoho_name, zoho_unit').order('created_at', { ascending: false });
       if (error) return [];
       return (data ?? []) as ZohoItemMatch[];
+    },
+    async zohoLog() {
+      // zoho_log arrives with migration 0016; until it has run the log is simply empty.
+      const { data, error } = await sb.from('zoho_log').select('zoho_receive_id, site_id, project, grn, po, vendor, receive_date, status, detail, lines, updated_at')
+        .order('receive_date', { ascending: false, nullsFirst: false }).order('updated_at', { ascending: false }).limit(500);
+      if (error) return [];
+      return (data ?? []) as ZohoLogRow[];
+    },
+    async zohoRuns() {
+      const { data, error } = await sb.from('zoho_runs').select('site_id, at, listed, recent, imported, waiting, linked, other_site, note').order('at', { ascending: false }).limit(60);
+      if (error) return [];
+      return (data ?? []) as ZohoRun[];
     },
     async matchZohoItem(zohoItemId, itemId) {
       const { error } = await sb.from('zoho_item_map').update({ item_id: itemId }).eq('zoho_item_id', zohoItemId);

@@ -3,6 +3,7 @@ import { api } from '../lib/api';
 import { useData } from '../lib/store';
 import type { ZohoStatus } from '../lib/types';
 import { toast } from './feedback';
+import { Icon } from './fx';
 
 /** The small blue tag on anything that came from Zoho Books. */
 export const ZohoTag = ({ grn }: { grn?: string | null }) => (
@@ -14,6 +15,24 @@ const ago = (iso: string | null) => {
   const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
   return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`;
 };
+
+/** Zoho Books' own logo, from the file in public/brand (dropped in by the owner). Falls back to the ZOHO tag. */
+export function ZohoBooksMark({ size = 20 }: { size?: number }) {
+  const [ok, setOk] = useState(true);
+  return ok
+    ? <img className="zbMark" src="/brand/zoho-books.png" alt="Zoho Books" width={size} height={size} onError={() => setOk(false)} />
+    : <span className="zohoTag"><b>ZOHO</b></span>;
+}
+
+/** Is a Zoho check running right now? Shared, so every Refresh button spins together. */
+let syncing = false;
+const syncListeners = new Set<(v: boolean) => void>();
+const setSyncing = (v: boolean) => { syncing = v; syncListeners.forEach((f) => f(v)); };
+export function useZohoSyncing() {
+  const [v, setV] = useState(syncing);
+  useEffect(() => { syncListeners.add(setV); return () => { syncListeners.delete(setV); }; }, []);
+  return v;
+}
 
 let shared: ZohoStatus | null | undefined;
 const listeners = new Set<(s: ZohoStatus | null) => void>();
@@ -43,6 +62,8 @@ export function ZohoAutoSync() {
   const sync = useCallback(async (loud: boolean) => {
     if (running.current) return;
     running.current = true;
+    const started = Date.now();
+    if (loud) setSyncing(true);
     try {
       const r = await api.zohoSync();
       await loadZoho();
@@ -51,7 +72,11 @@ export function ZohoAutoSync() {
       // A big first check is done in parts; carry straight on with the next part.
       if (r.more) setTimeout(() => { running.current = false; sync(loud); }, 1500);
       else if (loud) toast(r.pending ? `Zoho checked · ${r.pending} waiting for the admin to match items` : 'Zoho checked · nothing new');
-    } finally { running.current = false; }
+    } finally {
+      running.current = false;
+      // Keep the spin on screen long enough to be seen, even when Zoho answers fast.
+      if (loud) setTimeout(() => setSyncing(false), Math.max(0, 900 - (Date.now() - started)));
+    }
   }, [refresh, refreshUnfinished]);
 
   useEffect(() => {
@@ -73,6 +98,19 @@ export function ZohoAutoSync() {
 }
 let zohoSyncNow: () => void = () => undefined;
 export const checkZohoNow = () => zohoSyncNow();
+
+/** The Refresh button on Deliveries: Zoho Books logo, and it spins while Zoho is being checked. */
+export function ZohoRefresh({ className = 'recNew zohoRefresh', label = 'Refresh' }: { className?: string; label?: string }) {
+  const busy = useZohoSyncing();
+  return (
+    <button className={`${className} ${busy ? 'busy' : ''}`} onClick={checkZohoNow} disabled={busy} aria-busy={busy}
+      title="Bring in goods received in Zoho Books">
+      <span className="zrLogo"><ZohoBooksMark size={18} /></span>
+      {busy ? 'Refreshing…' : label}
+      <span className="zrSpin" aria-hidden="true"><Icon name="refresh" size={16} /></span>
+    </button>
+  );
+}
 
 /** True when this store's deliveries come from Zoho: then they are never typed in Bohari (no double counting). */
 export function useZohoDeliveries() {
@@ -104,5 +142,5 @@ export function ZohoStatusLine({ compact }: { compact?: boolean }) {
   }
   return compact
     ? <button className="railLink zohoMenu" onClick={checkZohoNow} title={s.last_error ?? `Connected${s.zoho_email ? ` as ${s.zoho_email}` : ''}`}><span className={`zohoDot ${s.last_error ? 'err' : ''}`} /><span className="rlText">{s.last_error ? 'Zoho needs attention' : `Zoho · checked ${ago(s.last_sync_at)}`}</span></button>
-    : <div className="zohoCard ok"><div><b>Zoho connected</b><span>{s.zoho_email ? `${s.zoho_email} · ` : ''}checked {ago(s.last_sync_at)} · {s.imported} brought in</span>{s.last_error && <span className="zohoErr">{s.last_error}</span>}</div><button className="btn ghost sm" onClick={checkZohoNow}>Check now</button></div>;
+    : <div className="zohoCard ok"><div><b>Zoho connected</b><span>{s.zoho_email ? `${s.zoho_email} · ` : ''}checked {ago(s.last_sync_at)} · {s.imported} brought in</span>{s.last_error && <span className="zohoErr">{s.last_error}</span>}</div><ZohoRefresh className="btn ghost sm zohoRefresh" /></div>;
 }

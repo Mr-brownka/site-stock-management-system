@@ -1396,6 +1396,17 @@ body:has(.trainBar) .topbar { top: 50px; }
 .dsDay.current { background: #FFF4DE; border: 2px solid var(--accent); box-shadow: 0 0 0 5px rgba(252,167,45,.18); }
 .dsDay.done { background: var(--ink); border-color: var(--ink); color: #fff; }
 .dsDay.closed { background: #F1F3F2; color: var(--muted); }
+.dsText { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+/* A missed day asks its own question: words on the left, the two answers on the right. */
+.dsDay.ask { flex: 3 1 420px; flex-direction: row; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; padding: 12px 14px 12px 16px; }
+.dsDay.ask .dsSub { font-size: 14px; font-weight: 600; color: #8E1B12; }
+.dsActs { display: flex; gap: 8px; flex-wrap: wrap; }
+.dsBtn { height: 38px; padding: 0 14px; border-radius: 10px; border: 1.5px solid rgba(142,27,18,.28); background: #fff; color: #8E1B12; font: 600 14px var(--body); display: inline-flex; align-items: center; gap: 6px; cursor: pointer; white-space: nowrap; transition: transform .12s, background .15s; }
+.dsBtn:hover { background: #FFF6F5; }
+.dsBtn:active { transform: scale(.97); }
+.dsBtn.go { background: var(--ink); border-color: var(--ink); color: #fff; }
+.dsBtn.go:hover { background: #2A3331; }
+.dsBtn:disabled { opacity: .55; cursor: default; }
 .catchCard { margin-bottom: 16px; overflow: hidden; }
 .catchCard .ccHead { display: flex; align-items: center; gap: 14px; padding: 16px 20px; border-bottom: 1px solid var(--line-2); }
 .catchCard .ccHead div { display: flex; flex-direction: column; gap: 2px; }
@@ -2288,6 +2299,17 @@ body.colDrag, body.colDrag * { cursor: col-resize !important; user-select: none 
 .adSecT { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #6A7470; }
 .adSecT.acc { color: #8A5000; }
 .adConn .th, .adConn .tr { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr) 120px; }
+.adZLog .th, .adZLog .tr { grid-template-columns: 70px minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(0, .8fr) minmax(0, 1.4fr) 112px; }
+.adZLog .tr { cursor: pointer; }
+.adZItem.open .tr { background: #FAFBFA; border-bottom-color: transparent; }
+.adZDetail { padding: 4px 20px 14px 104px; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid #EEF0EE; background: #FAFBFA; }
+.adZDetail .ln { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; max-width: 520px; }
+.adZBar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 12px 20px; border-bottom: 1px solid var(--line); }
+.adZBar .input { min-height: 38px; }
+.adZBar input.input { flex: 1 1 220px; }
+.adZBar .select { width: auto; }
+.adZRuns { display: flex; flex-direction: column; gap: 4px; padding: 12px 20px; border-bottom: 1px solid var(--line); font-size: 13.5px; color: var(--muted); }
+.adZRuns b { color: var(--ink); font-weight: 600; }
 .adMatch { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 12px 16px; border-bottom: 1px solid #EEF0EE; }
 .adMatch .input { min-height: 38px; font-size: 13.5px; }
 .adZRow { display: flex; gap: 12px; padding: 10px 16px; border-bottom: 1px solid #EEF0EE; font-size: 13.5px; }
@@ -2534,6 +2556,12 @@ body.colDrag, body.colDrag * { cursor: col-resize !important; user-select: none 
   .adReorder .tr > :nth-child(1) { grid-column: 1 / -1; } .adReorder .tr > :nth-child(2) { text-align: left; }
   .adReorder .input { width: 96px; }
   .adConn .tr { grid-template-areas: "site status" "proj proj" "who who"; }
+  .adZLog .tr { grid-template-columns: minmax(0, 1fr) auto !important; grid-template-areas: "grn status" "vendor date" "items items" "site site"; row-gap: 4px; padding-top: 10px; padding-bottom: 10px; }
+  .adZLog .tr > :nth-child(1) { grid-area: date; justify-self: end; font-size: 12.5px; } .adZLog .tr > :nth-child(2) { grid-area: grn; }
+  .adZLog .tr > :nth-child(3) { grid-area: vendor; font-size: 13.5px; } .adZLog .tr > :nth-child(4) { grid-area: site; font-size: 12.5px; color: var(--muted); }
+  .adZLog .tr > :nth-child(5) { grid-area: items; font-size: 12.5px; } .adZLog .tr > :nth-child(6) { grid-area: status; justify-self: end; }
+  .adZDetail { padding: 4px 16px 14px; }
+  .adZBar { padding: 12px 14px; } .adZBar .seg { width: 100%; overflow-x: auto; } .adZBar .select { flex: 1; }
   .adConn .tr > :nth-child(1) { grid-area: site; } .adConn .tr > :nth-child(2) { grid-area: proj; font-size: 13px; } .adConn .tr > :nth-child(3) { grid-area: who; font-size: 12.5px; } .adConn .tr > :nth-child(4) { grid-area: status; justify-self: end; }
   .adTodo { grid-template-columns: 26px minmax(0, 1fr) auto; gap: 10px; padding: 12px 14px; }
   .adTodo .adKind { display: none; }
@@ -2620,3 +2648,16 @@ body.colDrag, body.colDrag * { cursor: col-resize !important; user-select: none 
   .stGrid { padding: 6px 4px 10px; }
 }
 @media (max-width: 1023px) { .shell.hasTab .actionBar { bottom: calc(72px + env(safe-area-inset-bottom)); } }
+
+/* Zoho Books refresh: logo on a white chip, arrows that spin while Zoho is being checked. */
+.zbMark { display: block; object-fit: contain; }
+.zohoRefresh { gap: 10px; }
+.zohoRefresh .zrLogo { width: 26px; height: 26px; border-radius: 8px; background: #fff; display: grid; place-items: center; flex: none; }
+.zohoRefresh .zrLogo .zohoTag b { height: 18px; padding: 0 4px; font-size: 9px; }
+.zohoRefresh .zrSpin { display: inline-grid; place-items: center; opacity: .75; }
+.zohoRefresh.busy { cursor: progress; }
+.zohoRefresh.busy .zrSpin { animation: zrSpin .8s linear infinite; opacity: 1; }
+.zohoRefresh:disabled { opacity: 1; }
+.btn.zohoRefresh .zrLogo { background: transparent; width: auto; height: auto; }
+@keyframes zrSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .zohoRefresh.busy .zrSpin { animation-duration: 2.4s; } }

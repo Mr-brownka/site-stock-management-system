@@ -131,6 +131,8 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
       async zohoPending() { return []; },
       async assignPending() { /* demo */ },
       async zohoItems() { return []; },
+      async zohoLog() { return []; },
+      async zohoRuns() { return []; },
       async matchZohoItem() { /* demo */ },
       async setStructure(id, structure) { s.sites = s.sites.map((x) => (x.id === id ? { ...x, ...structure } : x)); save(); },
       async renameSite(id, name) { s.sites = s.sites.map((x) => (x.id === id ? { ...x, name } : x)); save(); },

@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { fmt } from '../components/ui';
 import { api } from '../lib/api';
 import { addDays, niceDate, today, weekday } from '../lib/dates';
-import type { AlertContact, Balance, ZohoConnection, ZohoItemMatch, ZohoPending, CorrectionRequest, Item, Profile, Role, SiteDoc, SiteInfo, Structure, User } from '../lib/types';
+import type { AlertContact, Balance, ZohoConnection, ZohoItemMatch, ZohoLogRow, ZohoPending, ZohoRun, CorrectionRequest, Item, Profile, Role, SiteDoc, SiteInfo, Structure, User } from '../lib/types';
 import { ask, toast } from '../components/feedback';
 import { StartTraining } from '../components/Training';
 import { TRAINING_DAYS } from '../lib/trainingPlan';
@@ -38,7 +38,7 @@ const waNumber = (p: string) => { const d = p.replace(/\D/g, ''); return d.start
 interface Data {
   profiles: Profile[]; sites: SiteInfo[]; corr: CorrectionRequest[]; balances: Balance[];
   subs: { site_id: string; submitted_at: string }[]; docs: SiteDoc[]; items: Item[];
-  conns: ZohoConnection[]; zitems: ZohoItemMatch[]; pending: ZohoPending[]; projects: Record<string, string | null>; contacts: Record<string, AlertContact>;
+  conns: ZohoConnection[]; zitems: ZohoItemMatch[]; pending: ZohoPending[]; zlog: ZohoLogRow[]; zruns: ZohoRun[]; projects: Record<string, string | null>; contacts: Record<string, AlertContact>;
 }
 type Act = (key: string, fn: () => Promise<unknown>) => Promise<void>;
 interface Nav { sec: Sec; site?: string | null; tab?: SiteTab; sel?: string | null }
@@ -56,11 +56,12 @@ export function Admin({ user, onExit, onSignOut }: { user: User; onExit: () => v
   const load = useCallback(async () => {
     try {
       const soft = <T,>(p: Promise<T>, fb: T) => p.catch(() => fb);
-      const [profiles, sites, corr, balances, subs, docs, items, conns, zitems, pending, projects, contacts] = await Promise.all([
+      const [profiles, sites, corr, balances, subs, docs, items, conns, zitems, pending, projects, contacts, zlog, zruns] = await Promise.all([
         api.admin.profiles(), api.admin.sites(), api.admin.corrections(), api.admin.balances(), api.admin.submissions(day), api.admin.documents(addDays(day, -13), day), api.items(),
         soft(api.admin.zohoConnections(), []), soft(api.admin.zohoItems(), []), soft(api.admin.zohoPending(), []), soft(api.admin.zohoProjects(), {}), soft(api.admin.alertContacts(), {}),
+        soft(api.admin.zohoLog(), []), soft(api.admin.zohoRuns(), []),
       ]);
-      setD({ profiles, sites, corr, balances, subs, docs, items, conns, zitems, pending, projects, contacts });
+      setD({ profiles, sites, corr, balances, subs, docs, items, conns, zitems, pending, projects, contacts, zlog, zruns });
     } catch (e) { setErr((e as Error).message); }
   }, [day]);
   useEffect(() => { load(); }, [load]);
@@ -731,6 +732,76 @@ function Items({ d, busy, act }: { d: Data; busy: string; act: Act }) {
 
 /* ───────── Zoho ───────── */
 
+const ZSTATUS: Record<ZohoLogRow['status'], { label: string; cls: string }> = {
+  imported: { label: 'Brought in', cls: 'ok' },
+  linked: { label: 'Linked', cls: 'ok' },
+  waiting: { label: 'Waiting', cls: 'warn' },
+  no_project: { label: 'No Project', cls: 'warn' },
+  other_site: { label: 'Other site', cls: 'idle' },
+  before_start: { label: 'Before start', cls: 'idle' },
+};
+
+/** Everything Zoho sent, one row per goods-received note, so the admin can tick it off against Zoho. */
+function ZohoLog({ d }: { d: Data }) {
+  const [site, setSite] = useState<string>('all');
+  const [f, setF] = useState<'mine' | 'all' | 'attn'>('mine');
+  const [q, setQ] = useState('');
+  const [open, setOpen] = useState<string | null>(null);
+  const siteName = (id: string | null) => d.sites.find((s) => s.id === id)?.name ?? '';
+  const s = q.trim().toLowerCase();
+  const rows = d.zlog.filter((r) => (site === 'all' || r.site_id === site)
+    && (f === 'all' || (f === 'attn' ? r.status === 'waiting' || r.status === 'no_project' : r.status !== 'other_site' && r.status !== 'before_start'))
+    && (!s || [r.grn, r.po, r.vendor, r.project, ...(r.lines ?? []).map((l) => l.name)].some((x) => (x ?? '').toLowerCase().includes(s))));
+  const attn = d.zlog.filter((r) => r.status === 'waiting' || r.status === 'no_project').length;
+  // The last check per site: what Zoho listed, so "nothing came in" can be told apart from "nothing was there".
+  const lastRuns = d.sites.map((x) => ({ site: x, run: d.zruns.find((r) => r.site_id === x.id) })).filter((x) => x.run);
+  return (
+    <div className="adStack">
+      <span className="adSecT">Everything Zoho sent{d.zlog.length ? ` · ${d.zlog.length}` : ''}</span>
+      <section className="panel adCard">
+        {!!lastRuns.length && <div className="adZRuns">{lastRuns.map(({ site: x, run }) => (
+          <span key={x.id} title={run!.note ?? ''}><b>{x.name}</b> checked {ago(run!.at)} · Zoho listed {run!.listed} · {run!.imported ? `${run!.imported} brought in` : 'nothing new'}</span>
+        ))}</div>}
+        <div className="adZBar">
+          <Seg opts={[['mine', 'For our sites'], ['attn', `Needs you ${attn}`], ['all', 'Everything']]} value={f} onPick={setF} />
+          <select className="select input" value={site} onChange={(e) => setSite(e.target.value)} aria-label="Site">
+            <option value="all">All sites</option>{d.sites.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+          </select>
+          <input className="input" placeholder="Search GRN, PO, vendor, item" value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
+        <div className="adTable adZLog">
+          <div className="th"><span>Date</span><span>GRN · PO</span><span>Vendor</span><span>Site</span><span>Items</span><span>Status</span></div>
+          {!d.zlog.length && <div className="adEmpty">Nothing logged yet. Every goods-received note the Zoho check reads shows up here, with what happened to it.</div>}
+          {!!d.zlog.length && !rows.length && <div className="adEmpty">Nothing matches.</div>}
+          {rows.map((r) => {
+            const st = ZSTATUS[r.status];
+            const lines = r.lines ?? [];
+            const isOpen = open === r.zoho_receive_id;
+            return (
+              <div key={r.zoho_receive_id} className={`adZItem ${isOpen ? 'open' : ''}`}>
+                <button className="tr" onClick={() => setOpen(isOpen ? null : r.zoho_receive_id)} aria-expanded={isOpen}>
+                  <span className="mono">{r.receive_date ? niceDate(r.receive_date).split(' ').slice(1).join(' ') : '—'}</span>
+                  <span><b className="mono">{r.grn || '—'}</b>{r.po && <small className="muted mono"> · {r.po}</small>}</span>
+                  <span>{r.vendor ?? <span className="muted">—</span>}</span>
+                  <span>{siteName(r.site_id) || <span className="muted">{r.project ?? '—'}</span>}</span>
+                  <span className="muted">{lines.length ? `${lines[0].name}${lines.length > 1 ? ` +${lines.length - 1}` : ''}` : '—'}</span>
+                  <span><span className={`stPill ${st.cls}`}>{st.label}</span></span>
+                </button>
+                {isOpen && (
+                  <div className="adZDetail">
+                    {lines.map((l, i) => <div key={i} className="ln"><span>{l.name}</span><span className="mono">{fmt(l.qty)} {l.unit ?? ''}</span></div>)}
+                    <small className="muted">{[r.project && `Zoho Project: ${r.project}`, r.detail].filter(Boolean).join(' · ')}</small>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function ZohoPage({ d, busy, act, go }: { d: Data; busy: string; act: Act; go: (n: Nav) => void }) {
   const [pick, setPick] = useState<Record<string, string>>({});
   const items = useMemo(() => [...d.items].sort((a, b) => a.name.localeCompare(b.name)), [d.items]);
@@ -747,6 +818,7 @@ function ZohoPage({ d, busy, act, go }: { d: Data; busy: string; act: Act; go: (
   return (
     <div className="adStack">
       <Head title="Zoho Books" lead="Goods received in Zoho come into each site by themselves. Nothing is changed in Zoho." />
+      <ZohoLog d={d} />
       <div className="adZoho">
         <div className="adStack">
           <span className="adSecT">Each site’s connection</span>
