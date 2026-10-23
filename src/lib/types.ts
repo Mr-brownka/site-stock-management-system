@@ -271,6 +271,8 @@ export interface Backend {
   items(): Promise<Item[]>;
   addItem(name: string, unit: string): Promise<Item>;
   remembered(field: Field): Promise<string[]>;
+  /** Everyone approved on my site (the store team), by name. */
+  siteTeam(): Promise<string[]>;
   saveDocument(doc: DocInput, lines: LineInput[]): Promise<void>;
   removeDocument(id: string): Promise<void>;
   /** Documents (with their lines) dated between from and to, inclusive. */

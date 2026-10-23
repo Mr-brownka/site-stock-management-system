@@ -210,6 +210,7 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
       const it = { id: 900000 + s.extraItems.length, name, unit, in_zoho: false };
       s.extraItems.push(it); save(); return it;
     },
+    async siteTeam() { return [s.meta?.user.name ?? "Abdirahman", "Peter Otieno"].filter((v, i, a) => a.indexOf(v) === i); },
     async remembered(field: Field) {
       const pick: Record<Field, (d: Doc) => string | null | undefined> = {
         supplier: (d) => (d.kind === 'delivery' ? d.party : null),

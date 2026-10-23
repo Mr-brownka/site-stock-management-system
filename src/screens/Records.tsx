@@ -203,7 +203,7 @@ function Detail({ row, cfg, onClose, onFix }: { row: Row; cfg: (typeof CFG)[RecK
     ['Date', niceDate(d.doc_date)],
     [cfg.paper, d.ref_no],
     ...(d.kind === 'delivery' ? [['Vendor', d.party], ['Vehicle / driver', d.vehicle]] as [string, string | null | undefined][] : []),
-    ...(d.kind === 'issue' ? [['Activity', d.activity], ['Issued to', d.party], ['Gemba', d.gemba], ['Time on the card', d.doc_time?.slice(0, 5)], ['SM / Supervisor', d.supervisor], ['Card no. (printed)', d.card_no]] as [string, string | null | undefined][] : []),
+    ...(d.kind === 'issue' ? [['Activity', d.activity], ['Issued to', d.party], ['Gemba', d.gemba], ['Time on the card', d.doc_time?.slice(0, 5)], ['SM / Supervisor', d.supervisor], ['Code', d.card_no], ['Store', d.authorised_by]] as [string, string | null | undefined][] : []),
     ...(d.kind === 'return' ? [['Returned by', row.who], ['Gemba', row.where]] as [string, string | null | undefined][] : []),
     ...(d.kind === 'transfer_in' || d.kind === 'transfer_out' ? [[d.kind === 'transfer_out' ? 'Sent to' : 'Received from', d.party], ['Authorised by', d.authorised_by], ['Vehicle', d.vehicle]] as [string, string | null | undefined][] : []),
     ...(d.source === 'zoho' ? [['Zoho receive', d.zoho_grn], ['Purchase order', d.zoho_po], ['Checked in Bohari', d.checked_at ? new Date(d.checked_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' }) : 'Not yet']] as [string, string | null | undefined][] : []),

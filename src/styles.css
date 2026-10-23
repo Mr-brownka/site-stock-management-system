@@ -105,6 +105,8 @@ h1, h2, h3 { margin: 0; }
 .drop button[aria-selected="true"], .drop button:hover { background: var(--accent-soft); }
 .drop .unit { font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
 .drop .add { color: var(--accent-dark); font-weight: 700; }
+/* Opens upwards when the save bar is in the way. */
+.drop.up { top: auto; bottom: 100%; margin-top: 0; margin-bottom: 4px; box-shadow: 0 -10px 30px rgba(27, 33, 32, .18); }
 
 /* Item lines */
 .lines { display: flex; flex-direction: column; gap: 10px; }
@@ -2661,3 +2663,19 @@ body.colDrag, body.colDrag * { cursor: col-resize !important; user-select: none 
 .btn.zohoRefresh .zrLogo { background: transparent; width: auto; height: auto; }
 @keyframes zrSpin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .zohoRefresh.busy .zrSpin { animation-duration: 2.4s; } }
+
+/* The ENTERED stamp: pressed onto the card like a rubber stamp, then the card gives a small thud. */
+.stampMark.big { top: 50%; left: 50%; right: auto; transform: translate(-50%, -50%) rotate(-9deg); display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 10px 26px 8px; border: 5px double var(--ok); border-radius: 12px; color: var(--ok); background: rgba(240, 250, 244, .9); z-index: 40; pointer-events: none;
+  box-shadow: 0 0 0 2px rgba(31,122,77,.12); animation: stampPress .5s cubic-bezier(.2,.9,.3,1.25) both; }
+.stampMark.big b { font-family: var(--display); font-weight: 800; font-size: clamp(34px, 6vw, 58px); letter-spacing: .12em; line-height: 1; }
+.stampMark.big small { font-family: var(--mono); font-size: 13px; letter-spacing: .14em; text-transform: uppercase; opacity: .85; }
+@keyframes stampPress {
+  0% { transform: translate(-50%, -50%) rotate(-16deg) scale(2.6); opacity: 0; filter: blur(3px); }
+  55% { transform: translate(-50%, -50%) rotate(-9deg) scale(.92); opacity: 1; filter: blur(0); }
+  75% { transform: translate(-50%, -50%) rotate(-9deg) scale(1.04); }
+  100% { transform: translate(-50%, -50%) rotate(-9deg) scale(1); opacity: 1; }
+}
+.mwc.stamped { animation: cardThud .32s .26s ease-out both; }
+@keyframes cardThud { 0% { transform: translateY(0); } 35% { transform: translateY(3px) scale(.995); } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .stampMark.big { animation-duration: .01s; } .mwc.stamped { animation: none; } }

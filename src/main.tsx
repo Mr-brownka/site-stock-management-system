@@ -5,9 +5,12 @@ import { FeedbackHost } from './components/feedback';
 import './styles.css';
 import { bootStep } from './lib/boot';
 import { installFx } from './lib/fxGlobal';
+import { enterMovesOn, keepFocusClear } from './components/ui';
 
 bootStep('Checking your account…', 30, 55);
 installFx();
+keepFocusClear();
+enterMovesOn();
 import { TrainingBar } from './components/Training';
 
 createRoot(document.getElementById('root')!).render(

@@ -12,7 +12,7 @@ import { fmt, newLine, Suggest, TimeBoxes, type LineDraft } from './ui';
 /** What each left-out detail is called, per kind of entry. */
 export const DETAIL_LABEL: Record<string, Record<string, string>> = {
   delivery: { party: 'Supplier', ref_no: 'Delivery note no.', subphase: 'Sub-phase' },
-  issue: { ref_no: 'Card code (red number)', activity: 'Activity', doc_time: 'Time', gemba: 'Gemba', subphase: 'Gemba', party: 'Issued to', supervisor: 'SM / Supervisor' },
+  issue: { ref_no: 'Card no.', activity: 'Activity', doc_time: 'Time', gemba: 'Gemba', subphase: 'Gemba', party: 'Issued to', supervisor: 'SM / Supervisor' },
   transfer_in: { party: 'Project', ref_no: 'Transfer note no.', authorised_by: 'Authorised by' },
   transfer_out: { party: 'Project', ref_no: 'Transfer note no.', authorised_by: 'Authorised by' },
 };

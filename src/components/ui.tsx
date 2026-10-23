@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { useData } from '../lib/store';
 import { BackPill } from './BackPill';
 import { type Item } from '../lib/types';
@@ -11,6 +11,75 @@ export function focusNext(from: HTMLElement) {
   const i = all.indexOf(from);
   const next = all[i + 1];
   next?.focus();
+}
+
+/** The top of whatever is pinned to the bottom of the screen (the save bar, the phone tab bar), or the window edge. */
+export function bottomEdge() {
+  let y = window.innerHeight;
+  document.querySelectorAll<HTMLElement>('.actionBar, .tabbar').forEach((el) => {
+    const r = el.getBoundingClientRect();
+    if (r.height && r.top > window.innerHeight * 0.45 && r.top < y) y = r.top;
+  });
+  return y;
+}
+function topEdge() {
+  let y = 0;
+  document.querySelectorAll<HTMLElement>('.topbar').forEach((el) => { const r = el.getBoundingClientRect(); if (r.height && r.top <= 2 && r.bottom > y) y = r.bottom; });
+  return y;
+}
+
+/** A box being filled never hides behind the save bar: when it gets focus, the page scrolls it clear (with room for its list). */
+export function keepFocusClear() {
+  document.addEventListener('focusin', (e) => {
+    const t = e.target as HTMLElement;
+    if (!t.matches?.('input, select, textarea')) return;
+    requestAnimationFrame(() => {
+      const r = t.getBoundingClientRect();
+      const floor = bottomEdge();
+      if (r.bottom > floor - 16) window.scrollBy({ top: r.bottom - floor + 120, behavior: 'smooth' });
+    });
+  });
+}
+
+/** Everywhere in the app: Enter in a box moves to the next box (like Tab), unless the box handles Enter itself.
+ *  Sign-in style forms (<form>) still submit, search boxes keep their own Enter, and text areas keep new lines. */
+export function enterMovesOn() {
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.defaultPrevented || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
+    const el = e.target as Element;
+    if (!(el instanceof HTMLInputElement || el instanceof HTMLSelectElement)) return;
+    const t = el as HTMLInputElement;
+    if (t.form || t.type === 'search' || t.type === 'file' || t.closest('.fxSearch, .recSearch, .stFind, [data-enter="keep"]')) return;
+    const scope = t.closest('[role="dialog"], main, .page') ?? document.body;
+    const all = Array.from(scope.querySelectorAll<HTMLElement>('input, select, textarea')).filter((el) => {
+      const i = el as HTMLInputElement;
+      return !i.disabled && !i.readOnly && i.type !== 'hidden' && i.type !== 'file' && i.type !== 'checkbox' && i.type !== 'radio' && el.tabIndex >= 0 && el.offsetParent !== null;
+    });
+    const next = all[all.indexOf(t) + 1];
+    if (!next) return;
+    e.preventDefault();
+    next.focus();
+    if (next instanceof HTMLInputElement) next.select?.();
+  });
+}
+
+/** Where a pick-list opens: under the box, or above it when the save bar or the screen edge leaves no room. */
+function useDropPlace(anchor: RefObject<HTMLElement>, open: boolean, dep: unknown) {
+  const [place, setPlace] = useState({ up: false, max: 320 });
+  useLayoutEffect(() => {
+    if (!open) return;
+    const measure = () => {
+      const el = anchor.current; if (!el) return;
+      const r = el.getBoundingClientRect();
+      const below = bottomEdge() - r.bottom - 10, above = r.top - topEdge() - 10;
+      const up = below < 240 && above > below;
+      setPlace({ up, max: Math.round(Math.max(150, Math.min(320, up ? above : below))) });
+    };
+    measure();
+    window.addEventListener('scroll', measure, true); window.addEventListener('resize', measure);
+    return () => { window.removeEventListener('scroll', measure, true); window.removeEventListener('resize', measure); };
+  }, [open, anchor, dep]);
+  return { className: place.up ? 'drop up' : 'drop', style: { maxHeight: place.max } };
 }
 
 export function enterNext(e: KeyboardEvent<HTMLElement>) {
@@ -56,34 +125,42 @@ export function YesNo({ question, hint, onYes, onNo }: { question: string; hint?
 }
 
 /** Text box that suggests names typed before, and remembers new ones once saved. */
-export function Suggest({ label, value, onChange, options, placeholder, autoFocus, glow, bare, inputClass = '' }: {
+export function Suggest({ label, value, onChange, options, placeholder, autoFocus, glow, bare, inputClass = '', nav, onNext, showAll }: {
   label: string; value: string; onChange: (v: string) => void; options: string[]; placeholder?: string; autoFocus?: boolean; glow?: boolean; bare?: boolean; inputClass?: string;
+  /** Name of this box in a guided form (data-g). */ nav?: string;
+  /** What Enter does after picking (default: the next box). */ onNext?: (el: HTMLElement) => void;
+  /** Show every option, even once one is chosen (a short fixed list, e.g. the store team). */ showAll?: boolean;
 }) {
   const id = useId();
+  const box = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const q = value.trim().toLowerCase();
-  const matches = useMemo(() => (q ? options.filter((o) => o.toLowerCase().includes(q) && o.toLowerCase() !== q) : options).slice(0, 6), [q, options]);
+  const matches = useMemo(() => (q && !(showAll && options.some((o) => o.toLowerCase() === q)) ? options.filter((o) => o.toLowerCase().includes(q) && o.toLowerCase() !== q) : options).slice(0, showAll ? 12 : 6), [q, options, showAll]);
+  const place = useDropPlace(box, open && matches.length > 0, matches.length);
   const known = options.some((o) => o.toLowerCase() === q);
   const choose = (v: string) => { onChange(v); setOpen(false); setActive(-1); };
   const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setActive((a) => Math.min(a + 1, matches.length - 1)); return; }
     if (e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => Math.max(a - 1, -1)); return; }
     if (e.key === 'Escape') { setOpen(false); return; }
-    if (e.key === 'Enter') {
-      if (open && active >= 0 && matches[active]) choose(matches[active]);
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      // The highlighted name, or the only name that matches what's typed so far.
+      const pick = open && active >= 0 ? matches[active] : q && matches.length === 1 && !known ? matches[0] : undefined;
+      if (pick) choose(pick);
       setOpen(false);
-      enterNext(e);
+      if (onNext) onNext(e.currentTarget); else focusNext(e.currentTarget);
     }
   };
   return (
     <label className={`field ${bare ? 'bare' : ''}`} htmlFor={id}>
       <span className={bare ? 'sr' : undefined}>{label}</span>
-      <input id={id} data-nav className={`input ${inputClass} ${glow ? 'next' : ''}`} value={value} placeholder={placeholder} autoComplete="off" autoFocus={autoFocus}
+      <input id={id} ref={box} data-nav data-g={nav} className={`input ${inputClass} ${glow ? 'next' : ''}`} value={value} placeholder={placeholder} autoComplete="off" autoFocus={autoFocus}
         onChange={(e) => { onChange(e.target.value); setOpen(true); setActive(-1); }} onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)} onKeyDown={onKey}
         role="combobox" aria-expanded={open && matches.length > 0} aria-autocomplete="list" />
       {open && matches.length > 0 && (
-        <div className="drop" role="listbox">
+        <div {...place} role="listbox">
           {matches.map((m, i) => <button type="button" key={m} role="option" aria-selected={i === active} onMouseDown={(e) => e.preventDefault()} onClick={() => choose(m)}>{m}</button>)}
         </div>
       )}
@@ -107,7 +184,12 @@ function rank(items: Item[], q: string): Item[] {
 }
 
 /** Search the project item list. The unit comes with the item and cannot be changed. */
-export function ItemPicker({ item, onPick, autoFocus, glow, bare, label = 'Item', inputClass = '', placeholder = 'Search the item list' }: { item: Item | null; onPick: (it: Item | null) => void; autoFocus?: boolean; glow?: boolean; bare?: boolean; label?: string; inputClass?: string; placeholder?: string }) {
+export function ItemPicker({ item, onPick, autoFocus, glow, bare, label = 'Item', inputClass = '', placeholder = 'Search the item list', nav, onNext, onEmptyEnter }: {
+  item: Item | null; onPick: (it: Item | null) => void; autoFocus?: boolean; glow?: boolean; bare?: boolean; label?: string; inputClass?: string; placeholder?: string;
+  /** Name of this box in a guided form (data-g). */ nav?: string;
+  /** Where to go after an item is picked (default: the next box). */ onNext?: (el: HTMLElement) => void;
+  /** Enter on an empty row: the list is finished. */ onEmptyEnter?: (el: HTMLElement) => void;
+}) {
   const { items, addItem } = useData();
   const id = useId();
   const [q, setQ] = useState(item?.name ?? '');
@@ -121,14 +203,17 @@ export function ItemPicker({ item, onPick, autoFocus, glow, bare, label = 'Item'
   const matches = useMemo(() => (item && q === item.name ? [] : rank(items, q)), [items, q, item]);
   const exact = items.some((i) => i.name.toLowerCase() === q.trim().toLowerCase());
   const units = useMemo(() => [...new Set(items.map((i) => i.unit))].sort(), [items]);
-  const choose = (it: Item) => { onPick(it); setQ(it.name); setOpen(false); if (ref.current) focusNext(ref.current); };
+  const place = useDropPlace(ref, open && !!q.trim() && !item, matches.length);
+  const after = (el: HTMLElement) => (onNext ? onNext(el) : focusNext(el));
+  const choose = (it: Item) => { onPick(it); setQ(it.name); setOpen(false); if (ref.current) after(ref.current); };
   const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') { e.preventDefault(); setActive((a) => Math.min(a + 1, matches.length - 1)); return; }
     if (e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); return; }
     if (e.key === 'Enter') {
       e.preventDefault();
       if (matches[active]) choose(matches[active]);
-      else if (item) focusNext(e.currentTarget);
+      else if (item) after(e.currentTarget);
+      else if (!q.trim() && onEmptyEnter) onEmptyEnter(e.currentTarget);
     }
   };
   const create = async () => {
@@ -138,11 +223,11 @@ export function ItemPicker({ item, onPick, autoFocus, glow, bare, label = 'Item'
   return (
     <div className={`field ${bare ? 'bare' : ''}`}>
       <label htmlFor={id} className={bare ? 'sr' : undefined}><span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-2)' }}>{label}</span></label>
-      <input id={id} ref={ref} data-nav className={`input ${inputClass} ${glow && !item ? 'next' : ''}`} value={q} placeholder={placeholder} autoComplete="off" autoFocus={autoFocus}
+      <input id={id} ref={ref} data-nav data-g={nav} className={`input ${inputClass} ${glow && !item ? 'next' : ''}`} value={q} placeholder={placeholder} autoComplete="off" autoFocus={autoFocus}
         onChange={(e) => { setQ(e.target.value); setOpen(true); setActive(0); if (item) onPick(null); }} onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)} onKeyDown={onKey}
         role="combobox" aria-expanded={open && (matches.length > 0 || !!q)} aria-autocomplete="list" />
       {open && q.trim() && !item && (
-        <div className="drop" role="listbox">
+        <div {...place} role="listbox">
           {matches.map((m, i) => (
             <button type="button" key={m.id} role="option" aria-selected={i === active} onMouseDown={(e) => e.preventDefault()} onClick={() => choose(m)}>
               <span>{m.name}</span><span className="unit">{m.unit}</span>
@@ -242,7 +327,7 @@ export function parseTime(raw: string): string | null {
 }
 
 /** Time in one box, shown as HH:MM. Accepts 8:45, 845 or 8:45pm and tidies it to 08:45 / 20:45. */
-export function TimeBoxes({ value, onChange, glow, label = 'Time', onDone, miss }: { value: string; onChange: (v: string) => void; glow?: boolean; label?: string; onDone?: (el: HTMLElement) => void; miss?: boolean }) {
+export function TimeBoxes({ value, onChange, glow, label = 'Time', onDone, miss, nav }: { value: string; onChange: (v: string) => void; glow?: boolean; label?: string; onDone?: (el: HTMLElement) => void; miss?: boolean; nav?: string }) {
   const [raw, setRaw] = useState(value);
   const [bad, setBad] = useState(false);
   // Follow the value when the form sets or clears it, but not while a half-typed time is in the box.
@@ -252,7 +337,7 @@ export function TimeBoxes({ value, onChange, glow, label = 'Time', onDone, miss 
   return (
     <div className="field timeBoxes">
       <span>{label}</span>
-      <input data-nav className={`input num tbOne ${glow && !raw ? 'next' : ''} ${bad ? 'bad' : ''} ${miss && !value ? 'miss' : ''}`} placeholder="HH:MM" aria-label={label} value={raw} maxLength={8} autoComplete="off"
+      <input data-nav data-g={nav} className={`input num tbOne ${glow && !raw ? 'next' : ''} ${bad ? 'bad' : ''} ${miss && !value ? 'miss' : ''}`} placeholder="HH:MM" aria-label={label} value={raw} maxLength={8} autoComplete="off"
         onChange={(e) => { const v = e.target.value.replace(/[^0-9:.apmAPM ]/g, ''); setRaw(v); setBad(false); onChange(parseTime(v) ?? ''); }}
         onBlur={tidy}
         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); tidy(); if (onDone) onDone(e.currentTarget); else focusNext(e.currentTarget); } }} />

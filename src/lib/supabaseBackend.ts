@@ -319,6 +319,11 @@ export function supabaseBackend(url: string, key: string): Backend {
       return { id: num(data.id), name: data.name, unit: data.unit };
     },
 
+    async siteTeam() {
+      const { data, error } = await sb.from('profiles').select('full_name').eq('site_id', await mySite()).eq('status', 'approved').order('full_name');
+      if (error) return [];
+      return [...new Set((data ?? []).map((r) => String(r.full_name ?? '').trim()).filter(Boolean))];
+    },
     async remembered(field) {
       const f = FIELD[field];
       let q = sb.from('documents').select(f.col).eq('site_id', await mySite()).not(f.col, 'is', null);
