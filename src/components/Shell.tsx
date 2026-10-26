@@ -7,7 +7,7 @@ import { signal, useSignal } from '../lib/signals';
 import { ComexLogo, SiteLogo } from './Brand';
 import { ZohoAutoSync, ZohoStatusLine } from './Zoho';
 import { DatePick } from './DatePick';
-import { continueEvening, EveningFlow, stageFor, startEvening } from './EveningFlow';
+import { continueEvening, EveningFlow, stageFor } from './EveningFlow';
 import { Icon, PulseDot, Ring, useMinutesToClose } from './fx';
 import { StartTraining } from './Training';
 import { CommandPalette } from './CommandPalette';
@@ -55,7 +55,7 @@ const readRail = () => { try { return localStorage.getItem('ssms-rail') === 'min
 const readRailW = () => { try { const v = Number(localStorage.getItem('ssms-rail-w')); return v >= 180 && v <= 340 ? v : 212; } catch { return 212; } };
 
 export function AppShell({ screen, children }: { screen: Screen; children: ReactNode }) {
-  const { user, site, go, signOut, openAdmin, stepState, submission, lowItems, balances, day, projectWeek, syncing, catchUp, endCatchUp, docsToday } = useData();
+  const { user, site, go, signOut, openAdmin, stepState, submission, lowItems, balances, day, projectWeek, syncing, catchUp, endCatchUp } = useData();
   const [mini, setMini] = useState(readRail);
   // The menu can be dragged wider or narrower by its right edge; each person's width is remembered.
   const [railW, setRailW] = useState(readRailW);
@@ -94,7 +94,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
   const toNext = () => {
     if (submission) { go('submitted'); return; }
     if (stageFor(day)) continueEvening(day, go);
-    else startEvening(day, go, docsToday.some((d) => d.kind === 'issue'));
+    else { signal('proc'); if (screen !== 'home') go('home'); } // the three steps, in the pop-up on the dashboard
   };
   const toggleRail = () => { const v = !mini; setMini(v); try { localStorage.setItem('ssms-rail', v ? 'mini' : 'full'); } catch { /* ignore */ } };
 
@@ -115,9 +115,9 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
       <ZohoAutoSync />
       <aside className="rail" aria-label="Main menu">
         {!mini && <span className="railGrip" role="separator" aria-orientation="vertical" aria-label="Drag to make the menu wider or narrower" title="Drag to resize · double-click to reset" onPointerDown={dragRail} onDoubleClick={() => { setRailW(212); try { localStorage.removeItem('ssms-rail-w'); } catch { /* ignore */ } }} />}
-        <div className="railBrand comexBrand" title="Comex Builders Ltd">
+        <button type="button" className="railBrand comexBrand" title="Comex Builders Ltd · back to the dashboard" aria-label="Comex Builders · back to the dashboard" onClick={() => { if (catchUp) endCatchUp(); go('home'); }}>
           {mini ? <ComexLogo dark hatOnly width={44} /> : <ComexLogo dark width={172} />}
-        </div>
+        </button>
         <nav className="railNav" ref={navRef}>
           <span className="railInk" aria-hidden="true" style={ink} />
           <span className="railSec">Operations</span>
@@ -183,7 +183,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
         )}
         <header className="topbar">
           <span className="routeBar" key={screen} aria-hidden="true" />
-          <span className="tbComex" aria-hidden="true"><ComexLogo hatOnly width={36} /></span>
+          <button type="button" className="tbComex" aria-label="Back to the dashboard" onClick={() => go('home')}><ComexLogo hatOnly width={36} /></button>
           <div className="siteSwitchWrap">
             <button className="siteSwitch" onClick={() => setSiteOpen((v) => !v)} aria-expanded={siteOpen} aria-haspopup="dialog" title={site ? `Site: ${site}` : 'Site'}>
               {site ? <SiteLogo name={site} height={26} /> : <b>Store</b>}

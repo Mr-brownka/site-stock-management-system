@@ -3001,3 +3001,68 @@ button.tbChip.status:hover, button.tbMini:hover { filter: brightness(.96); }
   .incTbl .th, .incTbl .tr { grid-template-columns: minmax(0, 1.4fr) 64px 56px 86px; padding: 0 16px; gap: 6px; font-size: 13.5px; }
   .incTbl .tr .incBar { width: 100px; } .incGrns { padding: 12px 16px 4px; } .incSFoot { padding: 12px 16px 18px; flex-direction: column; }
 }
+
+/* ───── Start button (top right of the dashboard): the three steps live behind it */
+.startBtn { height: 46px; padding: 0 14px 0 8px; border: 0; border-radius: 13px; background: var(--accent); color: var(--ink); display: inline-flex; align-items: center; gap: 10px;
+  font: inherit; cursor: pointer; box-shadow: 0 10px 22px -10px rgba(224,138,18,.8); transition: transform .12s, box-shadow .2s; flex: none !important; }
+.startBtn:hover { transform: translateY(-1px); box-shadow: 0 14px 26px -10px rgba(224,138,18,.9); }
+.startBtn:active { transform: scale(.97); }
+.startBtn .ring b { display: none; }
+.startBtn .ring circle:first-child { stroke: rgba(27,33,32,.18); }
+.startBtn .ring .ringArc { stroke: var(--ink); }
+.sbT { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.1; text-align: left; }
+.sbT b { font-size: 15px; font-weight: 800; } .sbT small { font-size: 11px; font-weight: 600; opacity: .72; white-space: nowrap; }
+.startBtn.pulse { animation: startPulse 2.4s ease-out infinite; }
+.startBtn.done { background: var(--ok-soft, #DCEFE4); color: #145236; box-shadow: none; }
+.startBtn.done .ring circle:first-child { stroke: #BFE3CD; } .startBtn.done .ring .ringArc { stroke: var(--ok); }
+
+/* The pop-up */
+.ppBack { display: grid; place-items: center; padding: 20px; background: rgba(15,20,19,.42); backdrop-filter: blur(2px); }
+.ppCard { width: min(600px, 100%); max-height: calc(100vh - 40px); overflow: auto; background: #fff; border-radius: 24px; box-shadow: 0 40px 80px -24px rgba(10,14,13,.55); animation: ppIn .28s cubic-bezier(.2,.9,.3,1.2) both; }
+@keyframes ppIn { from { opacity: 0; transform: translateY(12px) scale(.97); } }
+.ppGrab { display: none; }
+.ppHead { display: flex; align-items: center; gap: 16px; padding: 20px 22px; background: linear-gradient(150deg, #1B2120, #2A3331); color: #fff; }
+.ppHT { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.ppKick { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+.ppHT b { font-size: 26px; line-height: 1.1; } .ppHT > span:last-child { font-size: 13px; color: #AEB7B3; }
+.ppHT .p3Del { font-size: 13px; color: #AEB7B3; }
+.ppX { width: 36px; height: 36px; flex: none; align-self: flex-start; border: 0; border-radius: 11px; background: rgba(255,255,255,.08); color: #C9D0CD; display: grid; place-items: center; cursor: pointer; }
+.ppX:hover { background: rgba(255,255,255,.16); color: #fff; }
+.ppSteps { padding: 18px 22px; display: flex; flex-direction: column; gap: 10px; }
+.ppStep { display: flex; align-items: center; gap: 14px; padding: 15px 16px; border-radius: 16px; background: #fff; border: 1px solid var(--line); }
+.ppStep.now { border: 2px solid var(--accent); padding: 14px 15px; background: #FFFBF3; box-shadow: 0 0 0 5px rgba(252,167,45,.15); }
+.ppStep.done { background: #F6FBF8; border-color: #CFE6D8; } .ppStep.none { background: #FAFBFA; }
+.ppNo { width: 36px; height: 36px; flex: none; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 15px; background: #F1F3F2; color: #59625F; }
+.ppStep.now .ppNo { background: var(--accent); color: var(--ink); } .ppStep.done .ppNo { background: var(--ok); color: #fff; }
+.ppST { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; border: 0; background: none; padding: 0; font: inherit; color: var(--ink); text-align: left; cursor: pointer; }
+.ppST b { font-size: 17px; } .ppST span { font-size: 13px; color: var(--muted); } .ppST:hover b { text-decoration: underline; }
+.ppGo { height: 44px; padding: 0 16px; border: 0; border-radius: 12px; background: var(--ink); color: #fff; font: 800 14.5px var(--body); display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; cursor: pointer; box-shadow: 0 8px 18px -8px rgba(27,33,32,.6); transition: transform .12s; }
+.ppGo:hover { transform: translateY(-1px); }
+.ppFoot { display: flex; align-items: center; gap: 12px; padding: 16px 22px 20px; border-top: 1px solid var(--line); }
+.ppFoot > span { flex: 1; font-size: 13px; color: var(--muted); }
+.ppSubmit { height: 42px; padding: 0 16px; border-radius: 12px; border: 1.5px dashed #E8C68E; background: none; color: #C9A574; font: 800 14.5px var(--body); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.ppSubmit.ready { border: 0; background: var(--accent); color: var(--ink); cursor: pointer; box-shadow: 0 10px 22px -10px rgba(224,138,18,.8); }
+@media (max-width: 767px) {
+  .phActions .startBtn { order: -1; width: 100%; flex: 1 1 100% !important; height: 52px; justify-content: center; }
+  .phActions .startBtn .sbT { flex: none; }
+  .ppBack { place-items: end stretch; padding: 0; }
+  .ppCard { width: 100%; border-radius: 24px 24px 0 0; max-height: 92vh; animation: ppUp .3s cubic-bezier(.2,.9,.3,1) both; padding-bottom: env(safe-area-inset-bottom); }
+  @keyframes ppUp { from { transform: translateY(100%); } }
+  .ppGrab { display: block; width: 42px; height: 5px; border-radius: 5px; background: #D5DAD7; margin: 8px auto -13px; position: relative; z-index: 1; }
+  .ppHead { padding: 18px 16px 16px; gap: 12px; } .ppHead .ring { width: 70px !important; height: 70px !important; } .ppHead .ring svg { width: 70px; height: 70px; }
+  .ppHT b { font-size: 22px; } .ppX { display: none; }
+  .ppSteps { padding: 14px; } .ppStep { padding: 13px; gap: 12px; } .ppStep.now { padding: 12px; } .ppST b { font-size: 16px; }
+  .ppGo { height: 42px; padding: 0 13px; }
+  .ppFoot { padding: 14px 16px 18px; }
+}
+@media (prefers-reduced-motion: reduce) { .startBtn.pulse, .ppCard { animation: none; } }
+
+/* The Comex logo goes back to the dashboard */
+button.railBrand, button.tbComex { border: 0; background: none; font: inherit; color: inherit; cursor: pointer; text-align: left; }
+button.railBrand { width: 100%; }
+button.tbComex { padding: 0; }
+button.railBrand:hover, button.tbComex:hover { opacity: .85; }
+
+/* Phone: the page never slides sideways (zoom still works) */
+html, body { overflow-x: clip; max-width: 100%; }
+@supports not (overflow: clip) { html, body { overflow-x: hidden; } }

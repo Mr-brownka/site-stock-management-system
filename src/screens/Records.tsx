@@ -30,7 +30,7 @@ export const REC_SCREENS: { screen: Screen; key: RecKey; label: string }[] = [
 ];
 
 type Period = 'today' | 'week' | '30' | 'month' | 'all';
-const PERIODS: [Period, string][] = [['all', 'All time'], ['today', 'Today'], ['week', 'This week'], ['30', 'Last 30 days'], ['month', 'This month']];
+const PERIODS: [Period, string][] = [['all', 'All'], ['today', 'Today'], ['week', 'This week'], ['30', 'Last 30 days'], ['month', 'This month']];
 
 const Svg = ({ d, size = 20 }: { d: string; size?: number }) => <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true"><path d={d} fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 
@@ -82,14 +82,15 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
   // Deliveries show where each came from once any came from Zoho.
   const src = key === 'deliveries' && rows.some((r) => r.doc.zoho_grn);
   const fromZoho = shown.filter((r) => r.doc.zoho_grn).length;
-  const periodLabel = pick ? rangeLabel(pick) : PERIODS.find(([p]) => p === period)![1];
+  const allLabel = `All ${C.title.toLowerCase()}`;
+  const periodLabel = pick ? rangeLabel(pick) : period === 'all' ? allLabel : PERIODS.find(([p]) => p === period)![1];
   const marks = useMemo(() => new Set(rows.map((r) => r.doc.doc_date)), [rows]);
 
   const addNew = () => add(key);
   const download = async () => {
     setMenu(false);
     const XLSX = await import('xlsx');
-    const head = [[`${company || 'Comex Builders'} · ${site}`], [C.title], [!pick && period === 'all' ? 'All time' : `${niceDate(range[0])} – ${niceDate(range[1])}`], []];
+    const head = [[`${company || 'Comex Builders'} · ${site}`], [C.title], [!pick && period === 'all' ? allLabel : `${niceDate(range[0])} – ${niceDate(range[1])}`], []];
     const body = [['System ref', 'Date', C.paper, C.who, C.where, 'Item', 'Qty', 'Unit', 'Sub-phase'],
       ...shown.flatMap((r) => r.doc.lines.map((l) => { const it = itemById.get(l.item_id); return [r.ref, r.doc.doc_date, r.paper, r.who, r.where, it?.name ?? '', l.qty, it?.unit ?? '', l.subphase ?? '']; }))];
     const ws = XLSX.utils.aoa_to_sheet([...head, ...body]);
@@ -112,11 +113,11 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
           <span className="sr">Period</span>
           <select value={pick ? '' : period} onChange={(e) => { setPick(null); setPeriod(e.target.value as Period); }}>
             {pick && <option value="">{rangeLabel(pick)}</option>}
-            {PERIODS.map(([p, l]) => <option key={p} value={p}>{l}</option>)}
+            {PERIODS.map(([p, l]) => <option key={p} value={p}>{p === 'all' ? allLabel : l}</option>)}
           </select>
         </label>
         <span className="abGrow" />
-        <DateRange value={pick} onChange={setPick} max={day} marks={marks} />
+        <DateRange value={pick} onChange={setPick} max={day} marks={marks} allLabel={allLabel} />
         <label className="recSearch"><Icon name="search" size={16} /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Search ${C.title.toLowerCase()}`} aria-label={`Search ${C.title}`} /></label>
         {zohoOnly
           ? <ZohoRefresh />

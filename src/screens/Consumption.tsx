@@ -87,7 +87,7 @@ export function Consumption() {
         <div className="phText"><h1>Consumption</h1><span className="phLead">What the site used {periodText}: issued minus what came back. Click an item to see its days.</span></div>
         <div className="phActions">
           <span className="seg consSeg" role="group" aria-label="Period">{PERIODS.map(([p, l]) => <button key={p} aria-pressed={period === p} onClick={() => setPeriod(p)}>{l}</button>)}</span>
-          <DateRange value={period === 'pick' ? { from, to } : null} max={day} onChange={(r) => { if (r) { setFrom(r.from); setTo(r.to); setPeriod('pick'); } else setPeriod('week'); }} />
+          <DateRange allLabel="" value={period === 'pick' ? { from, to } : null} max={day} onChange={(r) => { if (r) { setFrom(r.from); setTo(r.to); setPeriod('pick'); } else setPeriod('week'); }} />
           <button className="btn ghost sm" onClick={download} disabled={!rows.length}><Icon name="download" size={16} />Excel</button>
         </div>
       </header>

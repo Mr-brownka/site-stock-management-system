@@ -10,10 +10,11 @@ export const rangeLabel = (r: NonNullable<Range>) => (r.from === r.to ? niceDate
 
 /** "Choose a date": the same small chip and dark calendar everywhere a list is filtered by date.
  *  One click picks a day; a second click picks the end of a range. × clears it. */
-export function DateRange({ value, onChange, max, marks, single }: {
+export function DateRange({ value, onChange, max, marks, single, allLabel = 'All dates' }: {
   value: Range; onChange: (r: Range) => void; max: string;
   /** Days that have something (a dot under the day). */ marks?: Set<string>;
   /** One day only (no range). */ single?: boolean;
+  /** What “no date” is called on this page, e.g. All deliveries. */ allLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [start, setStart] = useState<string | null>(null); // first click of a range, waiting for the second
@@ -71,12 +72,12 @@ export function DateRange({ value, onChange, max, marks, single }: {
         <div ref={pop} className="dpPop drPop" role="dialog" aria-label="Choose a date" style={pos ? { top: pos.top, left: pos.left, right: 'auto' } : undefined}>
           <header className="dpHead">
             <span className="dpKick">{start ? 'Now pick the last day' : single ? 'Choose the day' : 'Pick a day, or two for a range'}</span>
-            <b className="dpBig" key={show ? show.from + show.to : 'none'}>{show ? (show.from === show.to ? weekdayName(show.from) : `${short(show.from)} – ${short(show.to)}`) : 'All time'}</b>
+            <b className="dpBig" key={show ? show.from + show.to : 'none'}>{show ? (show.from === show.to ? weekdayName(show.from) : `${short(show.from)} – ${short(show.to)}`) : allLabel || 'Pick the dates'}</b>
             <span className="dpSub">{show ? `${show.from === show.to ? `${short(show.from)} ${show.from.slice(0, 4)}` : `${days} days`}${marks ? ` · ${n ? `${n} with entries` : 'no entries'}` : ''}` : 'Every entry, newest first'}</span>
           </header>
           <div className="dpQuick wrap">
             {quick.map(([l, r]) => <button type="button" key={l} className={value && value.from === r.from && value.to === r.to ? 'on' : ''} onMouseEnter={() => setHover(null)} onClick={() => set(r)}>{l}</button>)}
-            {!single && <button type="button" className={!value ? 'on' : ''} onClick={() => set(null)}>All time</button>}
+            {!single && allLabel && <button type="button" className={!value ? 'on' : ''} onClick={() => set(null)}>{allLabel}</button>}
           </div>
           <div className="dpMonth">
             <button type="button" className="dpArrow" onClick={() => go(-1)} aria-label="Previous month"><Icon name="chevL" size={16} /></button>

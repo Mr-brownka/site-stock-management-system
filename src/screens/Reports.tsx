@@ -144,7 +144,7 @@ function ReportView({ def, onBack }: { def: Def; onBack: () => void }) {
               <div className="ppStrip">
                 {P.map((p) => <button key={p.k} className="ppChip" aria-pressed={from === p.from && to === p.to} onClick={() => { setFrom(p.from); setTo(p.to); }}><span>{p.label}</span><b>{p.from === p.to ? nice(p.from).slice(0, -5) : `${nice(p.from).slice(0, -5)} – ${nice(p.to).slice(0, -5)}`}</b></button>)}
               </div>
-              <div className="repDates"><DateRange value={P.some((p) => from === p.from && to === p.to) ? null : { from, to }} max={day} onChange={(r) => { if (r) { setFrom(r.from); setTo(r.to); } }} /></div>
+              <div className="repDates"><DateRange allLabel="" value={P.some((p) => from === p.from && to === p.to) ? null : { from, to }} max={day} onChange={(r) => { if (r) { setFrom(r.from); setTo(r.to); } }} /></div>
             </>
           )}
           {asOf && (

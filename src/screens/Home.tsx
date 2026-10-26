@@ -20,7 +20,7 @@ import { useZohoDeliveries } from '../components/Zoho';
 import { openItems } from './Dashboard';
 import { continueEvening, startEvening, useFlow } from '../components/EveningFlow';
 import { IncomingPanel, useOnTheWay } from '../components/Incoming';
-import { Ring, useIsPhone } from '../components/Ring';
+import { Ring } from '../components/Ring';
 
 
 export function Home() {
@@ -66,9 +66,7 @@ export function Home() {
   const guided = !submission && !locked;
   const start = () => startEvening(day, go, docsToday.some((d) => d.kind === 'issue'));
   // Evening mode: from 2 hours before the register closes (or once started) the process moves to the top and glows.
-  const phone = useIsPhone();
   const evening = guided && (min <= 120 || done > 0 || !!flowStage);
-  const procTop = phone || evening;
   const inStore = balances.filter((b) => b.balance > 0).length;
   // This week's use by day (Mon–Sun): what was issued, for the little bar chart.
   const { weekBars, todayIdx } = useMemo(() => {
@@ -152,43 +150,66 @@ export function Home() {
   const nowKey: StepKey | 'submit' | null = !guided ? null : flowStep ?? 'issued';
   const go3 = () => (flowStage ? continueEvening(day, go) : start());
   const delDocs = docsToday.filter((d) => d.kind === 'delivery').length;
-  const procPanel = (
-    <section id="proc" className={`panel proc3 enter ${evening && !phone ? 'glow' : ''} ${locked ? 'lockedPanel' : ''}`} aria-label="Today’s process" aria-disabled={locked || undefined}>
-      <div className="p3Lead">
-        <Ring p={submission ? 1 : done3 / 3} size={88} stroke={10} label={submission ? '✓' : `${done3}/3`} tone="amber" dark />
-        <span className="p3LT">
-          <b>{catchUp ? `${wd}’s process` : 'Today’s process'}</b>
-          <span>{submission ? `Submitted at ${new Date(submission.submitted_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' })}` : closeLabel(min)}</span>
-          <button className="p3Del" onClick={() => openRecords(go, 'deliveries')}>Deliveries: {zohoOnly ? `${delDocs} in from Zoho` : delDocs ? `${delDocs} entered` : 'none yet'}</button>
-        </span>
-      </div>
-      <div className="p3Steps">
-        {STEP3.map((k) => {
-          const i = STEPS.findIndex((x) => x.key === k); const s = STEPS[i]; const st = status(i); const v = stateOf(k);
-          const isNow = nowKey === k;
-          return (
-            <div key={k} className={`p3Tile ${isNow ? 'now' : ''} ${v}`}>
-              <button className="p3Head" onClick={() => openRecords(go, k)} title={`See ${s.label.toLowerCase()}`}>
-                <span className="p3Dot">{v === 'done' ? <Icon name="check" size={14} /> : v === 'none' ? '–' : i}</span><b>{s.label}</b>
-              </button>
-              <span className="p3Desc">{v === 'todo' ? s.desc : st.detail}</span>
-              <span className="p3Act">
-                {isNow ? <button className="p3Go" onClick={go3}>{flowStage ? 'Continue' : 'Start here'}<Icon name="arrow" size={16} /></button>
+  // The three steps live behind the Start button, in a pop-up (the dashboard keeps its space).
+  const [procOpen, setProcOpen] = useState(false);
+  useSignal('proc', () => { if (!locked) setProcOpen(true); });
+  useEffect(() => {
+    if (!procOpen) return;
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') setProcOpen(false); };
+    document.addEventListener('keydown', k); document.body.classList.add('noScroll');
+    return () => { document.removeEventListener('keydown', k); document.body.classList.remove('noScroll'); };
+  }, [procOpen]);
+  const nextLabel = flowStep === 'submit' ? 'submit' : flowStep ? STEPS.find((x) => x.key === flowStep)!.label.toLowerCase().replace('issued to production', 'cards').replace('returned to store', 'returns').replace('project transfers', 'transfers') : '';
+  const sb = submission
+    ? { cls: 'done', label: 'Day submitted', sub: 'Summary', run: () => go('submitted') }
+    : flowStage
+      ? { cls: 'cont', label: 'Continue', sub: `${done3}/3 · next: ${nextLabel}`, run: go3 }
+      : { cls: '', label: 'Start', sub: `${done3}/3 · ${min <= 0 ? 'register closed' : closeLabel(min).replace('Register closes in ', 'closes in ')}`, run: () => setProcOpen(true) };
+  const startBtn = locked ? null : (
+    <button className={`startBtn ${sb.cls} ${evening && !submission ? 'pulse' : ''}`} onClick={sb.run}>
+      <Ring p={submission ? 1 : done3 / 3} size={30} stroke={4} label="" tone={submission ? 'green' : 'amber'} />
+      <span className="sbT"><b>{sb.label}</b><small>{sb.sub}</small></span>
+      <Icon name={submission ? 'check' : 'arrow'} size={17} />
+    </button>
+  );
+  const procPop = procOpen && !locked && (
+    <div className="sheetBack ppBack" onMouseDown={(e) => { if (e.target === e.currentTarget) setProcOpen(false); }}>
+      <section className="ppCard" role="dialog" aria-modal="true" aria-labelledby="ppTitle">
+        <span className="ppGrab" aria-hidden="true" />
+        <header className="ppHead">
+          <Ring p={submission ? 1 : done3 / 3} size={84} stroke={10} label={submission ? '✓' : `${done3}/3`} tone="amber" dark />
+          <span className="ppHT">
+            <span className="ppKick">{catchUp ? `Catch-up · ${wd}` : 'Evening check-in'}</span>
+            <b id="ppTitle">{catchUp ? `${wd}’s process` : 'Today’s process'}</b>
+            <span>{submission ? `Submitted at ${new Date(submission.submitted_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' })}` : closeLabel(min)} · <button className="p3Del" onClick={() => { setProcOpen(false); openRecords(go, 'deliveries'); }}>Deliveries: {zohoOnly ? `${delDocs} in from Zoho` : delDocs ? `${delDocs} entered` : 'none yet'}</button></span>
+          </span>
+          <button className="ppX" onClick={() => setProcOpen(false)} aria-label="Close"><Icon name="close" size={18} /></button>
+        </header>
+        <div className="ppSteps">
+          {STEP3.map((k) => {
+            const i = STEPS.findIndex((x) => x.key === k); const s = STEPS[i]; const st = status(i); const v = stateOf(k);
+            const isNow = nowKey === k;
+            return (
+              <div key={k} className={`ppStep ${isNow ? 'now' : ''} ${v}`}>
+                <span className="ppNo">{v === 'done' ? <Icon name="check" size={16} /> : v === 'none' ? '–' : i}</span>
+                <button className="ppST" onClick={() => { setProcOpen(false); openRecords(go, k); }} title={`See ${s.label.toLowerCase()}`}>
+                  <b>{s.label}</b><span>{v === 'todo' ? s.desc : st.detail}</span>
+                </button>
+                {isNow ? <button className="ppGo" onClick={() => { setProcOpen(false); go3(); }} autoFocus>{flowStage ? 'Continue' : 'Start here'}<Icon name="arrow" size={16} /></button>
                   : <span className={`p3Pill ${v}`}>{v === 'done' ? 'Done' : v === 'none' ? (catchUp ? 'None that day' : 'None today') : 'Waiting'}</span>}
-                {!guided && !locked && <button className="procAdd" onClick={() => add(k)} aria-label={`Add ${ADD_NOUN[k]}`} title={`Add ${ADD_NOUN[k]}`}><Icon name="plus" size={18} /></button>}
-              </span>
-            </div>
-          );
-        })}
-        <div className={`p3Submit ${submission ? 'done' : answered ? 'ready' : ''} ${nowKey === 'submit' ? 'now' : ''}`}>
-          {submission ? <><Icon name="check" size={18} /><b>Day submitted</b><button className="btn link" onClick={() => go('submitted')}>Summary</button></>
-            : answered ? <button className="p3Go" disabled={busy} onClick={submit}>{busy ? 'Submitting…' : 'Submit the day'}<Icon name="check" size={16} /></button>
-            : <><b>Submit the day</b><small>After the 3 steps</small></>}
+                {!guided && <button className="procAdd" onClick={() => { setProcOpen(false); add(k); }} aria-label={`Add ${ADD_NOUN[k]}`} title={`Add ${ADD_NOUN[k]}`}><Icon name="plus" size={18} /></button>}
+              </div>
+            );
+          })}
         </div>
-      </div>
-      {err && <div className="note err" role="alert" style={{ margin: 12 }}>{err}</div>}
-      {locked && <div className="lockNote">Today opens after the earlier day{pendingDays.length === 1 ? '' : 's'} above.</div>}
-    </section>
+        <footer className="ppFoot">
+          <span>{submission ? 'The day is locked. Late entries go in with +.' : 'Then submit the day. Deliveries are added any time (from Zoho or with +).'}</span>
+          {submission ? <button className="btn sm" onClick={() => { setProcOpen(false); go('submitted'); }}>Today’s summary<Icon name="arrow" size={16} /></button>
+            : <button className={`ppSubmit ${answered ? 'ready' : ''}`} disabled={!answered || busy} onClick={submit}>{busy ? 'Submitting…' : 'Submit the day'}{answered && <Icon name="check" size={16} />}</button>}
+        </footer>
+        {err && <div className="note err" role="alert" style={{ margin: '0 20px 16px' }}>{err}</div>}
+      </section>
+    </div>
   );
 
   return (
@@ -209,10 +230,7 @@ export function Home() {
         <div className="phActions">
           <UnfinishedCard chip />
           <button className="btn ghost sm" onClick={() => setShowEntries(true)}><Icon name="list" size={16} />{catchUp ? `${wd}’s entries` : 'Today’s entries'}</button>
-          {evening && <button className="btn accent sm phStart" onClick={go3}>{flowStage ? 'Continue' : 'Start'}<Icon name="arrow" size={16} /></button>}
-          {locked ? null : submission ? (
-            <button className="btn sm" onClick={() => go('submitted')}>Today’s summary<Icon name="arrow" size={16} /></button>
-          ) : null}
+          {startBtn}
         </div>
       </header>
 
@@ -236,7 +254,6 @@ export function Home() {
           { day: realToday, kind: 'today', label: 'TODAY', sub: catchUp ? 'After these' : 'Waiting' },
         ]} />
       )}
-      {procTop && procPanel}
       <section className="kpis k3" aria-label="Key figures">
         <button className="kpi3 ink enter" onClick={() => toDash({ tab: 'bal', filter: 'all', focus: true })}>
           <span className="k3Txt"><span className="k3L">All items</span><span className="k3N"><Num value={balances.length} /></span><span className="k3F">Search the list <Icon name="arrow" size={12} /></span></span>
@@ -276,7 +293,7 @@ export function Home() {
           </section>
         </aside>
       </div>
-      {!procTop && procPanel}
+      {procPop}
 
       <div className="between small homeFoot">
         <span className="muted">Signed in as {user.name}</span>

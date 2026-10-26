@@ -6,6 +6,7 @@ import type { Incoming, IncomingOrder } from '../lib/types';
 import { Icon } from './fx';
 import { fmt } from './ui';
 import { ZohoBooksMark } from './Zoho';
+import { useData } from '../lib/store';
 
 const KEY = 'ostock-incoming';
 const FRESH = 30 * 60_000; // checked at most every 30 minutes unless Refresh is pressed
@@ -97,13 +98,16 @@ type Tab = 'this' | 'next' | 'part';
 /** Incoming deliveries: expected this week and next (by expected date), and part deliveries of the last 4 weeks still owed. */
 export function IncomingPanel() {
   const { data, busy, refresh } = useIncoming();
+  const { projectWeek } = useData();
+  // Named by the project's week number (Week 121, Week 122) when the site has one.
+  const wkName = (k: 0 | 1) => (projectWeek != null ? `Week ${projectWeek + k}` : k ? 'Next week' : 'This week');
   const [tab, setTab] = useState<Tab>('this');
   const [open, setOpen] = useState<IncomingOrder | null>(null);
   if (data && !data.connected) return null;
   const today = data?.today ?? new Date().toISOString().slice(0, 10);
   const cols: { k: Tab; title: string; sub: string; list: IncomingOrder[]; part?: boolean; empty: string }[] = [
-    { k: 'this', title: 'This week', sub: data?.week ? `${short(data.week.from)} – ${short(data.week.to)} · by expected date` : 'By expected date', list: data?.thisWeek ?? [], empty: 'Nothing expected this week' },
-    { k: 'next', title: 'Next week', sub: data?.next ? `${short(data.next.from)} – ${short(data.next.to)}` : '', list: data?.nextWeek ?? [], empty: 'Nothing expected next week' },
+    { k: 'this', title: wkName(0), sub: data?.week ? `${short(data.week.from)} – ${short(data.week.to)}` : 'By expected date', list: data?.thisWeek ?? [], empty: `Nothing expected in ${wkName(0)}` },
+    { k: 'next', title: wkName(1), sub: data?.next ? `${short(data.next.from)} – ${short(data.next.to)}` : '', list: data?.nextWeek ?? [], empty: `Nothing expected in ${wkName(1)}` },
     { k: 'part', title: 'Part-delivered', sub: 'Came in the last 4 weeks, rest still owed', list: data?.part ?? [], part: true, empty: 'No part deliveries waiting' },
   ];
   return (
@@ -139,10 +143,11 @@ export function IncomingPanel() {
 /** Low items that are on their way (by name), for "Needs attention". */
 export function useOnTheWay() {
   const [m, setM] = useState<Incoming | null>(memo);
+  const { projectWeek } = useData();
   useEffect(() => { const t = setInterval(() => { if (memo !== m) setM(memo); }, 2000); return () => clearInterval(t); }, [m]);
   const names = new Map<string, string>();
   (m?.thisWeek ?? []).forEach((o) => o.lines.forEach((l) => names.set(l.name.toLowerCase(), o.expected ? niceDate(o.expected).split(' ')[0] + ' ' + short(o.expected) : 'this week')));
-  (m?.nextWeek ?? []).forEach((o) => o.lines.forEach((l) => { if (!names.has(l.name.toLowerCase())) names.set(l.name.toLowerCase(), 'next week'); }));
+  (m?.nextWeek ?? []).forEach((o) => o.lines.forEach((l) => { if (!names.has(l.name.toLowerCase())) names.set(l.name.toLowerCase(), projectWeek != null ? `week ${projectWeek + 1}` : 'next week'); }));
   (m?.part ?? []).forEach((o) => o.lines.forEach((l) => { if (!names.has(l.name.toLowerCase())) names.set(l.name.toLowerCase(), 'part-delivered'); }));
   return names;
 }
