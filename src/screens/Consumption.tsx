@@ -134,7 +134,8 @@ function ItemDetail({ r, before, days, periodText, floor, balance }: { r: { id: 
   const vals = days.map((d) => Math.max(0, r.u.byDay.get(d) ?? 0));
   const mx = Math.max(1, ...vals);
   const peak = vals.indexOf(Math.max(...vals));
-  const worked = days.filter((d) => weekday(d) !== 'Sun').length || 1;
+  // Per day = used ÷ the days it was actually used (days with no work don't count).
+  const worked = days.filter((d) => (r.u.byDay.get(d) ?? 0) > 0).length || 1;
   const change = before > 0 ? Math.round(((r.u.used - before) / before) * 100) : null;
   const floors = [...r.u.byFloor.entries()].filter(([, v]) => v > 0).sort((a, b) => (a[0] === NO_FLOOR ? 1 : b[0] === NO_FLOOR ? -1 : subphaseRank(a[0]) - subphaseRank(b[0])));
   const fmx = Math.max(1, ...floors.map(([, v]) => v));

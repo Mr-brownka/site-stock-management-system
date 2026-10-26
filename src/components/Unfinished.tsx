@@ -35,7 +35,7 @@ export function LaterBar({ kind, missing, busy, onLater, onCancel }: { kind: str
   return (
     <div className="laterBar" role="alert">
       <span className="lbIc" aria-hidden="true"><Icon name="clock" size={18} /></span>
-      <div className="lbText"><b>Missing: {labelsFor(kind, missing).join(', ')}.</b><span>They're highlighted in yellow on the form. Quantities are complete, so you can also save now: it counts in stock, and Bohari reminds you to fill these in.</span></div>
+      <div className="lbText"><b>Missing: {labelsFor(kind, missing).join(', ')}.</b><span>They're highlighted in yellow on the form. Quantities are complete, so you can also save now: it counts in stock, and the system reminds you to fill these in.</span></div>
       <span className="lbActs">
         <button className="btn ghost sm" onClick={() => { onCancel(); focusMiss(); }}>Fill them in now</button>
         <button className="btn sm" disabled={busy} onClick={onLater}>{busy ? 'Saving…' : 'Save · confirm later'}</button>

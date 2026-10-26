@@ -163,9 +163,12 @@ export function DataProvider({ user, go, signOut, openAdmin, children }: { user:
   const avgUse = useMemo(() => {
     const from = addDays(realToday, -13);
     const used = new Map<number, number>();
+    // Days the item was actually used (issued). Days with no work don't pull the average down.
+    const useDays = new Map<number, Set<string>>();
     for (const d of recent) {
       if (d.doc_date < from) continue;
       for (const l of d.lines) {
+        if (l.kind === 'issue' && l.qty > 0) { const s = useDays.get(l.item_id) ?? new Set<string>(); s.add(d.doc_date); useDays.set(l.item_id, s); }
         let v = 0;
         if (l.kind === 'issue') v = l.qty;
         else if (l.kind === 'return') v = -l.qty;
@@ -173,9 +176,7 @@ export function DataProvider({ user, go, signOut, openAdmin, children }: { user:
         if (v) used.set(l.item_id, (used.get(l.item_id) ?? 0) + v);
       }
     }
-    let workdays = 0;
-    for (let i = 0; i < 14; i++) if (weekday(addDays(realToday, -i)) !== 'Sun') workdays++;
-    return new Map([...used].map(([id, v]) => [id, Math.max(0, v) / workdays]));
+    return new Map([...used].map(([id, v]) => [id, Math.max(0, v) / (useDays.get(id)?.size || 1)]));
   }, [recent, realToday]);
   const isLow = useCallback((b: Balance) => {
     if (b.balance <= 0) return true;
@@ -185,7 +186,9 @@ export function DataProvider({ user, go, signOut, openAdmin, children }: { user:
   }, [avgUse]);
   const daysLeft = useCallback((b: Balance) => {
     const a = avgUse.get(b.item_id) ?? 0;
-    return a > 0 ? Math.max(0, Math.round(b.balance / a)) : null;
+    if (!(a > 0)) return null;
+    const x = Math.max(0, b.balance / a);
+    return x < 10 ? Math.round(x * 10) / 10 : Math.round(x); // 96 bags at 38.8 a day → 2.5 days
   }, [avgUse]);
   const lowItems = useMemo(() => balances.filter(isLow), [balances, isLow]);
 

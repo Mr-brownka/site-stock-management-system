@@ -62,7 +62,7 @@ function AlertSheet({ info, onClose, onSent }: { info: AlertInfo | null; onClose
 
   const fin = lowItems.filter((b) => b.balance <= 0);
   const low = lowItems.filter((b) => b.balance > 0).sort((a, b) => (daysLeft(a) ?? 1e9) - (daysLeft(b) ?? 1e9));
-  const left = (b: Balance) => { const d = daysLeft(b); return d == null ? null : `${Math.max(0, Math.round(d))} day${Math.round(d) === 1 ? '' : 's'} left`; };
+  const left = (b: Balance) => { const d = daysLeft(b); return d == null ? null : `${d} day${d === 1 ? '' : 's'} left`; };
   // Order request: about two weeks of use, rounded up to a whole number.
   const order = (b: Balance) => { const a = avgUse.get(b.item_id) ?? 0; return a > 0 ? Math.ceil(a * 14) : null; };
   const site_ = (site || 'Site').toUpperCase();

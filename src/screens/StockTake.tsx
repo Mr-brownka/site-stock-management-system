@@ -56,7 +56,7 @@ function printSheet() {
 }
 
 export function StockTake() {
-  const { day, user, balances, go, site, refresh, weekInfo, refreshWeek, itemById, balanceOf } = useData();
+  const { day, realToday, user, balances, go, site, refresh, weekInfo, refreshWeek, itemById, balanceOf } = useData();
   const first = !balances.length;
   const [view, setView] = useState<View>('home');
   const [list, setList] = useState<Item[] | null>(null);
@@ -78,12 +78,18 @@ export function StockTake() {
   const draftKey = `ssms-stdraft:${site}:${user.email}`;
   const [hasDraft, setHasDraft] = useState(() => { try { return !!localStorage.getItem(draftKey); } catch { return false; } });
 
+  // The count sheet: the admin's list, plus anything that came into the store since (e.g. a new item from a delivery).
   useEffect(() => { api.checklist().then(setList).catch(() => setList([])); }, []);
+  const sheet = useMemo(() => {
+    if (!list) return null;
+    const on = new Set(list.map((i) => i.id));
+    return [...list, ...balances.filter((b) => !on.has(b.item_id)).map((b) => ({ id: b.item_id, name: b.name, unit: b.unit } as Item))];
+  }, [list, balances]);
   const loadTakes = () => api.stockTakes().then((t) => setTakes([...t].sort((a, b) => a.created_at.localeCompare(b.created_at)))).catch(() => setTakes([]));
   useEffect(() => { loadTakes(); }, []);
   useEffect(() => { try { setHasDraft(!!localStorage.getItem(draftKey)); } catch { /* ignore */ } }, [draftKey]);
 
-  const items = imported ?? list ?? [];
+  const items = imported ?? sheet ?? [];
   const ordered = useMemo(() => sorted(items), [items]);
   const entered = ordered.filter((it) => (qty[it.id] ?? '') !== '').length;
   const blanks = ordered.filter((it) => (qty[it.id] ?? '') === '');
@@ -140,7 +146,7 @@ export function StockTake() {
     <div className="entryPage">
       <header className="entryHead enter">
         <BackPill label="Stock take" onClick={() => setView('home')} />
-        <div className="entryTitle"><div><h1>New stock take · from a file</h1><p>Upload the count. Bohari matches each line to {site || 'the store'}’s item list, then you check it before saving.</p></div></div>
+        <div className="entryTitle"><div><h1>New stock take · from a file</h1><p>Upload the count. The system matches each line to {site || 'the store'}’s item list, then you check it before saving.</p></div></div>
       </header>
       <Upload first={first} onPairs={async (pairs) => {
         setImported(pairs.map(([it]) => it)); setQty(Object.fromEntries(pairs.map(([it, n]) => [it.id, String(n)])));
@@ -236,10 +242,10 @@ export function StockTake() {
           <span className="stNextIc" aria-hidden="true"><Icon name="calendar" size={22} /></span>
           <div className="stNextText">
             <b>{last ? `Last count: ${dShort(last.count_date)} · ${ago <= 0 ? 'today' : ago === 1 ? 'yesterday' : `${ago} days ago`}` : 'No count yet'}</b>
-            <span>{list ? `${list.length} items on ${site || 'the store'}’s list. ` : ''}Count straight into Bohari, or on the printed sheet.</span>
+            <span>{sheet ? `${sheet.length} items on ${site || 'the store'}’s count sheet${!first ? ` · ${balances.length} have stock records` : ''}. ` : ''}Count straight into the system, or on the printed sheet.</span>
           </div>
-          <button className="btn ghost sm" disabled={!list?.length} onClick={() => list && print({ items: list })}><Icon name="print" size={16} />Print blank sheet</button>
-          <button className="btn accent sm" disabled={!list?.length} onClick={() => (hasDraft ? startTyping() : setChoosing(true))}><Icon name="plus" size={16} />{hasDraft ? 'Continue the count' : 'New stock take'}</button>
+          <button className="btn ghost sm" disabled={!sheet?.length} onClick={() => sheet && print({ items: sorted(sheet) })}><Icon name="print" size={16} />Print blank sheet</button>
+          <button className="btn accent sm" disabled={!sheet?.length} onClick={() => (hasDraft ? startTyping() : setChoosing(true))}><Icon name="plus" size={16} />{hasDraft ? 'Continue the count' : 'New stock take'}</button>
         </section>
       )}
       {hasDraft && <div className="stDraftNote">An unfinished count is saved on this device. <button className="btn link inline" onClick={startTyping}>Continue it</button> · <button className="btn link inline" onClick={dropDraft}>Discard it</button></div>}
@@ -249,9 +255,9 @@ export function StockTake() {
         {takes === null && <div className="pad muted">Loading…</div>}
         {takes && !takes.length && <div className="pad muted">No stock takes yet. Press “New stock take” to count the store.</div>}
         {takes && [...takes].reverse().map((t) => (
-          <div key={t.id} className="stTakeRow" role="button" tabIndex={0} onClick={() => setOpenTake(t)} onKeyDown={(e) => { if (e.key === 'Enter') setOpenTake(t); }}>
+          <div key={t.id} className={`stTakeRow ${t.count_date === realToday ? 'today' : ''}`} title={t.count_date === realToday ? 'Done and saved today' : undefined} role="button" tabIndex={0} onClick={() => setOpenTake(t)} onKeyDown={(e) => { if (e.key === 'Enter') setOpenTake(t); }}>
             <b className="mono stRef">{refOf(t)}</b>
-            <span>{dShort(t.count_date)}</span>
+            <span>{dShort(t.count_date)}{t.count_date === realToday && <span className="stToday">Today</span>}</span>
             <span className="mono muted">{t.start_time ?? '–'} – {t.end_time ?? '–'}</span>
             <span className="ellip">{t.counted_by ?? '–'}</span>
             <span className="mono">{t.lines.length}</span>
@@ -269,7 +275,7 @@ export function StockTake() {
             <div className="dirOpts">
               <button className="dirOpt type" onClick={startTyping} autoFocus>
                 <span className="dirIc" aria-hidden="true"><Icon name="list" size={22} /></span>
-                <b>Type it into Bohari</b><small>Straight in while counting, or from the paper sheet</small>
+                <b>Type it in the system</b><small>Straight in while counting, or from the paper sheet</small>
               </button>
               <button className="dirOpt in" onClick={() => { setChoosing(false); setView('upload'); }}>
                 <span className="dirIc" aria-hidden="true"><Icon name="upload" size={22} /></span>

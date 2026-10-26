@@ -11,11 +11,12 @@ import { Icon } from './fx';
 import { toast } from './feedback';
 import { useZohoDeliveries } from './Zoho';
 
-/* The evening check-in, one question at a time:
-   Start → withdrawal card → "Another card?" → "Anything returned?" → returns → "Any project transfer?" → transfer
-   → "Another transfer?" → "Submit the day?" → submitted, back on the dashboard. */
+/* The evening check-in, one question at a time. Each step starts with a "were there any?" question;
+   only after one has been saved in this check-in does it ask about "another".
+   Start → "Were materials issued today?" → card → "Another card?" → "Anything returned?" → returns
+   → "Any project transfer today?" → transfer → "Another transfer?" → "Submit the day?" → back on the dashboard. */
 export type Stage = 'issued' | 'askCard' | 'askNoCard' | 'askReturns' | 'returns' | 'askTransfer' | 'transfers' | 'askMoreTransfer' | 'askSubmit';
-type Flow = { day: string; stage: Stage } | null;
+type Flow = { day: string; stage: Stage; saved?: Partial<Record<StepKey, number>> } | null;
 
 const KEY = 'ostock-evening';
 const read = (): Flow => { try { return JSON.parse(sessionStorage.getItem(KEY) ?? 'null'); } catch { return null; } };
@@ -23,6 +24,9 @@ let flow: Flow = read();
 const subs = new Set<(f: Flow) => void>();
 const set = (f: Flow) => { flow = f; try { if (f) sessionStorage.setItem(KEY, JSON.stringify(f)); else sessionStorage.removeItem(KEY); } catch { /* private mode */ } subs.forEach((s) => s(f)); };
 export const stageFor = (day: string) => (flow && flow.day === day ? flow.stage : null);
+/** How many entries of a step were saved during this check-in (not during the day). */
+const savedIn = (day: string, k: StepKey) => (flow && flow.day === day ? flow.saved?.[k] ?? 0 : 0);
+const to_ = (day: string, stage: Stage, bump?: StepKey) => set({ day, stage, saved: bump ? { ...flow?.saved, [bump]: savedIn(day, bump) + 1 } : flow?.day === day ? flow.saved : undefined });
 export function useFlow(day: string) {
   const [, tick] = useState(0);
   useEffect(() => { const s = () => tick((n) => n + 1); subs.add(s); return () => { subs.delete(s); }; }, []);
@@ -31,10 +35,10 @@ export function useFlow(day: string) {
 const ENTRY: Partial<Record<Stage, StepKey>> = { issued: 'issued', returns: 'returns', transfers: 'transfers' };
 const SCREEN: Record<'issued' | 'returns' | 'transfers', Screen> = { issued: 'issued', returns: 'returns', transfers: 'transfers' };
 
-export function startEvening(day: string, go: (s: Screen) => void, cardsAlready = false) {
-  // Cards already typed during the day: ask about the next one instead of opening an empty card.
-  if (cardsAlready) { set({ day, stage: 'askCard' }); return; }
-  set({ day, stage: 'issued' }); signal('step-form', 'issued'); go('issued');
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function startEvening(day: string, _go?: (s: Screen) => void, _cardsAlready = false) {
+  // A start of works: always the first question, "Were materials issued today?".
+  set({ day, stage: 'askNoCard', saved: {} });
 }
 
 /** "Continue": back to the entry page the flow was on (a question that is waiting shows by itself). */
@@ -49,7 +53,7 @@ export function continueEvening(day: string, go: (s: Screen) => void) {
 export function entrySaved(step: StepKey, day: string, go: (s: Screen) => void) {
   const st = stageFor(day);
   if (st && ENTRY[st] === step) {
-    set({ day, stage: step === 'issued' ? 'askCard' : step === 'returns' ? 'askTransfer' : 'askMoreTransfer' });
+    to_(day, step === 'issued' ? 'askCard' : step === 'returns' ? 'askTransfer' : 'askMoreTransfer', step);
     signal('flow-again', step); // the page behind the question shows a clean form
     return;
   }
@@ -72,17 +76,18 @@ export function EveningFlow({ screen }: { screen: Screen }) {
     const was = prev.current; prev.current = screen;
     const step = stage && ENTRY[stage];
     if (!step || was !== SCREEN[step as 'issued'] || screen === was) return;
-    if (step === 'issued') set({ day, stage: docsToday.some((d) => d.kind === 'issue') ? 'askCard' : 'askNoCard' });
-    else if (step === 'returns') set({ day, stage: 'askReturns' });
-    else set({ day, stage: docsToday.some((d) => d.kind === 'transfer_in' || d.kind === 'transfer_out') ? 'askMoreTransfer' : 'askTransfer' });
-  }, [screen, stage, day, docsToday]);
+    // Back on the question: "another" only if one was saved in this check-in.
+    if (step === 'issued') to_(day, savedIn(day, 'issued') ? 'askCard' : 'askNoCard');
+    else if (step === 'returns') to_(day, 'askReturns');
+    else to_(day, savedIn(day, 'transfers') ? 'askMoreTransfer' : 'askTransfer');
+  }, [screen, stage, day]);
   // A day already submitted needs no evening flow.
   useEffect(() => { if (stage && submission) set(null); }, [stage, submission]);
 
   if (!stage || ENTRY[stage]) return null;
-  const to = (s: Stage) => set({ day, stage: s });
+  const to = (s: Stage) => to_(day, s);
   const enter = (step: 'issued' | 'returns' | 'transfers', dir?: 'in' | 'out') => {
-    set({ day, stage: step });
+    to_(day, step);
     if (dir) setPendingDir(dir);
     signal('flow-again', step); // a fresh, empty form
     if (screen !== SCREEN[step]) { signal('step-form', step); go(SCREEN[step]); }
@@ -115,10 +120,11 @@ export function EveningFlow({ screen }: { screen: Screen }) {
   let size = 'sm';
   if (stage === 'askCard' || stage === 'askNoCard') {
     const first = stage === 'askNoCard';
-    body = <Ask kicker={first ? 'Withdrawal cards' : `${count('issued')} card${count('issued') === 1 ? '' : 's'} entered`} icon="card"
-      title={first ? `Was any material issued ${wd}?` : 'Was there another material issued?'}
+    const before = count('issued'); // cards typed during the day, before the check-in
+    body = <Ask kicker={first ? (before ? `Withdrawal cards · ${before} entered during the day` : 'Withdrawal cards') : `${savedIn(day, 'issued')} card${savedIn(day, 'issued') === 1 ? '' : 's'} entered now`} icon="card"
+      title={first ? (before ? `Were any other materials issued ${wd}?` : `Were materials issued ${wd}?`) : 'Was there another material issued?'}
       yes={{ label: first ? 'Yes, enter a card' : 'Yes, next card', hint: 'Opens a fresh card', run: () => enter('issued') }}
-      no={{ label: first ? 'No, nothing issued' : 'No, that’s all', hint: 'Next: returns', run: () => { if (first) none('issued'); to('askReturns'); } }} />;
+      no={{ label: first && !before ? 'No, nothing issued' : 'No, that’s all', hint: 'Next: returns', run: () => { if (first) none('issued'); to('askReturns'); } }} />;
   } else if (stage === 'askReturns') {
     size = 'md';
     body = <Ask kicker="Returns" icon="back" title={`Were any materials returned to the stores ${wd} from production?`}
@@ -127,8 +133,8 @@ export function EveningFlow({ screen }: { screen: Screen }) {
   } else if (stage === 'askTransfer' || stage === 'askMoreTransfer') {
     const more = stage === 'askMoreTransfer';
     size = 'md';
-    body = <Ask kicker={more ? `${count('transfers')} transfer${count('transfers') === 1 ? '' : 's'} entered` : 'Project transfers'} icon="swap"
-      title={more ? 'Was there another project transfer?' : `Was there a project transfer ${wd}?`}
+    body = <Ask kicker={more ? `${savedIn(day, 'transfers')} transfer${savedIn(day, 'transfers') === 1 ? '' : 's'} entered now` : count('transfers') ? `Project transfers · ${count('transfers')} entered during the day` : 'Project transfers'} icon="swap"
+      title={more ? 'Was there another project transfer?' : count('transfers') ? `Were there any other project transfers ${wd}?` : `Was there a project transfer ${wd}?`}
       yes2={[{ label: 'Yes, sent out', hint: 'To another project', run: () => enter('transfers', 'out') }, { label: 'Yes, received', hint: 'From another project', run: () => enter('transfers', 'in') }]}
       no={{ label: more ? 'No, that’s all' : 'No transfers', hint: 'Next: submit the day', run: () => { if (!more) none('transfers'); to('askSubmit'); } }} />;
   } else {

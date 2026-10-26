@@ -150,7 +150,7 @@ export function Dashboard({ embedded = false }: { embedded?: boolean }) {
         {tab === 'bal' ? <>
           <td className={`num strong ${low ? 'low' : ''}`}>{fmt(b.balance)}</td>
           <td className="num hideS muted">{b.reorder_level != null ? fmt(b.reorder_level) : '–'}</td>
-          <td className="num hideS">{dl == null ? <span className="muted">–</span> : dl < 1 ? '< 1' : fmt(Math.round(dl))}</td>
+          <td className="num hideS">{dl == null ? <span className="muted">–</span> : dl < 1 ? '< 1' : fmt(dl)}</td>
           <td><span className={`stPill ${out ? 'out' : low ? 'low' : 'ok'}`}>{out ? 'Finished' : low ? 'Running low' : 'Healthy'}</span></td>
         </> : <>
           <td className="num hideS">{u?.issued ? fmt(u.issued) : '–'}</td>
@@ -164,7 +164,7 @@ export function Dashboard({ embedded = false }: { embedded?: boolean }) {
     const esc = (x: string | number) => /[",\n]/.test(String(x)) ? `"${String(x).replace(/"/g, '""')}"` : String(x);
     const head = tab === 'bal' ? ['Item', 'Unit', 'Balance', 'Reorder at', 'Days left', 'Status'] : ['Item', 'Unit', 'Issued', 'Returned', 'Used'];
     const rows = shown.map((b) => {
-      if (tab === 'bal') { const dl = daysLeft(b); return [b.name, b.unit, b.balance, b.reorder_level ?? '', dl == null ? '' : Math.round(dl), b.balance <= 0 ? 'Finished' : isLow(b) ? 'Running low' : 'Healthy']; }
+      if (tab === 'bal') { const dl = daysLeft(b); return [b.name, b.unit, b.balance, b.reorder_level ?? '', dl == null ? '' : dl, b.balance <= 0 ? 'Finished' : isLow(b) ? 'Running low' : 'Healthy']; }
       const u = use.get(b.item_id); return [b.name, b.unit, u?.issued ?? 0, u?.returned ?? 0, u?.used ?? 0];
     });
     const csv = [head, ...rows].map((r) => r.map(esc).join(',')).join('\n');

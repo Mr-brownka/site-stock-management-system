@@ -234,7 +234,7 @@ function Overview({ d, day, user, go }: { d: Data; day: string; user: User; go: 
     const keeper = teamOf(d, s.id).find((p) => p.role === 'store' && p.phone) ?? teamOf(d, s.id).find((p) => p.phone);
     const last = d.docs.filter((x) => x.site_id === s.id && x.doc_date === day).sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
     todo.push({ key: `s${s.id}`, title: `${s.name} hasn’t submitted today`, detail: last ? `Last entry ${time(last.created_at)}` : 'No entries yet today', kind: 'Day', dot: '#B54708', action: 'Remind', at: '8', disabled: !keeper,
-      run: () => keeper && window.open(`https://wa.me/${waNumber(keeper.phone!)}?text=${encodeURIComponent(`Hello ${keeper.full_name.split(' ')[0]}, please submit today’s entries for ${s.name} on Bohari. Thanks, ${user.name}`)}`, '_blank') });
+      run: () => keeper && window.open(`https://wa.me/${waNumber(keeper.phone!)}?text=${encodeURIComponent(`Hello ${keeper.full_name.split(' ')[0]}, please submit today’s entries for ${s.name} on the system. Thanks, ${user.name}`)}`, '_blank') });
   });
   todo.sort((a, b) => a.at.localeCompare(b.at));
 
@@ -853,12 +853,12 @@ function ZohoPage({ d, busy, act, go }: { d: Data; busy: string; act: Act; go: (
               return (
                 <div key={z.zoho_item_id} className="adMatch">
                   <span><span className="zohoTag"><b>ZOHO</b></span> {z.zoho_name} <small className="muted">{z.zoho_unit ?? ''}</small></span>
-                  <select className="select input" value={v} onChange={(e) => setPick({ ...pick, [z.zoho_item_id]: e.target.value })} aria-label={`Bohari item for ${z.zoho_name}`}>
-                    <option value="">Choose the Bohari item…</option>
+                  <select className="select input" value={v} onChange={(e) => setPick({ ...pick, [z.zoho_item_id]: e.target.value })} aria-label={`System item for ${z.zoho_name}`}>
+                    <option value="">Choose the item in the system…</option>
                     {items.map((i) => <option key={i.id} value={i.id}>{i.name} · {i.unit}{sg?.id === i.id ? ' (suggested)' : ''}</option>)}
                   </select>
                   <span className="adActs">
-                    <button className="adBtn" disabled={!!busy} title="Add it to Bohari's list under Zoho's name" onClick={() => act(`zn${z.zoho_item_id}`, async () => { const it = await api.addItem((z.zoho_name ?? 'Item').trim(), (z.zoho_unit ?? 'Pcs').trim() || 'Pcs'); await api.admin.matchZohoItem(z.zoho_item_id, it.id); })}>New</button>
+                    <button className="adBtn" disabled={!!busy} title="Add it to the system’s list under Zoho's name" onClick={() => act(`zn${z.zoho_item_id}`, async () => { const it = await api.addItem((z.zoho_name ?? 'Item').trim(), (z.zoho_unit ?? 'Pcs').trim() || 'Pcs'); await api.admin.matchZohoItem(z.zoho_item_id, it.id); })}>New</button>
                     <button className="adBtn dark" disabled={!v || !!busy} onClick={() => act(`zm${z.zoho_item_id}`, () => api.admin.matchZohoItem(z.zoho_item_id, Number(v)))}>Match</button>
                   </span>
                 </div>

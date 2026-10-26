@@ -128,7 +128,7 @@ export function ZohoStatusLine({ compact }: { compact?: boolean }) {
       ? <button className="railLink zohoMenu" onClick={connect} disabled={busy}><span className="zohoDot off" /><span className="rlText">{busy ? 'Opening Zoho…' : 'Connect my Zoho'}</span></button>
       : (
         <div className="zohoCard">
-          <div><b>Connect your Zoho</b><span>So goods you receive in Zoho appear in Bohari by themselves. You sign in on Zoho’s own page; Bohari can only read.</span></div>
+          <div><b>Connect your Zoho</b><span>So goods you receive in Zoho appear in the system by themselves. You sign in on Zoho’s own page; the system can only read.</span></div>
           <button className="btn" onClick={connect} disabled={busy}><ZohoTag />{busy ? 'Opening Zoho…' : 'Connect my Zoho'}</button>
         </div>
       );

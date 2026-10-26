@@ -284,7 +284,7 @@ export function Home() {
               return (
                 <button key={b.item_id} className="attRow" onClick={() => toDash({ tab: 'bal', item: b.item_id })}>
                   <span className="attName">{b.name}</span>
-                  <span className={`attVal ${b.balance <= 0 ? 'out' : ''}`}>{b.balance <= 0 ? 'Finished' : dl != null && dl < 30 ? `${Math.max(0, Math.round(dl))} day${Math.round(dl) === 1 ? '' : 's'} left` : `${fmt(b.balance)} ${b.unit}`}</span>
+                  <span className={`attVal ${b.balance <= 0 ? 'out' : ''}`}>{b.balance <= 0 ? 'Finished' : dl != null && dl < 30 ? `${dl} day${dl === 1 ? '' : 's'} left` : `${fmt(b.balance)} ${b.unit}`}</span>
                 </button>
               );
             })}

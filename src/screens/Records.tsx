@@ -143,7 +143,7 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
               <span className="mono">{r.paper || '—'}</span>
               <span className="recWho">{r.who || '—'}</span>
               <span className="recWhere">{r.where || '—'}{!!r.doc.to_confirm?.length && <span className="fcTag confirm">To confirm</span>}</span>
-              {src && (r.doc.zoho_grn ? <ZohoTag grn={r.doc.zoho_grn} /> : <span className="small muted">Typed in Bohari</span>)}
+              {src && (r.doc.zoho_grn ? <ZohoTag grn={r.doc.zoho_grn} /> : <span className="small muted">Typed in the system</span>)}
             </button>
           ))}
           {shown.length > 0 && <div className="recFoot">{shown.length} {shown.length === 1 ? 'entry' : 'entries'} · {periodLabel.toLowerCase()}{src && fromZoho ? ` · ${fromZoho} from Zoho` : ''}{src && <button className="btn link inline" onClick={checkZohoNow}>Refresh from Zoho</button>}</div>}
@@ -212,7 +212,7 @@ function Detail({ row, cfg, onClose, onFix }: { row: Row; cfg: (typeof CFG)[RecK
     ...(d.kind === 'issue' ? [['Activity', d.activity], ['Issued to', d.party], ['Gemba', d.gemba], ['Time on the card', d.doc_time?.slice(0, 5)], ['SM / Supervisor', d.supervisor], ['Code', d.card_no], ['Store', d.authorised_by]] as [string, string | null | undefined][] : []),
     ...(d.kind === 'return' ? [['Returned by', row.who], ['Gemba', row.where]] as [string, string | null | undefined][] : []),
     ...(d.kind === 'transfer_in' || d.kind === 'transfer_out' ? [[d.kind === 'transfer_out' ? 'Sent to' : 'Received from', d.party], ['Authorised by', d.authorised_by], ['Vehicle', d.vehicle]] as [string, string | null | undefined][] : []),
-    ...(d.source === 'zoho' ? [['Zoho receive', d.zoho_grn], ['Purchase order', d.zoho_po], ['Checked in Bohari', d.checked_at ? new Date(d.checked_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' }) : 'Not yet']] as [string, string | null | undefined][] : []),
+    ...(d.source === 'zoho' ? [['Zoho receive', d.zoho_grn], ['Purchase order', d.zoho_po], ['Checked in the system', d.checked_at ? new Date(d.checked_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' }) : 'Not yet']] as [string, string | null | undefined][] : []),
     [d.source === 'zoho' ? 'Brought in from Zoho' : 'Saved', saved],
   ];
   const showSub = d.kind === 'delivery' || d.kind === 'return' || d.lines.some((l) => l.subphase && l.subphase !== d.gemba);
