@@ -13,6 +13,7 @@ import { StartTraining } from './Training';
 import { CommandPalette } from './CommandPalette';
 import { Welcome } from '../screens/Welcome';
 import { isTrained } from '../lib/trainingPlan';
+import { UnfinishedCard } from './Unfinished';
 
 const CHECKIN: Screen[] = ['home', 'submitted'];
 const NAV: { screen: Screen; label: string; icon: string; match: Screen[] }[] = [
@@ -56,7 +57,8 @@ const readRail = () => { try { return localStorage.getItem('ssms-rail') === 'min
 const readRailW = () => { try { const v = Number(localStorage.getItem('ssms-rail-w')); return v >= 180 && v <= 340 ? v : 212; } catch { return 212; } };
 
 export function AppShell({ screen, children }: { screen: Screen; children: ReactNode }) {
-  const { user, site, go, signOut, openAdmin, stepState, submission, lowItems, balances, day, projectWeek, syncing, catchUp, endCatchUp } = useData();
+  const { user, site, go, signOut, openAdmin, stepState, submission, lowItems, balances, day, projectWeek, syncing, catchUp, endCatchUp, unconfirmed, drafts } = useData();
+  const toFinish = unconfirmed.length + drafts.length;
   const [mini, setMini] = useState(readRail);
   // The menu can be dragged wider or narrower by its right edge; each person's width is remembered.
   const [railW, setRailW] = useState(readRailW);
@@ -242,7 +244,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
             <span className="tbIcon"><Icon name="fix" size={22} /></span>Fix
           </button>
           <button aria-current={screen === 'balances' || screen === 'consumption' || sheet === 'more' ? 'page' : undefined} onClick={() => setSheet(sheet === 'more' ? null : 'more')}>
-            <span className="tbIcon"><span className="tbAv">{initials}</span></span>More
+            <span className="tbIcon"><span className="tbAv">{initials}</span>{toFinish > 0 && <span className="tbBadge" aria-label={`${toFinish} to finish`}>{toFinish}</span>}</span>More
           </button>
         </nav>
       )}
@@ -257,6 +259,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
                   <Ring done={submission ? 3 : done} total={3} size={44} />
                   <span><b>{submission ? 'Today’s summary' : done === 3 ? 'Ready to submit' : 'Today’s summary'}</b><small>{submission ? 'All three steps done' : closeLabel(min)}</small></span>
                 </button>
+                {toFinish > 0 && <div className="mFinish"><span className="mFinishH"><span className="fcDot" aria-hidden="true" />{toFinish} to finish</span><UnfinishedCard /></div>}
                 <div className="mGrid">
                   <button onClick={() => { setSheet(null); go('balances'); }}><span className="mIc"><Icon name="box" size={20} /></span>Balances</button>
                   <button onClick={() => { setSheet(null); go('consumption'); }}><span className="mIc"><Icon name="chart" size={20} /></span>Consumption</button>

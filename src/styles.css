@@ -3273,3 +3273,25 @@ select.pfIn { appearance: auto; }
   .adEdits > div { grid-template-columns: 1fr; gap: 2px; } .adEdits > div > span[aria-hidden] { display: none; }
 }
 .fxFind2 .fxKinds { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* ───── Phone: white, calm dashboard ───── */
+.phSumGo { display: none; }
+.tbIcon { position: relative; }
+.tbBadge { position: absolute; top: -4px; right: -8px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; background: var(--accent); color: #1B2120; font-size: 11px; font-weight: 800; display: grid; place-items: center; border: 2px solid #fff; }
+.mFinish { display: flex; flex-direction: column; gap: 8px; }
+.mFinishH { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #8A5000; }
+.mFinish .finBar { margin: 0; }
+@media (max-width: 767px) {
+  html, body, .shell, .shellMain { background: #fff !important; }
+  .shellMain::before, .shellMain::after, .welGlow { display: none !important; }
+  .topbar { background: rgba(255,255,255,.96) !important; border-bottom: 1px solid #EEF0EE; }
+  .phFinish { display: none; }
+  .home .phActions { display: flex; flex-direction: column; align-items: stretch; gap: 10px; width: 100%; }
+  .home .phActions .startBtn { order: 1; width: 100%; }
+  .home .phActions .phSum { order: 2; width: 100%; height: 54px; justify-content: flex-start; gap: 12px; padding: 0 16px; border-radius: 16px; background: #fff; border: 1px solid #E6E9E7; box-shadow: 0 1px 2px rgba(27,33,32,.04); font-size: 16px; font-weight: 700; color: var(--ink); }
+  .home .phActions .phSum > svg:first-child { color: var(--muted); }
+  .home .phActions .phSum .phSumGo { display: inline-grid; margin-left: auto; color: var(--muted); }
+  .home .kpi3, .home .panel, .home section.panel { background: #fff; border: 1px solid #ECEEEC; box-shadow: 0 1px 2px rgba(27,33,32,.04), 0 8px 24px -18px rgba(27,33,32,.18); }
+}
+/* Bottom sheets on phone run edge to edge (the card bound above is for centred pop-ups). */
+@media (max-width: 767px) { .mSheet, .ppCard, .incSheet, .sheet { max-width: 100%; } }
