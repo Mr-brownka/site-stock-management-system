@@ -13,6 +13,7 @@ import { Returns } from './screens/Returns';
 import { SetPassword } from './screens/SetPassword';
 import { SignUp, Waiting } from './screens/SignUp';
 import { Submitted } from './screens/Submitted';
+import { RecordsHub } from './screens/RecordsHub';
 import { Transfers } from './screens/Transfers';
 import { exitTraining } from './lib/training';
 import { bootDone, bootGreet, forgetVisitor } from './lib/boot';
@@ -38,7 +39,7 @@ const SCREENS: Record<Screen, React.ComponentType> = {
   home: Home, deliveries: Deliveries, issued: Issued, returns: Returns, transfers: Transfers,
   submitted: Submitted, dashboard: DashboardJump, stocktake: StockTake, corrections: Corrections, reports: Reports, welcome: Home,
   'rec-deliveries': () => <Records recKey="deliveries" />, 'rec-issued': () => <Records recKey="issued" />,
-  'rec-returns': () => <Records recKey="returns" />, 'rec-transfers': () => <Records recKey="transfers" />, consumption: Consumption, balances: Balances,
+  'rec-returns': () => <Records recKey="returns" />, 'rec-transfers': () => <Records recKey="transfers" />, consumption: Consumption, balances: Balances, records: RecordsHub,
 };
 
 const fromHash = (): Screen => {

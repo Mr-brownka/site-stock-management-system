@@ -88,7 +88,7 @@ function AlertSheet({ info, onClose, onSent }: { info: AlertInfo | null; onClose
       else L.push('', 'Please arrange delivery.');
     }
     if (withNote && note.trim()) L.push('', note.trim());
-    L.push(`— ${sign.trim() || user.name}`, '_Sent from Bohari_');
+    L.push(`— ${sign.trim() || user.name}`, '_Sent from Ostock_');
     return L.join('\n');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [style, incFin, incLow, withNote, note, sign, lowItems, day, projectWeek, site]);

@@ -114,7 +114,7 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
     async signUp() { /* demo: sign-up is shown, not stored */ },
     async signupSites() { return s.sites; },
     async requestCorrection(input) {
-      s.corrections.unshift({ ...input, movement_id: input.movement_id ?? null, note: input.note ?? null, id: uid(), site_id: SITE, status: 'pending', decision_note: null, created_by: ME, created_at: new Date().toISOString(), decided_at: null });
+      s.corrections.unshift({ ...input, movement_id: input.movement_id ?? null, note: input.note ?? null, document_id: input.document_id ?? null, changes: input.changes ?? null, id: uid(), site_id: SITE, status: 'pending', decision_note: null, created_by: ME, created_at: new Date().toISOString(), decided_at: null });
       save();
     },
     async myCorrections() { return s.corrections; },
@@ -140,7 +140,15 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
       async decide(id, approve, note) {
         const r = s.corrections.find((c) => c.id === id);
         if (!r || r.status !== 'pending') throw new Error('Already decided');
-        if (approve) {
+        if (approve && r.kind === 'edit') {
+          const d = s.docs.find((x) => x.id === r.document_id);
+          if (!d) throw new Error('The original entry no longer exists');
+          const c = r.changes?.doc ?? {};
+          for (const [k, v] of Object.entries(c)) (d as unknown as Record<string, unknown>)[k] = v?.[1] || null;
+          if (c.gemba && d.kind === 'issue') d.lines.forEach((l) => { l.subphase = d.gemba ?? null; });
+          d.lines.forEach((l) => { l.move_date = d.doc_date; });
+          for (const x of r.changes?.lines ?? []) { const l = d.lines.find((y) => y.id === x.movement_id); if (l) { if (x.to_item) l.item_id = x.to_item; if (x.to_qty != null) l.qty = x.to_qty; } }
+        } else if (approve) {
           const line = r.movement_id ? s.docs.flatMap((d) => d.lines).find((l) => l.id === r.movement_id) : undefined;
           const change = r.kind === 'fix' && line ? (line.kind === 'issue' || line.kind === 'transfer_out' ? r.from_qty - r.to_qty : r.to_qty - r.from_qty) : r.to_qty - r.from_qty;
           const did = uid(), date = line?.move_date ?? today();

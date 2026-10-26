@@ -30,7 +30,7 @@ const RECORDS: { screen: Screen; label: string; tone: string; entry: Screen }[] 
 ];
 const readRecOpen = () => { try { return localStorage.getItem('ssms-records') !== 'closed'; } catch { return true; } };
 // Screens that show the phone tab bar (not the step-by-step forms).
-const TABBAR: Screen[] = ['home', 'dashboard', 'corrections', 'submitted', 'reports', 'stocktake', 'rec-deliveries', 'rec-issued', 'rec-returns', 'rec-transfers', 'consumption', 'balances'];
+const TABBAR: Screen[] = ['home', 'dashboard', 'corrections', 'submitted', 'reports', 'stocktake', 'rec-deliveries', 'rec-issued', 'rec-returns', 'rec-transfers', 'consumption', 'balances', 'records'];
 
 export function closeLabel(min: number): string {
   if (min <= 0) return 'Register closed at 6:00 pm';
@@ -41,8 +41,9 @@ export function closeLabel(min: number): string {
 function crumbs(screen: Screen): string[] {
   const entry = RECORDS.find((r) => r.entry === screen);
   if (entry) return ['Records', entry.label, 'New entry'];
-  if (screen === 'submitted') return ['Dashboard', 'Day submitted'];
+  if (screen === 'submitted') return ['Dashboard', 'Today’s summary'];
   if (CHECKIN.includes(screen)) return ['Dashboard'];
+  if (screen === 'records') return ['Records'];
   const rec = RECORDS.find((r) => r.screen === screen);
   if (rec) return ['Records', rec.label];
   if (screen === 'reports') return ['Records', 'Reports'];
@@ -73,7 +74,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
   const toggleRec = () => { const v = !recOpen; setRecOpen(v); try { localStorage.setItem('ssms-records', v ? 'open' : 'closed'); } catch { /* ignore */ } };
   const [palette, setPalette] = useState(false);
   const [siteOpen, setSiteOpen] = useState(false);
-  const [sheet, setSheet] = useState<'records' | 'more' | null>(null);
+  const [sheet, setSheet] = useState<'more' | null>(null);
   useEffect(() => { setSheet(null); }, [screen]);
   // The gold menu highlight slides to the current page.
   const navRef = useRef<HTMLElement>(null);
@@ -151,7 +152,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
         <div className={`railToday ${urgent ? 'urgent' : ''}`}>
           <Ring done={submission ? 3 : done} total={3} size={44} />
           <div className="rlText">
-            <b>{submission ? 'Day submitted' : done === 3 ? 'Ready to submit' : 'Today’s entries'}</b>
+            <b>{submission ? 'Today’s summary' : done === 3 ? 'Ready to submit' : 'Today’s summary'}</b>
             <span>{submission ? 'All three steps done' : closeLabel(min)}</span>
           </div>
         </div>
@@ -231,7 +232,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
           <button aria-current={CHECKIN.includes(screen) ? 'page' : undefined} onClick={() => { setSheet(null); go('home'); }}>
             <span className="tbIcon"><Icon name="checkin" size={22} />{lowItems.length > 0 && <PulseDot />}</span>Dashboard
           </button>
-          <button aria-current={RECORDS.some((r) => r.screen === screen) || screen === 'reports' || sheet === 'records' ? 'page' : undefined} onClick={() => setSheet(sheet === 'records' ? null : 'records')}>
+          <button aria-current={RECORDS.some((r) => r.screen === screen) || screen === 'reports' || screen === 'records' ? 'page' : undefined} onClick={() => { setSheet(null); go('records'); }}>
             <span className="tbIcon"><Icon name="list" size={22} /></span>Records
           </button>
           <button aria-current={screen === 'stocktake' ? 'page' : undefined} onClick={() => { setSheet(null); go('stocktake'); }}>
@@ -247,29 +248,14 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
       )}
       {sheet && (
         <div className="mSheetBack" onClick={(e) => { if (e.target === e.currentTarget) setSheet(null); }}>
-          <section className="mSheet" role="dialog" aria-modal="true" aria-label={sheet === 'records' ? 'Records' : 'More'}>
+          <section className="mSheet" role="dialog" aria-modal="true" aria-label="More">
             <span className="mGrab" aria-hidden="true" />
-            {sheet === 'records' ? (
-              <>
-                <b className="mTitle">Records</b>
-                <div className="mRecs">
-                  <button className="mRec items" aria-current={screen === 'dashboard' ? 'page' : undefined} onClick={() => { setSheet(null); go('dashboard'); }}>
-                    <span className="mRecDot" aria-hidden="true" /><span>Items</span><Icon name="arrow" size={16} />
-                  </button>
-                  {RECORDS.map((r) => (
-                    <button key={r.screen} className={`mRec ${r.tone}`} aria-current={screen === r.screen ? 'page' : undefined} onClick={() => { setSheet(null); go(r.screen); }}>
-                      <span className="mRecDot" aria-hidden="true" /><span>{r.label}</span><Icon name="arrow" size={16} />
-                    </button>
-                  ))}
-                </div>
-                <button className="mRow" onClick={() => { setSheet(null); go('reports'); }}><span className="mIc"><Icon name="report" size={20} /></span><span><b>Reports</b><small>17 reports · Excel or print</small></span><Icon name="arrow" size={16} /></button>
-              </>
-            ) : (
+            {(
               <>
                 <div className="mWho"><span className="avatar">{initials}</span><div><b>{user.name}</b><small>{user.role === 'admin' ? 'Admin' : 'Store'}{site ? ` · ${site}` : ''}{api.mode === 'demo' ? ' · demo' : ''}</small></div></div>
-                <button className="mToday" onClick={() => { setSheet(null); go('home'); setTimeout(() => signal('entries'), 120); }}>
+                <button className="mToday" onClick={() => { setSheet(null); go('submitted'); }}>
                   <Ring done={submission ? 3 : done} total={3} size={44} />
-                  <span><b>{submission ? 'Day submitted' : done === 3 ? 'Ready to submit' : 'Today’s entries'}</b><small>{submission ? 'All three steps done' : closeLabel(min)}</small></span>
+                  <span><b>{submission ? 'Today’s summary' : done === 3 ? 'Ready to submit' : 'Today’s summary'}</b><small>{submission ? 'All three steps done' : closeLabel(min)}</small></span>
                 </button>
                 <div className="mGrid">
                   <button onClick={() => { setSheet(null); go('balances'); }}><span className="mIc"><Icon name="box" size={20} /></span>Balances</button>

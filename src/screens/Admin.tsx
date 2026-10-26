@@ -1,4 +1,5 @@
 import { ComexLogo, SiteLogo } from '../components/Brand';
+import { describeEdit, requestTitle } from '../lib/editFix';
 import { Icon } from '../components/fx';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -214,7 +215,6 @@ function TodayPill({ d, site }: { d: Data; site: string }) {
 interface Todo { key: string; title: string; detail: string; kind: string; dot: string; action: string; at: string; run: () => void; disabled?: boolean }
 function Overview({ d, day, user, go }: { d: Data; day: string; user: User; go: (n: Nav) => void }) {
   const name = (id: string | null | undefined) => d.sites.find((s) => s.id === id)?.name ?? '';
-  const itemById = new Map(d.items.map((i) => [i.id, i]));
   const person = new Map(d.profiles.map((p) => [p.id, p]));
   const h = Number(new Date().toLocaleString('en-GB', { hour: '2-digit', hour12: false, timeZone: 'Africa/Nairobi' }));
   const hello = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
@@ -222,8 +222,7 @@ function Overview({ d, day, user, go }: { d: Data; day: string; user: User; go: 
   const todo: Todo[] = [];
   d.profiles.filter((p) => p.status === 'pending').forEach((p) => todo.push({ key: `p${p.id}`, title: `${p.full_name} wants to join${p.site_id ? ` ${name(p.site_id)}` : ''}`, detail: `${ROLE_LABEL[p.role]} · asked ${ago(p.created_at)}`, kind: 'Sign-up', dot: '#6B46C1', action: 'Review', at: p.created_at, run: () => go({ sec: 'approvals', sel: `p:${p.id}` }) }));
   d.corr.filter((c) => c.status === 'pending').forEach((c) => {
-    const it = itemById.get(c.item_id);
-    todo.push({ key: `c${c.id}`, title: `${c.kind === 'fix' ? 'Fix' : 'Recount'}: ${it?.name ?? 'Item'} ${fmt(c.from_qty)} → ${fmt(c.to_qty)} ${it?.unit ?? ''}`, detail: `${name(c.site_id)} · ${c.reason}${person.get(c.created_by) ? ` · ${person.get(c.created_by)!.full_name}` : ''}`, kind: c.kind === 'fix' ? 'Fix' : 'Recount', dot: '#2E5AAC', action: 'Review', at: c.created_at, run: () => go({ sec: 'approvals', sel: `c:${c.id}` }) });
+    todo.push({ key: `c${c.id}`, title: requestTitle(c, (id) => d.items.find((x) => x.id === id), c.document_id ? d.docs.find((x) => x.id === c.document_id) : undefined), detail: `${name(c.site_id)} · ${c.reason}${person.get(c.created_by) ? ` · ${person.get(c.created_by)!.full_name}` : ''}`, kind: c.kind === 'recount' ? 'Recount' : 'Fix', dot: '#2E5AAC', action: 'Review', at: c.created_at, run: () => go({ sec: 'approvals', sel: `c:${c.id}` }) });
   });
   const toMatch = d.zitems.filter((z) => !z.item_id);
   if (toMatch.length) todo.push({ key: 'zm', title: `${toMatch.length} Zoho item${toMatch.length === 1 ? '' : 's'} to match`, detail: toMatch.slice(0, 2).map((z) => z.zoho_name).join(' · ') + (toMatch.length > 2 ? ' …' : ''), kind: 'Zoho', dot: '#1F7A4D', action: 'Match', at: '9', run: () => go({ sec: 'zoho' }) });
@@ -293,7 +292,7 @@ function Approvals({ d, sel, setSel, busy, act }: { d: Data; sel: string | null;
     ...d.profiles.filter((p) => (view === 'wait' ? p.status === 'pending' : p.status !== 'pending' && p.decided_at)).map((p) => ({ id: `p:${p.id}`, title: `${p.full_name} wants to join`, sub: `${name(p.site_id) || 'No site'} · asked ${ago(p.created_at)}`, tag: 'Sign-up', tone: 'low', at: view === 'wait' ? p.created_at : p.decided_at ?? p.created_at, status: p.status })),
     ...d.corr.filter((c) => (view === 'wait' ? c.status === 'pending' : c.status !== 'pending')).map((c) => {
       const it = itemById.get(c.item_id);
-      return { id: `c:${c.id}`, title: `${c.kind === 'fix' ? 'Fix' : 'Recount'}: ${it?.name ?? 'Item'} ${fmt(c.from_qty)} → ${fmt(c.to_qty)} ${it?.unit ?? ''}`, sub: `${name(c.site_id)} · ${person.get(c.created_by)?.full_name ?? ''} · ${ago(c.created_at)}`, tag: c.kind === 'fix' ? 'Fix' : 'Recount', tone: 'blue', at: view === 'wait' ? c.created_at : c.decided_at ?? c.created_at, status: c.status };
+      return { id: `c:${c.id}`, title: c.kind === 'edit' ? requestTitle(c, (id) => itemById.get(id), d.docs.find((x) => x.id === c.document_id)) : `${c.kind === 'fix' ? 'Fix' : 'Recount'}: ${it?.name ?? 'Item'} ${fmt(c.from_qty)} → ${fmt(c.to_qty)} ${it?.unit ?? ''}`, sub: `${name(c.site_id)} · ${person.get(c.created_by)?.full_name ?? ''} · ${ago(c.created_at)}`, tag: c.kind === 'recount' ? 'Recount' : c.kind === 'edit' ? (c.changes?.doc?.doc_date ? 'Date' : 'Fix') : 'Fix', tone: 'blue', at: view === 'wait' ? c.created_at : c.decided_at ?? c.created_at, status: c.status };
     }),
   ].sort((a, b) => (view === 'wait' ? a.at.localeCompare(b.at) : b.at.localeCompare(a.at)));
   const waitN = d.profiles.filter((p) => p.status === 'pending').length + d.corr.filter((c) => c.status === 'pending').length;
@@ -339,6 +338,38 @@ function Approvals({ d, sel, setSel, busy, act }: { d: Data; sel: string | null;
             );
           })() : (() => {
             const c = d.corr.find((x) => `c:${x.id}` === cur.id)!;
+            if (c.kind === 'edit') {
+              const doc = d.docs.find((x) => x.id === c.document_id);
+              const list = describeEdit(c.changes, (id) => itemById.get(id), doc?.kind);
+              const moved = c.changes?.doc?.doc_date;
+              return (
+                <div className="adDIn" key={cur.id}>
+                  <button className="backPill adPhoneBack" onClick={() => setSel(null)}><Icon name="arrowL" size={16} />All requests</button>
+                  <span className="adKick">Fix an entry · {name(c.site_id)}</span>
+                  <h2>{doc ? `${KIND_LABEL[doc.kind] ?? 'Entry'}${doc.ref_no ? ` ${doc.ref_no}` : ''} · ${niceDate(doc.doc_date)}` : 'Entry'}</h2>
+                  <small className="muted">Asked by {person.get(c.created_by)?.full_name ?? 'the store'} · {ago(c.created_at)} · “{c.reason}”{c.note ? ` · ${c.note}` : ''}</small>
+                  <div className="adEdits">
+                    <div className="th"><span>As entered → as fixed</span></div>
+                    {list.map((t) => { const [k, rest] = t.split(/: (.*)/s); const [a, b] = (rest ?? '').split(' → '); return <div key={t}><span>{k}</span><s>{a}</s><span aria-hidden>→</span><b>{b}</b></div>; })}
+                  </div>
+                  {moved && <div className="note">Approving moves this entry from {niceDate(moved[0] ?? '')} to <b>{niceDate(moved[1] ?? '')}</b>. Both days’ balances are worked out again.</div>}
+                  <div className="adFacts">
+                    <div><span>Original entry</span><b>{doc ? [doc.sys_no ? `${PREFIX[doc.kind] ?? ''}-${String(doc.sys_no).padStart(4, '0')}` : '', doc.activity, doc.party, doc.gemba].filter(Boolean).join(' · ') || '—' : 'Older than 14 days'}</b></div>
+                    <div><span>Status</span><b>{c.status === 'pending' ? 'Waiting for you' : `${c.status === 'approved' ? 'Approved' : 'Rejected'} ${c.decided_at ? ago(c.decided_at) : ''}${c.decision_note ? ` · “${c.decision_note}”` : ''}`}</b></div>
+                  </div>
+                  {c.status === 'pending' && (
+                    <>
+                      <input className="input" placeholder="Note to the store (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
+                      <div className="adActs">
+                        <button className="adBtn" disabled={!!busy} onClick={() => act(c.id, () => api.admin.decide(c.id, false, note || 'Rejected by the admin')).then(() => setSel(null))}>Reject</button>
+                        <button className="adBtn ok" disabled={!!busy} onClick={() => act(c.id, () => api.admin.decide(c.id, true, note || undefined)).then(() => { toast(moved ? `Approved · moved to ${niceDate(moved[1] ?? '')}` : 'Approved · the entry is updated'); setSel(null); })}>{moved ? `Approve · move to ${niceDate(moved[1] ?? '').split(' ').slice(1).join(' ')}` : 'Approve'}</button>
+                      </div>
+                    </>
+                  )}
+                  <small className="muted">The request keeps the before and after of every box, so the original stays on record.</small>
+                </div>
+              );
+            }
             const it = itemById.get(c.item_id);
             const bal = d.balances.find((b) => b.site_id === c.site_id && b.item_id === c.item_id)?.balance;
             const doc = c.movement_id ? d.docs.find((x) => x.lines.some((l) => l.id === c.movement_id)) : undefined;
@@ -903,8 +934,8 @@ function events(d: Data): Event[] {
   d.subs.forEach((s) => ev.push({ at: s.submitted_at, site: siteName.get(s.site_id) ?? '', dot: '#145236', text: 'Submitted the day', who: '' }));
   d.corr.forEach((c) => {
     const it = itemById.get(c.item_id);
-    ev.push({ at: c.created_at, site: siteName.get(c.site_id) ?? '', dot: '#2E5AAC', text: `Asked: ${c.kind === 'fix' ? 'fix' : 'recount'} ${it?.name} ${fmt(c.from_qty)} → ${fmt(c.to_qty)} · ${c.reason}`, who: person.get(c.created_by)?.full_name ?? '' });
-    if (c.decided_at) ev.push({ at: c.decided_at, site: siteName.get(c.site_id) ?? '', dot: c.status === 'approved' ? '#1F7A4D' : '#B42318', text: `${c.status === 'approved' ? 'Approved' : 'Rejected'}: ${it?.name} ${fmt(c.from_qty)} → ${fmt(c.to_qty)}`, who: 'Admin' });
+    ev.push({ at: c.created_at, site: siteName.get(c.site_id) ?? '', dot: '#2E5AAC', text: c.kind === 'edit' ? `Asked: ${requestTitle(c, (id) => d.items.find((x) => x.id === id))} · ${c.reason}` : `Asked: ${c.kind === 'fix' ? 'fix' : 'recount'} ${it?.name} ${fmt(c.from_qty)} → ${fmt(c.to_qty)} · ${c.reason}`, who: person.get(c.created_by)?.full_name ?? '' });
+    if (c.decided_at) ev.push({ at: c.decided_at, site: siteName.get(c.site_id) ?? '', dot: c.status === 'approved' ? '#1F7A4D' : '#B42318', text: `${c.status === 'approved' ? 'Approved' : 'Rejected'}: ${c.kind === 'edit' ? requestTitle(c, (id) => d.items.find((x) => x.id === id)) : `${it?.name} ${fmt(c.from_qty)} → ${fmt(c.to_qty)}`}`, who: 'Admin' });
   });
   d.profiles.forEach((p) => ev.push({ at: p.created_at, site: siteName.get(p.site_id ?? '') ?? '', dot: '#8A5000', text: `${p.full_name} asked to join as ${ROLE_LABEL[p.role]}`, who: p.full_name }));
   const from = addDays(today(), -13);
@@ -922,7 +953,7 @@ function Activity({ d }: { d: Data }) {
     const ws = XLSX.utils.aoa_to_sheet([['Date', 'Time', 'Site', 'What happened', 'Who'], ...list.map((e) => [dayOf(e.at), time(e.at), e.site, e.text, e.who])]);
     ws['!cols'] = [12, 7, 16, 80, 20].map((wch) => ({ wch }));
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Activity');
-    XLSX.writeFile(wb, `Bohari activity ${today()}.xlsx`);
+    XLSX.writeFile(wb, `Ostock activity ${today()}.xlsx`);
   };
   return (
     <div className="adStack">

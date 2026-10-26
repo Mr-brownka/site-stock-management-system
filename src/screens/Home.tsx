@@ -229,7 +229,7 @@ export function Home() {
         </div>
         <div className="phActions">
           <UnfinishedCard chip />
-          <button className="btn ghost sm" onClick={() => setShowEntries(true)}><Icon name="list" size={16} />{catchUp ? `${wd}’s entries` : 'Today’s entries'}</button>
+          <button className="btn ghost sm" onClick={() => go('submitted')}><Icon name="chart" size={16} />{catchUp ? `${wd}’s summary` : 'Today’s summary'}</button>
           {startBtn}
         </div>
       </header>

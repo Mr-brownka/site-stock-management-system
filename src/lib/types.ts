@@ -175,8 +175,17 @@ export interface SignUpInput {
   role: 'store' | 'assistant';
 }
 
+/** The boxes on a paper that can be fixed. */
+export type DocField = 'doc_date' | 'doc_time' | 'ref_no' | 'card_no' | 'party' | 'activity' | 'gemba' | 'supervisor' | 'authorised_by';
+/** A whole-paper fix: before and after of each changed box, and each changed line. */
+export interface EditChanges {
+  doc?: Partial<Record<DocField, [string | null, string | null]>>;
+  lines?: { movement_id: number; from_item: number; to_item?: number; from_qty: number; to_qty?: number }[];
+}
 export interface CorrectionInput {
-  kind: 'fix' | 'recount';
+  kind: 'fix' | 'recount' | 'edit';
+  /** edit: the entry being fixed. */ document_id?: string | null;
+  /** edit: what changes. */ changes?: EditChanges | null;
   movement_id?: number | null;
   item_id: number;
   from_qty: number;
