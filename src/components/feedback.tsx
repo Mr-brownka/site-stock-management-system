@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Icon } from './fx';
 
 interface Ask { title: string; body?: ReactNode; yes: string; no?: string; tone?: 'danger' | 'go'; resolve: (v: boolean) => void }
-interface Toast { id: number; text: string; tone?: 'ok' | 'warn' }
+interface Toast { id: number; text: string; tone?: 'ok' | 'warn'; action?: { label: string; run: () => void } }
 
 let pushAsk: ((a: Ask) => void) | null = null;
 let pushToast: ((t: Toast) => void) | null = null;
@@ -18,8 +18,8 @@ export function ask(o: Omit<Ask, 'resolve'>): Promise<boolean> {
 }
 
 /** A short message at the bottom of the screen. */
-export function toast(text: string, tone: Toast['tone'] = 'ok') {
-  pushToast?.({ id: nextId++, text, tone });
+export function toast(text: string, tone: Toast['tone'] = 'ok', action?: Toast['action']) {
+  pushToast?.({ id: nextId++, text, tone, action });
 }
 
 /** Light tap on phones that support it. */
@@ -37,7 +37,7 @@ export function FeedbackHost() {
     pushAsk = setA;
     pushToast = (t) => {
       setToasts((x) => [...x.slice(-2), t]);
-      setTimeout(() => setToasts((x) => x.filter((y) => y.id !== t.id)), 2600);
+      setTimeout(() => setToasts((x) => x.filter((y) => y.id !== t.id)), t.action ? 6000 : 2600);
     };
     const off = () => setOnline(false);
     const on = () => { setOnline(true); toast('Back online'); };
@@ -61,7 +61,7 @@ export function FeedbackHost() {
     <>
       {!online && <div className="offline" role="status"><span className="pulseDot gold" />You’re offline. Entries can’t be saved until the connection is back.</div>}
       <div className="toasts" aria-live="polite">
-        {toasts.map((t) => <div key={t.id} className={`toast ${t.tone ?? ''}`}><Icon name={t.tone === 'warn' ? 'clock' : 'checkin'} size={18} />{t.text}</div>)}
+        {toasts.map((t) => <div key={t.id} className={`toast ${t.tone ?? ''}`}><Icon name={t.tone === 'warn' ? 'clock' : 'checkin'} size={18} />{t.text}{t.action && <button className="toastAct" onClick={() => { t.action!.run(); setToasts((x) => x.filter((y) => y.id !== t.id)); }}>{t.action.label}</button>}</div>)}
       </div>
       {a && (
         <div className="sheetBack" onMouseDown={(e) => { if (e.target === e.currentTarget) answer(false); }}>

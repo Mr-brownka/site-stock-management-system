@@ -3478,3 +3478,28 @@ select.pfIn { appearance: auto; }
   .itPager .pgBtn.next, .itPager .itShown { grid-column: 1 / -1; }
 }
 @media (max-width: 767px) { .itSearch kbd { display: none; } .itPage { padding-bottom: 24px; } }
+
+/* ───── Part-delivered: Not coming, Removed ───── */
+.incCard.part { padding: 0; gap: 0; cursor: default; }
+.incCard.part:hover { transform: none; }
+.incOpen { display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 11px 12px 8px; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; border-radius: 13px 13px 0 0; }
+.incPF { display: flex; align-items: center; gap: 8px; padding: 8px 12px 10px; border-top: 1px dashed #E6E9E7; }
+.incPF .incFoot { flex: 1; min-width: 0; }
+.incNot { height: 28px; padding: 0 10px; border-radius: 9px; border: 1px solid var(--line); background: #fff; font: inherit; font-size: 12.5px; font-weight: 700; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; cursor: pointer; flex: none; transition: background .15s, color .15s, border-color .15s; }
+.incNot:hover { background: #FFF6F4; color: #B42318; border-color: #F2C4BF; }
+.incGone { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.incGoneBtn { align-self: center; border: 0; background: none; font: inherit; font-size: 13px; font-weight: 600; color: var(--muted); text-decoration: underline; cursor: pointer; }
+.incGoneRow { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: #F6F7F5; font-size: 13.5px; animation: rowIn .3s var(--ease) both; }
+.incGoneRow > span { flex: 1; min-width: 0; display: flex; flex-direction: column; } .incGoneRow small { color: var(--muted); }
+.incRm { display: flex; flex-direction: column; gap: 12px; text-align: left; width: min(460px, calc(100vw - 24px)); }
+.incRmKick { font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #B42318; }
+.incRm h2 { margin: 0; font-size: 22px; line-height: 1.2; }
+.incRmLines { border-radius: 14px; background: #F6F7F5; padding: 10px 14px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.incRmLines > div { display: flex; justify-content: space-between; gap: 10px; }
+.incRmQ { font-weight: 700; } .incRmQ small { color: var(--muted); font-weight: 500; }
+.incRmWhy { display: flex; flex-wrap: wrap; gap: 8px; }
+.incRmWhy button { height: 38px; padding: 0 14px; border-radius: 99px; border: 1px solid var(--line); background: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+.incRmWhy button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+.incRmActs { display: flex; justify-content: flex-end; gap: 10px; }
+.toast { pointer-events: auto; }
+.toastAct { margin-left: 6px; border: 0; background: none; font: inherit; font-weight: 800; color: var(--accent); cursor: pointer; padding: 4px 6px; }

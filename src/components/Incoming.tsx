@@ -2,9 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { api } from '../lib/api';
 import { niceDate } from '../lib/dates';
-import type { Incoming, IncomingOrder } from '../lib/types';
+import type { Incoming, IncomingDismissed, IncomingOrder } from '../lib/types';
 import { Icon } from './fx';
 import { fmt } from './ui';
+import { toast } from './feedback';
 import { ZohoBooksMark } from './Zoho';
 import { useData } from '../lib/store';
 
@@ -43,10 +44,10 @@ const addDay = (d: string, n: number) => { const x = new Date(d + 'T00:00:00Z');
 
 function PoTag({ po }: { po: string }) { return <span className="incPo"><ZohoBooksMark size={14} />{po}</span>; }
 
-function OrderCard({ o, today, part, onOpen }: { o: IncomingOrder; today: string; part?: boolean; onOpen: () => void }) {
+function OrderCard({ o, today, part, onOpen, onRemove }: { o: IncomingOrder; today: string; part?: boolean; onOpen: () => void; onRemove?: () => void }) {
   const d = due(o, today);
-  return (
-    <button type="button" className={`incCard ${part ? 'part' : ''} ${d.k}`} onClick={onOpen}>
+  const body = (
+    <>
       <span className="incTop"><b>{o.vendor ?? 'Vendor'}</b><span className={`incChip ${part ? 'today' : d.k}`}>{part ? 'Part in' : d.t}</span></span>
       <PoTag po={o.po} />
       {o.lines.slice(0, 3).map((l, i) => part ? (
@@ -55,9 +56,43 @@ function OrderCard({ o, today, part, onOpen }: { o: IncomingOrder; today: string
         <span key={i} className="incLine"><span>{l.name}</span><b className="mono">{fmt(l.ordered - l.received)} {l.unit ?? ''}</b></span>
       ))}
       {o.lines.length > 3 && <small className="incMore">+{o.lines.length - 3} more</small>}
-      {part && o.lastIn && <small className="incFoot">Still owed / ordered · last in {short(o.lastIn)}</small>}
-    </button>
+    </>
   );
+  if (!part) return <button type="button" className={`incCard ${d.k}`} onClick={onOpen}>{body}</button>;
+  return (
+    <div className="incCard part">
+      <button type="button" className="incOpen" onClick={onOpen}>{body}</button>
+      <div className="incPF">
+        <small className="incFoot">{o.lastIn ? `Last in ${short(o.lastIn)}` : ''}</small>
+        {onRemove && <button type="button" className="incNot" onClick={onRemove}><Icon name="close" size={13} />Not coming</button>}
+      </div>
+    </div>
+  );
+}
+
+const REASONS = ['Order cancelled', 'Supplier won’t bring the rest', 'Came on another PO', 'Other'];
+
+/** "Not coming": why, then remove. Only hides it here; Zoho is not changed. */
+function RemoveSheet({ o, onClose, onDone }: { o: IncomingOrder; onClose: () => void; onDone: (reason: string) => Promise<void> }) {
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', k); return () => document.removeEventListener('keydown', k);
+  }, [onClose]);
+  return createPortal(
+    <div className="sheetBack dayAskBack" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <section className="dayAsk incRm" role="dialog" aria-modal="true" aria-labelledby="rmTitle">
+        <span className="incRmKick">Not coming</span>
+        <h2 id="rmTitle">Remove {o.vendor ? `${o.vendor}’s ` : ''}{o.po} from incoming?</h2>
+        <div className="incRmLines">{o.lines.map((l, i) => <div key={i}><span>{l.name}</span><b className="mono">{fmt(l.ordered - l.received)} of {fmt(l.ordered)} {l.unit ?? ''} owed</b></div>)}</div>
+        <span className="incRmQ">Why? <small>(one tap)</small></span>
+        <div className="incRmWhy">{REASONS.map((r) => <button key={r} type="button" aria-pressed={reason === r} onClick={() => setReason(r)}>{r}</button>)}</div>
+        <small className="muted">Only hides it here. Zoho doesn’t change, and you can bring it back from “Removed”.</small>
+        <div className="incRmActs"><button className="btn ghost" onClick={onClose}>Keep it</button>
+          <button className="btn danger" disabled={!reason || busy} onClick={async () => { setBusy(true); try { await onDone(reason); } finally { setBusy(false); } }}>{busy ? 'Removing…' : 'Remove'}</button></div>
+      </section>
+    </div>, document.body);
 }
 
 /** The order, opened from a card: ordered, received and still to come per item, and each delivery so far. */
@@ -103,18 +138,32 @@ export function IncomingPanel() {
   const wkName = (k: 0 | 1) => (projectWeek != null ? `Week ${projectWeek + k}` : k ? 'Next week' : 'This week');
   const [tab, setTab] = useState<Tab>('this');
   const [open, setOpen] = useState<IncomingOrder | null>(null);
+  const [removing, setRemoving] = useState<IncomingOrder | null>(null);
+  const [gone, setGone] = useState<IncomingDismissed[]>([]);
+  const [showGone, setShowGone] = useState(false);
+  const loadGone = useCallback(() => api.dismissedIncoming().then(setGone).catch(() => undefined), []);
+  useEffect(() => { loadGone(); }, [loadGone]);
   if (data && !data.connected) return null;
   const today = data?.today ?? new Date().toISOString().slice(0, 10);
+  const goneIds = new Set(gone.map((g) => g.po_id));
+  const keepFrom = addDay(today, -13);
+  const partList = (data?.part ?? []).filter((o) => !goneIds.has(o.id) && (!o.firstIn || o.firstIn >= keepFrom));
+  const remove = async (o: IncomingOrder, reason: string) => {
+    await api.dismissIncoming({ po_id: o.id, po: o.po, vendor: o.vendor, reason });
+    setRemoving(null); await loadGone();
+    toast(`${o.po} removed from incoming`, 'ok', { label: 'Undo', run: () => { api.restoreIncoming(o.id).then(loadGone).catch(() => undefined); } });
+  };
+  const bringBack = async (g: IncomingDismissed) => { await api.restoreIncoming(g.po_id); await loadGone(); toast(`${g.po ?? 'Order'} is back in part-delivered`); };
   const cols: { k: Tab; title: string; sub: string; list: IncomingOrder[]; part?: boolean; empty: string }[] = [
     { k: 'this', title: wkName(0), sub: data?.week ? `${short(data.week.from)} – ${short(data.week.to)}` : 'By expected date', list: data?.thisWeek ?? [], empty: `Nothing expected in ${wkName(0)}` },
     { k: 'next', title: wkName(1), sub: data?.next ? `${short(data.next.from)} – ${short(data.next.to)}` : '', list: data?.nextWeek ?? [], empty: `Nothing expected in ${wkName(1)}` },
-    { k: 'part', title: 'Part-delivered', sub: 'Came in the last 4 weeks, rest still owed', list: data?.part ?? [], part: true, empty: 'No part deliveries waiting' },
+    { k: 'part', title: 'Part-delivered', sub: 'Part came in, the rest still owed · kept 2 weeks', list: partList, part: true, empty: 'No part deliveries waiting' },
   ];
   return (
     <section className="panel incPanel enter" aria-label="Incoming deliveries">
       <header className="incHead">
         <span className="incIc"><Icon name="truck" size={18} /></span>
-        <div className="incHT"><b>Incoming deliveries</b><span>Zoho purchase orders: what’s expected these two weeks, and what’s still owed on part deliveries</span></div>
+        <div className="incHT"><b>Incoming deliveries</b><span>Zoho purchase orders: what’s expected these two weeks, and part deliveries still owed</span></div>
         <span className="incRef">
           <button className={`recNew zohoRefresh ${busy ? 'busy' : ''}`} onClick={refresh} disabled={busy} aria-label="Refresh incoming deliveries from Zoho Books">
             <span className="zrLogo"><ZohoBooksMark size={20} /></span>{busy ? 'Refreshing…' : 'Refresh'}<span className="zrSpin" aria-hidden="true"><Icon name="refresh" size={16} /></span>
@@ -131,11 +180,20 @@ export function IncomingPanel() {
             <div className="incColHead"><b>{c.title}</b><span className="mono">{c.list.length}</span><small>{c.sub}</small></div>
             {!data && busy && <div className="incSkel" />}
             {data && !c.list.length && <div className="incEmpty">{c.empty}</div>}
-            {c.list.map((o) => <OrderCard key={o.id + c.k} o={o} today={today} part={c.part} onOpen={() => setOpen(o)} />)}
+            {c.list.map((o) => <OrderCard key={o.id + c.k} o={o} today={today} part={c.part} onOpen={() => setOpen(o)} onRemove={c.part ? () => setRemoving(o) : undefined} />)}
+            {c.part && gone.length > 0 && (
+              <div className="incGone">
+                <button type="button" className="incGoneBtn" onClick={() => setShowGone(!showGone)}>Removed: {gone.length} · {showGone ? 'Hide' : 'Show'}</button>
+                {showGone && gone.map((g) => (
+                  <div key={g.po_id} className="incGoneRow"><span><b>{g.po ?? 'Order'}</b>{g.vendor ? ` · ${g.vendor}` : ''}<small>{g.reason}</small></span><button type="button" className="btn link" onClick={() => bringBack(g)}>Bring back</button></div>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>
       {open && <OrderSheet o={open} onClose={() => setOpen(null)} />}
+      {removing && <RemoveSheet o={removing} onClose={() => setRemoving(null)} onDone={(r) => remove(removing, r)} />}
     </section>
   );
 }

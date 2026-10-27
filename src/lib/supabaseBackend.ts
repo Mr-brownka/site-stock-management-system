@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { AdminApi, Backend, Balance, CorrectionRequest, Doc, DocInput, Draft, Field, Item, Line, LineInput, Profile, SiteDoc, SiteInfo, StockTake, Submission, User, ZohoConnection, ZohoItemMatch, ZohoLogRow, ZohoRun, Incoming, ZohoPending, ZohoStatus, ZohoSyncResult } from './types';
+import type { AdminApi, Backend, Balance, CorrectionRequest, Doc, DocInput, Draft, Field, Item, Line, LineInput, Profile, SiteDoc, SiteInfo, StockTake, Submission, User, ZohoConnection, ZohoItemMatch, ZohoLogRow, ZohoRun, Incoming, IncomingDismissed, ZohoPending, ZohoStatus, ZohoSyncResult } from './types';
 
 const PAGE = 1000;
 
@@ -276,6 +276,19 @@ export function supabaseBackend(url: string, key: string): Backend {
       const { data, error } = await sb.functions.invoke('zoho-mail', { body: m });
       if (error) return { error: error.message };
       return data as { ok?: boolean; error?: string; reconnect?: boolean; from?: string };
+    },
+    async dismissedIncoming() {
+      const { data, error } = await sb.from('incoming_dismissed').select('po_id, po, vendor, reason, dismissed_at').eq('site_id', await mySite());
+      if (error) { if (/incoming_dismissed/.test(error.message)) return []; fail(error); }
+      return (data ?? []) as IncomingDismissed[];
+    },
+    async dismissIncoming(o) {
+      const { error } = await sb.from('incoming_dismissed').upsert(o, { onConflict: 'site_id,po_id' });
+      if (error) fail(error);
+    },
+    async restoreIncoming(poId) {
+      const { error } = await sb.from('incoming_dismissed').delete().eq('site_id', await mySite()).eq('po_id', poId);
+      if (error) fail(error);
     },
     async incoming() {
       const { data, error } = await sb.functions.invoke('zoho-incoming', { body: {} });

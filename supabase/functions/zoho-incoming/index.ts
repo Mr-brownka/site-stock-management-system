@@ -1,6 +1,7 @@
 // Incoming deliveries for the dashboard: read-only from Zoho, for the caller's site.
 //  · This week / next week: purchase orders whose expected delivery date falls in that week and that are not fully received.
-//  · Part-delivered: purchase-order lines that something was received against in the last 4 weeks, with part still owed.
+//  · Part-delivered: purchase-order lines with part received and part still owed. Each order shows for 2 weeks from the
+//    day its first part came in (this week and the next), then drops off. Orders the store marked "Not coming" are left out.
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.45.4';
 import { admin, caller, cors, json, refreshAccess, zget } from '../_shared/zoho.ts';
 
@@ -21,7 +22,7 @@ function custom(r: Rec, re: RegExp): string | null {
 }
 
 type Line = { name: string; unit: string | null; ordered: number; received: number };
-type Order = { id: string; po: string; vendor: string | null; date: string; expected: string | null; status: string; lines: Line[]; lastIn?: string | null; grns?: { grn: string; date: string; lines: string }[] };
+type Order = { id: string; po: string; vendor: string | null; date: string; expected: string | null; status: string; lines: Line[]; lastIn?: string | null; firstIn?: string | null; grns?: { grn: string; date: string; lines: string }[] };
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
@@ -108,7 +109,7 @@ Deno.serve(async (req) => {
       });
       const grns = (got?.grns ?? []).sort((a, b) => b.date.localeCompare(a.date));
       return { id: String(p.purchaseorder_id), po: String(p.purchaseorder_number ?? ''), vendor: str(p.vendor_name), date: dayOf(p.date), expected: dayOf(p.delivery_date ?? p.expected_delivery_date) || null,
-        status: String(p.received_status ?? p.order_status ?? p.status ?? ''), lines, lastIn: grns[0]?.date ?? null, grns };
+        status: String(p.received_status ?? p.order_status ?? p.status ?? ''), lines, lastIn: grns[0]?.date ?? null, firstIn: grns[grns.length - 1]?.date ?? null, grns };
     };
     const ours = (p: Rec | null) => !!p && norm(custom(p, /project/i)) === mine;
 
@@ -121,9 +122,20 @@ Deno.serve(async (req) => {
       if (!o.lines.length) continue;
       (o.expected! <= wkEnd ? thisWeek : nextWeek).push(o);
     }
+    // Part deliveries stay 2 weeks from the first part in; "Not coming" ones are left out.
+    const keepFrom = addDays(today, -13);
+    const { data: gone } = await db.from('incoming_dismissed').select('po_id').eq('site_id', siteId);
+    const dismissed = new Set((gone ?? []).map((x) => String(x.po_id)));
     for (const poId of gotByPo.keys()) {
+      if (dismissed.has(poId)) continue;
+      const first = gotByPo.get(poId)!.grns.reduce((m, g) => (g.date && g.date < m ? g.date : m), '9999');
+      if (first < keepFrom) continue;
       const p = await getPo(poId);
       if (!ours(p)) continue;
+      // Zoho's own received count above what came in the last 4 weeks: the first part came earlier, so it's past 2 weeks.
+      const inWindow = [...gotByPo.get(poId)!.byItem.values()].reduce((a, b) => a + b, 0);
+      const ownTotal = ((p!.line_items as Rec[] | undefined) ?? []).reduce((a, l) => a + num(l.quantity_received ?? l.received_quantity ?? 0), 0);
+      if (ownTotal > inWindow + 0.001) continue;
       const o = toOrder(p!);
       o.lines = o.lines.filter((l) => l.received > 0 && l.received < l.ordered); // part came, part still owed
       if (o.lines.length) part.push(o);

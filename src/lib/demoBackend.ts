@@ -2,7 +2,7 @@
 // before Supabase is connected. Nothing leaves the phone.
 import ITEMS from '../data/items.json';
 import { addDays, today, weekday } from './dates';
-import { delta, type Backend, type Balance, type CorrectionRequest, type Doc, type DocInput, type Draft, type Field, type Item, type Line, type LineInput, type Profile, type SiteDoc, type SiteInfo, type StockTake, type Submission, type ZohoStatus } from './types';
+import { delta, type Backend, type Balance, type CorrectionRequest, type Doc, type DocInput, type Draft, type IncomingDismissed, type Field, type Item, type Line, type LineInput, type Profile, type SiteDoc, type SiteInfo, type StockTake, type Submission, type ZohoStatus } from './types';
 
 const KEY = 'ssms-demo-v4';
 const SITE = 'site-reveal';
@@ -26,6 +26,7 @@ export interface Store {
   stockTakes?: StockTake[];
   trainingDays?: string[];
   drafts?: Draft[];
+  dismissed?: IncomingDismissed[];
 }
 
 const BASE_ITEMS: Item[] = (ITEMS as [string, string][]).map(([name, unit], i) => ({ id: i + 1, name, unit }));
@@ -184,6 +185,9 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
       return real?.connected ? { ...real, last_sync_at: new Date().toISOString(), last_error: null } : null;
     },
     async zohoConnect() { throw new Error('Zoho connects in the live app only, not the demo.'); },
+    async dismissedIncoming() { return s.dismissed ?? []; },
+    async dismissIncoming(o) { s.dismissed = [...(s.dismissed ?? []).filter((x) => x.po_id !== o.po_id), { ...o, dismissed_at: new Date().toISOString() }]; save(); },
+    async restoreIncoming(poId) { s.dismissed = (s.dismissed ?? []).filter((x) => x.po_id !== poId); save(); },
     async incoming() {
       // Sample orders so the demo shows the panel; dates follow the real calendar.
       const t = today(); const dow = (new Date(t + 'T00:00:00Z').getUTCDay() + 6) % 7; const wk = addDays(t, -dow);

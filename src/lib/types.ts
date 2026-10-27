@@ -114,7 +114,8 @@ export interface ZohoLogRow { zoho_receive_id: string; site_id: string | null; p
 export interface ZohoRun { site_id: string | null; at: string; listed: number; recent: number; imported: number; waiting: number; linked: number; other_site: number; note: string | null }
 /** Incoming deliveries (Zoho purchase orders) for the dashboard. */
 export interface IncomingLine { name: string; unit: string | null; ordered: number; received: number }
-export interface IncomingOrder { id: string; po: string; vendor: string | null; date: string; expected: string | null; status: string; lines: IncomingLine[]; lastIn?: string | null; grns?: { grn: string; date: string; lines: string }[] }
+export interface IncomingOrder { id: string; po: string; vendor: string | null; date: string; expected: string | null; status: string; lines: IncomingLine[]; lastIn?: string | null; /** First part in (part-delivered only). */ firstIn?: string | null; grns?: { grn: string; date: string; lines: string }[] }
+export interface IncomingDismissed { po_id: string; po: string | null; vendor: string | null; reason: string; dismissed_at: string }
 export interface Incoming { connected: boolean; error?: string; checked_at?: string; today?: string; week?: { from: string; to: string }; next?: { from: string; to: string }; thisWeek?: IncomingOrder[]; nextWeek?: IncomingOrder[]; part?: IncomingOrder[] }
 export interface ZohoItemMatch { zoho_item_id: string; item_id: number | null; zoho_name: string | null; zoho_unit: string | null }
 export interface ZohoConnection { user_id: string; full_name: string | null; site_id: string | null; zoho_email: string | null; last_sync_at: string | null; last_error: string | null; imported: number }
@@ -275,6 +276,10 @@ export interface Backend {
   zohoSync(): Promise<ZohoSyncResult>;
   /** What is expected this week and next, and what is still owed on part deliveries (from Zoho). */
   incoming(): Promise<Incoming>;
+  /** Part deliveries marked "Not coming" (hidden from Incoming). */
+  dismissedIncoming(): Promise<IncomingDismissed[]>;
+  dismissIncoming(o: { po_id: string; po: string; vendor: string | null; reason: string }): Promise<void>;
+  restoreIncoming(poId: string): Promise<void>;
   zohoDisconnect(): Promise<void>;
   checkDelivery(docId: string): Promise<void>;
   /** Entries saved with details still to confirm, newest first. */
