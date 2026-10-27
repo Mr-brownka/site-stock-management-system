@@ -175,7 +175,6 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
           <div className="siteSwitchWrap">
             <button className="siteSwitch" onClick={() => setSiteOpen((v) => !v)} aria-expanded={siteOpen} aria-haspopup="dialog" title={site ? `Site: ${site}` : 'Site'}>
               {site ? <SiteLogo name={site} height={26} /> : <b>Store</b>}
-              <span className="ssChev" aria-hidden="true">▾</span>
             </button>
             {siteOpen && (
               <div className="sitePop" role="dialog" aria-label="Site" onMouseLeave={() => setSiteOpen(false)}>
@@ -196,7 +195,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
             ))}
           </nav>
           <button className={`tbMini ${submission ? 'ok' : min <= 0 ? 'late' : urgent ? 'soon' : ''}`} onClick={toNext} aria-label={submission ? 'Day submitted' : 'Go to the next step'}>
-            {submission ? <><Icon name="check" size={13} />Submitted</> : <><b>{done}/3</b>{min <= 0 ? 'Closed' : closeLabel(min).replace('Register closes in ', '')}</>}
+            {submission ? <><Icon name="check" size={13} />Submitted</> : <><b>{done}/3</b>{min <= 0 ? 'Closed' : 'today'}</>}
           </button>
           <button className="tbSearch" onClick={() => setPalette(true)} aria-label="Search items, pages and actions">
             <Icon name="search" size={16} /><span>Search items, pages, actions</span><kbd>Ctrl K</kbd>
@@ -205,9 +204,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
             {syncing && <span className="tbChip sync" role="status"><span className="syncDot" aria-hidden="true" />Updating…</span>}
             {projectWeek != null && <span className="tbChip" title="Project week">Week {projectWeek}</span>}
             <DatePick trigger="top" label={dateChip} />
-            {!catchUp && <button className={`tbChip status ${submission ? 'ok' : min <= 0 ? 'late' : urgent ? 'soon' : ''}`} onClick={toNext} title={submission ? 'Today’s summary' : 'Go to the next step'}>
-              {submission ? <><Icon name="check" size={14} />Submitted</> : <>{min <= 0 ? <PulseDot /> : <Icon name="clock" size={14} />}{closeLabel(min).replace('Register ', '')}</>}
-            </button>}
+
           </div>
         </header>
         <div className="screen" key={screen}>{children}</div>
