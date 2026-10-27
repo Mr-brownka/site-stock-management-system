@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Icon, Num, PulseDot, greeting, useMinutesToClose } from '../components/fx';
+import { Icon, Num, PulseDot, Ring as StepRing, greeting, useMinutesToClose } from '../components/fx';
 import { useSignal } from '../lib/signals';
 import { closeLabel } from '../components/Shell';
 import { api, progressStore } from '../lib/api';
@@ -212,6 +212,42 @@ export function Home() {
     </div>
   );
 
+  const lowCard = lowItems.length > 0 && (
+    <button className="lowCard" onClick={() => toDash({ tab: 'bal', filter: 'low' })}>
+      <span className="lcTop"><PulseDot /><b>Low Stock Items! Need attention</b><span className="mono lcN">{lowItems.length}</span></span>
+      <span className="lcPills">{outCount > 0 && <span className="stPill out">{outCount} finished</span>}{lowItems.length - outCount > 0 && <span className="stPill low">{lowItems.length - outCount} running low</span>}</span>
+      <span className="lcNames">{attention.slice(0, 5).map((b) => <span key={b.item_id}>{b.name}</span>)}{lowItems.length > 5 && <span className="more">+{lowItems.length - 5}</span>}</span>
+      <span className="lcGo">See them in All items<Icon name="arrow" size={16} /></span>
+    </button>
+  );
+  // Phone home (design A): today's papers first, in one dark card.
+  const phoneA = !locked && (
+    <section className="phA enter" aria-label="Today’s papers">
+      <div className="phATop">
+        <StepRing done={submission ? 3 : done3} total={3} size={48} />
+        <span><b>{catchUp ? `${wd}’s papers` : 'Today’s papers'}</b><small>{submission ? 'Day submitted' : `${closeLabel(min)} · deliveries: ${zohoOnly ? `${delDocs} from Zoho` : delDocs ? `${delDocs} entered` : 'none yet'}`}</small></span>
+      </div>
+      <div className="phASteps">
+        {STEP3.map((k, i) => {
+          const v = stateOf(k); const now = !submission && nowKey === k;
+          return (
+            <button key={k} className={`phAStep ${v} ${now ? 'now' : ''}`} onClick={() => openRecords(go, k)}>
+              <span className="phANo">{v === 'done' ? <Icon name="check" size={12} /> : v === 'none' ? '–' : i + 1}</span>
+              {k === 'issued' ? 'Withdrawal cards' : k === 'returns' ? 'Returns' : 'Project transfers'}
+              <small>{now ? 'Next' : v === 'done' ? 'Done' : v === 'none' ? 'None' : '—'}</small>
+            </button>
+          );
+        })}
+      </div>
+      <button className="phAGo" onClick={sb.run}>{submission ? 'See today’s summary' : flowStage ? `Continue · ${nextLabel}` : 'Start the check-in'}<Icon name="arrow" size={18} /></button>
+    </section>
+  );
+  const phoneLow = lowItems.length > 0 && (
+    <button className="phALow" onClick={() => toDash({ tab: 'bal', filter: 'low' })}>
+      <span className="phADot" aria-hidden="true" /><span><b>Low Stock Items! Need attention</b><small>{outCount} finished · {lowItems.length - outCount} running low</small></span><b className="mono">{lowItems.length}</b><Icon name="arrow" size={16} />
+    </button>
+  );
+
   return (
     <div className="page home">
       <header className="pageHead enter">
@@ -254,40 +290,27 @@ export function Home() {
           { day: realToday, kind: 'today', label: 'TODAY', sub: catchUp ? 'After these' : 'Waiting' },
         ]} />
       )}
-      <section className="kpis k3" aria-label="Key figures">
-        <button className="kpi3 ink enter" onClick={() => toDash({ tab: 'bal', filter: 'all', focus: true })}>
-          <span className="k3Txt"><span className="k3L">All items</span><span className="k3N"><Num value={balances.length} /></span><span className="k3F">Search the list <Icon name="arrow" size={12} /></span></span>
-          <span className="k3Ic"><Icon name="box" size={24} /></span>
-        </button>
-        <button className="kpi3 red enter" style={{ animationDelay: '.05s' }} onClick={() => toDash({ tab: 'bal', filter: 'low' })}>
-          <span className="k3Txt"><span className="k3L">{lowItems.length > 0 && <PulseDot />}Low stock</span><span className="k3N"><Num value={lowItems.length} /></span><span className="k3F">{lowItems.length ? `${outCount} finished` : 'All good'} <Icon name="arrow" size={12} /></span></span>
-          <Ring p={balances.length ? lowItems.length / balances.length : 0} label={String(lowItems.length)} tone="red" />
-        </button>
-        <button className="kpi3 amber enter" style={{ animationDelay: '.1s' }} onClick={() => go('consumption')}>
-          <span className="k3Txt"><span className="k3L">Consumption</span><span className="k3N">{weekUse.top ? <><Num value={weekUse.top.used} /><small>{weekUse.top.it?.unit} this week</small></> : '0'}</span><span className="k3F">{weekUse.top ? `${weekUse.top.it?.name ?? 'Item'} most` : 'Nothing used yet'} <Icon name="arrow" size={12} /></span></span>
-          <span className="k3Bars" aria-hidden="true">{weekBars.map((v, i) => <i key={i} className={i === todayIdx ? 'on' : ''} style={{ height: `${Math.max(8, (v / (Math.max(...weekBars) || 1)) * 100)}%` }} />)}</span>
-        </button>
-        <button className="kpi3 green enter" style={{ animationDelay: '.15s' }} onClick={() => go('balances')}>
-          <span className="k3Txt"><span className="k3L">Balances</span><span className="k3N"><Num value={inStore} /><small>in store</small></span><span className="k3F">{movedToday ? `${movedToday} changed today` : 'Open balances'} <Icon name="arrow" size={12} /></span></span>
+      {phoneA}
+      <section className="kpis k3 k2" aria-label="Key figures">
+        <button className="kpi3 green enter" style={{ animationDelay: '.05s' }} onClick={() => go('balances')}>
+          <span className="k3Txt"><b className="k3L">Balances</b><span className="k3N"><Num value={inStore} /><small>in store</small></span><span className="k3F">{movedToday ? `${movedToday} changed today` : 'Open balances'} <Icon name="arrow" size={12} /></span></span>
           <Ring p={balances.length ? inStore / balances.length : 0} label={`${balances.length ? Math.round((inStore / balances.length) * 100) : 0}%`} tone="green" />
+        </button>
+        <button className="kpi3 amber enter" onClick={() => go('consumption')}>
+          <span className="k3Txt"><b className="k3L">Consumption</b><span className="k3N">{weekUse.top ? <><Num value={weekUse.top.used} /><small>{weekUse.top.it?.unit} this week</small></> : '0'}</span><span className="k3F">{weekUse.top ? `${weekUse.top.it?.name ?? 'Item'} most` : 'Nothing used yet'} <Icon name="arrow" size={12} /></span></span>
+          <span className="k3Bars" aria-hidden="true">{weekBars.map((v, i) => <i key={i} className={i === todayIdx ? 'on' : ''} style={{ height: `${Math.max(8, (v / (Math.max(...weekBars) || 1)) * 100)}%` }} />)}</span>
         </button>
       </section>
 
+      {phoneLow}
+      {!locked && <button className="phASum" onClick={() => go('submitted')}><Icon name="chart" size={16} />{catchUp ? `${wd}’s summary` : 'Today’s summary'}<Icon name="arrow" size={16} /></button>}
       <div className="homeGrid g3">
         <IncomingPanel />
         <aside className="homeAside">
           <section className="panel enter" aria-label="Needs attention" style={{ animationDelay: '.06s' }}>
-            <header className="panelHead"><b>{lowItems.length > 0 && <PulseDot />}Needs attention</b>{lowItems.length > 0 && <button className="btn link" onClick={() => toDash({ tab: 'bal', filter: 'low' })}>All {lowItems.length}</button>}</header>
-            {!attention.length && <div className="pad small muted">Nothing is low. All good.</div>}
-            {attention.map((b) => {
-              const dl = daysLeft(b);
-              return (
-                <button key={b.item_id} className="attRow" onClick={() => toDash({ tab: 'bal', item: b.item_id })}>
-                  <span className="attName">{b.name}</span>
-                  <span className={`attVal ${b.balance <= 0 ? 'out' : ''}`}>{b.balance <= 0 ? 'Finished' : dl != null && dl < 30 ? `${dl} day${dl === 1 ? '' : 's'} left` : `${fmt(b.balance)} ${b.unit}`}</span>
-                </button>
-              );
-            })}
+            <header className="panelHead"><b>Needs attention</b></header>
+            {!lowItems.length && <div className="pad small muted">Nothing is low. All good.</div>}
+            {lowCard}
             {coming.length > 0 && <div className="attWay">On their way: {coming.map(([n, w]) => `${n} (${w})`).join(' · ')}</div>}
             <AlertButton />
           </section>

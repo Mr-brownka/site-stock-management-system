@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api';
 import { addDays, eachDay, niceDate, periodRange, weekday } from '../lib/dates';
 import { useData } from '../lib/store';
@@ -10,13 +10,14 @@ import { fmt } from '../components/ui';
 import { toast } from '../components/feedback';
 import { BackPill } from '../components/BackPill';
 import { DateRange } from '../components/DateRange';
+import { PopNav, usePopKeys } from '../components/ListPop';
 
 type P = 'day' | 'week' | 'month' | 'pick';
 const PERIODS: [P, string][] = [['day', 'Today'], ['week', 'This week'], ['month', 'This month']];
 const SHOWN = 3; // floor chips visible beside "All floors"
 
 export function Consumption() {
-  const { day, itemById, balanceOf, site, company } = useData();
+  const { day, itemById, balanceOf, site, company, go } = useData();
   const [period, setPeriod] = useState<P>(() => { try { return (localStorage.getItem('ssms-cons-period') as P) || 'week'; } catch { return 'week'; } });
   const [from, setFrom] = useState(addDays(day, -13));
   const [to, setTo] = useState(day);
@@ -34,8 +35,12 @@ export function Consumption() {
   const [leaving, setLeaving] = useState<string | null>(null); // the chip that folds away on the left
   const [q, setQ] = useState('');
   const [sel, setSel] = useState<number | null>(null);
-  /** Phones: the picked item opens as a sheet over the list. */
+  /** Opened from Balances: this item's pop-up opens once the period has loaded. */
+  const [want, setWant] = useState<number | null>(() => { try { const v = sessionStorage.getItem('ssms-cons-item'); sessionStorage.removeItem('ssms-cons-item'); return v ? Number(v) : null; } catch { return null; } });
+  /** The picked item opens as a pop-up (a sheet on phones). */
   const [phoneOpen, setPhoneOpen] = useState(false);
+  const [seen, setSeen] = useState(false);
+  useEffect(() => { if (phoneOpen) setSeen(true); }, [phoneOpen]);
 
   useEffect(() => { try { localStorage.setItem('ssms-cons-period', period); } catch { /* ignore */ } }, [period]);
   useEffect(() => {
@@ -64,6 +69,16 @@ export function Consumption() {
   const shown = rows.filter((r) => !s || r.name.toLowerCase().includes(s));
   useEffect(() => { if (!rows.length) setSel(null); else if (sel == null || !rows.some((r) => r.id === sel)) setSel(rows[0].id); }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
   const cur = rows.find((r) => r.id === sel) ?? null;
+  const idx = shown.findIndex((r) => r.id === sel);
+  const close = useCallback(() => setPhoneOpen(false), []);
+  const stepItem = useCallback((d: 1 | -1) => { const n = shown[idx + d]; if (n) setSel(n.id); }, [shown, idx]);
+  usePopKeys(phoneOpen, close, stepItem);
+  useEffect(() => {
+    if (want == null || lines === null) return;
+    if (rows.some((r) => r.id === want)) { setSel(want); setPhoneOpen(true); }
+    else toast(`${itemById.get(want)?.name ?? 'That item'} wasn’t used ${periodText}`);
+    setWant(null);
+  }, [want, lines, rows]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const step = () => { if (floors.length <= SHOWN) return; setLeaving(floors[start % floors.length]); setStart((x) => (x + 1) % floors.length); };
   const visible = floors.length <= SHOWN ? floors : Array.from({ length: SHOWN }, (_, i) => floors[(start + i) % floors.length]);
@@ -95,7 +110,7 @@ export function Consumption() {
       <div className="consGrid">
         <section className="panel consList" aria-label="Items used">
           <div className="consBar">
-            <label className="recSearch consFind"><Icon name="search" size={16} /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Search ${rows.length} item${rows.length === 1 ? '' : 's'} used`} aria-label="Search items used" /></label>
+            <label className="recSearch consFind"><Icon name="search" size={16} /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Search ${rows.length} item${rows.length === 1 ? '' : 's'} used`} aria-label="Search items used" onKeyDown={(e) => { if (e.key === 'Enter' && shown[0]) { e.preventDefault(); setSel(shown[0].id); setPhoneOpen(true); } }} />{s && shown.length > 0 && <kbd className="lpHint">↵ opens {shown.length === 1 ? 'it' : 'the first'}</kbd>}</label>
             <div className="floorNav" role="group" aria-label="Floor">
               <button className={`fChip ${floor === null ? 'on' : ''}`} onClick={() => setFloor(null)}>All floors</button>
               <div className="fTrack">
@@ -109,7 +124,7 @@ export function Consumption() {
             {lines === null && Array.from({ length: 6 }, (_, i) => <div key={i} className="consRow"><i className="skel" style={{ width: 20 }} /><i className="skel" style={{ width: `${40 + i * 7}%` }} /><i className="skel" /><i className="skel" style={{ width: 60 }} /></div>)}
             {lines && !shown.length && <div className="pad muted">{s ? `No item matches “${q}”.` : `Nothing was used ${floor ? `on ${floor} ` : ''}${periodText}.`}</div>}
             {shown.map((r, i) => (
-              <button key={r.id} className={`consRow ${r.id === sel ? 'on' : ''}`} style={{ animationDelay: `${Math.min(i, 12) * 25}ms` }} onClick={() => { setSel(r.id); setPhoneOpen(true); }}>
+              <button key={r.id} className={`consRow ${seen && r.id === sel ? 'on' : ''}`} style={{ animationDelay: `${Math.min(i, 12) * 25}ms` }} onClick={() => { setSel(r.id); setPhoneOpen(true); }}>
                 <span className="mono crNo">{i + 1}</span>
                 <span className="crName">{r.name}</span>
                 <span className="crBar" title={`${Math.round(r.share * 100)}% of the stock it had`}><i style={{ width: `${Math.max(4, r.share * 100)}%` }} /></span>
@@ -121,16 +136,18 @@ export function Consumption() {
         </section>
 
         {phoneOpen && <div className="consScrim" onClick={() => setPhoneOpen(false)} aria-hidden="true" />}
-        <aside className={`panel consDetail ${phoneOpen ? 'open' : ''}`} aria-label="Item detail">
+        <aside className={`panel consDetail popA ${phoneOpen ? 'open' : ''}`} role={phoneOpen ? 'dialog' : undefined} aria-modal={phoneOpen || undefined} aria-label="Item detail">
           <button className="cdClose" onClick={() => setPhoneOpen(false)} aria-label="Close"><Icon name="close" size={18} /></button>
-          {!cur ? <div className="pad muted">{lines === null ? 'Loading…' : 'Pick an item to see its days.'}</div> : <ItemDetail key={`${cur.id}-${floor}-${range.from}`} r={cur} before={before.get(cur.id)?.used ?? 0} days={eachDay(range.from, range.to).filter((d) => weekday(d) !== 'Sun' || (cur.u.byDay.get(d) ?? 0) > 0)} periodText={periodText} floor={floor} balance={balanceOf(cur.id)} />}
+          {phoneOpen && <PopNav idx={idx} total={shown.length} step={stepItem} close={close} />}
+          {!cur ? <div className="pad muted">{lines === null ? 'Loading…' : 'Pick an item to see its days.'}</div> : <ItemDetail key={`${cur.id}-${floor}-${range.from}`} r={cur} before={before.get(cur.id)?.used ?? 0} days={eachDay(range.from, range.to).filter((d) => weekday(d) !== 'Sun' || (cur.u.byDay.get(d) ?? 0) > 0)} periodText={periodText} floor={floor} balance={balanceOf(cur.id)}
+            onBalances={() => { try { sessionStorage.setItem('ssms-bal-item', String(cur.id)); } catch { /* ignore */ } go('balances'); }} />}
         </aside>
       </div>
     </div>
   );
 }
 
-function ItemDetail({ r, before, days, periodText, floor, balance }: { r: { id: number; name: string; unit: string; u: ReturnType<typeof consumption> extends Map<number, infer U> ? U : never }; before: number; days: string[]; periodText: string; floor: string | null; balance: number }) {
+function ItemDetail({ r, before, days, periodText, floor, balance, onBalances }: { onBalances: () => void; r: { id: number; name: string; unit: string; u: ReturnType<typeof consumption> extends Map<number, infer U> ? U : never }; before: number; days: string[]; periodText: string; floor: string | null; balance: number }) {
   const vals = days.map((d) => Math.max(0, r.u.byDay.get(d) ?? 0));
   const mx = Math.max(1, ...vals);
   const peak = vals.indexOf(Math.max(...vals));
@@ -147,6 +164,7 @@ function ItemDetail({ r, before, days, periodText, floor, balance }: { r: { id: 
           <div className="cdBig"><span className="mono">{fmt(r.u.used)}</span><span>{r.unit} used</span></div></div>
         {change !== null && change !== 0 && <span className={`cdChange ${change > 0 ? 'up' : 'down'}`}>{change > 0 ? '▲' : '▼'} {Math.abs(change)}% vs before</span>}
       </div>
+      <div className="popBody"><div className="popChart">
       <div className={`cdBars ${thin ? 'thin' : ''}`}>
         {days.map((d, i) => (
           <div key={d} className="cdCol" title={`${niceDate(d)}: ${fmt(vals[i])} ${r.unit}`}>
@@ -156,17 +174,21 @@ function ItemDetail({ r, before, days, periodText, floor, balance }: { r: { id: 
           </div>
         ))}
       </div>
+      <small className="balChartNote">~{fmt(r.u.used / worked >= 10 ? Math.round(r.u.used / worked) : Math.round((r.u.used / worked) * 10) / 10)} {r.unit} a day on the {worked} day{worked === 1 ? '' : 's'} it was used</small>
+      </div>
       <div className="cdStats">
         <div><span>Issued</span><b className="mono">{fmt(r.u.issued)}</b></div>
         <div><span>Returned</span><b className="mono">{fmt(r.u.returned)}</b></div>
         <div><span>Per day</span><b className="mono">~{fmt(r.u.used / worked >= 10 ? Math.round(r.u.used / worked) : Math.round((r.u.used / worked) * 10) / 10)}</b></div>
         <div><span>In store now</span><b className="mono">{fmt(balance)}</b></div>
-      </div>
+      </div></div>
       {floors.length > 0 && !floor && (
         <div className="cdFloors"><b>Where it went</b>
           {floors.map(([f, v]) => <div key={f} className="cdFloor"><span>{f}</span><span className="cdFBar"><i style={{ width: `${(v / fmx) * 100}%` }} /></span><b className="mono">{fmt(v)}</b></div>)}
         </div>
       )}
+      <div className="popFoot"><small className="lpKeys">← → next item · Esc closes</small>
+        <button className="btn dark sm" onClick={onBalances}>Open in Balances<Icon name="arrow" size={16} /></button></div>
     </div>
   );
 }
