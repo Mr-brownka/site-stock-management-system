@@ -3659,3 +3659,38 @@ select.pfIn { appearance: auto; }
   .screen:not(:has(> .home)) > .page, .screen:not(:has(> .home)) > * > .page { padding-top: 10px !important; gap: 12px !important; }
   .screen:not(:has(> .home)) h1 { font-size: 22px !important; line-height: 1.2; }
 }
+
+/* ───── Incoming deliveries (A): tabs + a short table ───── */
+.incHead2 { display: flex !important; align-items: center; gap: 10px; padding: 12px 16px !important; border-bottom: 1px solid #EEF0EE; }
+.incHead2 .incIc { width: 30px; height: 30px; border-radius: 9px; }
+.incT2 { font-size: 15.5px; flex: 1; white-space: nowrap; }
+.incTabs2 { display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: #F3F4F2; }
+.incTabs2 button { height: 30px; padding: 0 12px; border-radius: 8px; border: 0; background: none; font: inherit; font-size: 12.5px; font-weight: 700; color: var(--ink); display: inline-flex; align-items: center; gap: 6px; cursor: pointer; white-space: nowrap; transition: background .15s, color .15s; }
+.incTabs2 button .mono { font-size: 11.5px; opacity: .6; }
+.incTabs2 button.part { color: #8A5000; }
+.incTabs2 button[aria-selected="true"] { background: var(--ink); color: #fff; }
+.incRef2 { width: 32px; height: 32px; border-radius: 9px; border: 1px solid var(--line); background: #fff; color: #2D5BD0; display: grid; place-items: center; cursor: pointer; flex: none; }
+.incRef2.busy svg { animation: spin .9s linear infinite; }
+.incTbl2 { display: flex; flex-direction: column; }
+.incRow2 { display: flex; align-items: center; border-top: 1px solid #F0F2F0; animation: rowIn .3s var(--ease) both; }
+.incRow2:first-child { border-top: 0; }
+.incRowBtn { flex: 1; min-width: 0; display: grid; grid-template-columns: minmax(0, 1.3fr) 96px minmax(0, 1.2fr) 110px 92px; gap: 12px; align-items: center; height: 42px; padding: 0 16px; border: 0; background: none; font: inherit; font-size: 13.5px; color: var(--ink); text-align: left; cursor: pointer; transition: background .15s; }
+.incRowBtn:hover { background: #FAFBF9; }
+.irV { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.irPo { font-size: 12px; color: #2D5BD0; font-weight: 600; }
+.irIt { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.irQ { text-align: right; font-size: 13px; white-space: nowrap; } .irQ small { color: var(--muted); font-weight: 500; }
+.irDue, .irWhen { justify-self: end; font-size: 11.5px; font-weight: 700; border-radius: 7px; padding: 2px 8px; background: #F1F2EF; color: var(--muted); white-space: nowrap; }
+.irWhen { background: none; font-weight: 500; padding: 0; }
+.irDue.late { background: #FDE8E6; color: #C8322A; } .irDue.today { background: #FFF1DA; color: #8A5000; }
+.incTbl2.part .incRowBtn { grid-template-columns: minmax(0, 1.3fr) 96px minmax(0, 1.2fr) 120px 92px; }
+.incRow2 .incNot { margin-right: 12px; }
+.incAll { align-self: flex-start; margin: 4px 16px 12px; border: 0; background: none; font: inherit; font-size: 12.5px; font-weight: 700; color: #2D5BD0; cursor: pointer; padding: 6px 0; }
+.incEmpty2 { padding: 22px 16px; color: var(--muted); font-size: 13px; text-align: center; }
+.incTbl2 .incGone { padding: 0 16px 12px; }
+@media (max-width: 767px) {
+  .incHead2 { flex-wrap: wrap; } .incTabs2 { order: 3; width: 100%; } .incTabs2 button { flex: 1; justify-content: center; padding: 0 6px; }
+  .incRowBtn { grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; height: auto; padding: 10px 14px; row-gap: 2px; }
+  .irPo { display: none; } .irIt { grid-row: 2; grid-column: 1; font-size: 12.5px; } .irQ { grid-row: 1; grid-column: 2; } .irDue, .irWhen { grid-row: 2; grid-column: 2; }
+  .incRow2 { align-items: stretch; flex-wrap: wrap; } .incRow2 .incNot { margin: 0 14px 10px auto; }
+}

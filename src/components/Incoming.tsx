@@ -44,32 +44,6 @@ const addDay = (d: string, n: number) => { const x = new Date(d + 'T00:00:00Z');
 
 function PoTag({ po }: { po: string }) { return <span className="incPo"><ZohoBooksMark size={14} />{po}</span>; }
 
-function OrderCard({ o, today, part, onOpen, onRemove }: { o: IncomingOrder; today: string; part?: boolean; onOpen: () => void; onRemove?: () => void }) {
-  const d = due(o, today);
-  const body = (
-    <>
-      <span className="incTop"><b>{o.vendor ?? 'Vendor'}</b><span className={`incChip ${part ? 'today' : d.k}`}>{part ? 'Part in' : d.t}</span></span>
-      <PoTag po={o.po} />
-      {o.lines.slice(0, 3).map((l, i) => part ? (
-        <span key={i} className="incLine part"><span className="incLn"><span>{l.name}</span><b className="mono">{fmt(l.ordered - l.received)}<small>/{fmt(l.ordered)} {l.unit ?? ''}</small></b></span><i className="incBar"><i style={{ width: `${Math.min(100, (l.received / (l.ordered || 1)) * 100)}%` }} /></i></span>
-      ) : (
-        <span key={i} className="incLine"><span>{l.name}</span><b className="mono">{fmt(l.ordered - l.received)} {l.unit ?? ''}</b></span>
-      ))}
-      {o.lines.length > 3 && <small className="incMore">+{o.lines.length - 3} more</small>}
-    </>
-  );
-  if (!part) return <button type="button" className={`incCard ${d.k}`} onClick={onOpen}>{body}</button>;
-  return (
-    <div className="incCard part">
-      <button type="button" className="incOpen" onClick={onOpen}>{body}</button>
-      <div className="incPF">
-        <small className="incFoot">{o.lastIn ? `Last in ${short(o.lastIn)}` : ''}</small>
-        {onRemove && <button type="button" className="incNot" onClick={onRemove}><Icon name="close" size={13} />Not coming</button>}
-      </div>
-    </div>
-  );
-}
-
 const REASONS = ['Order cancelled', 'Supplier won’t bring the rest', 'Came on another PO', 'Other'];
 
 /** "Not coming": why, then remove. Only hides it here; Zoho is not changed. */
@@ -129,6 +103,7 @@ function OrderSheet({ o, onClose }: { o: IncomingOrder; onClose: () => void }) {
 }
 
 type Tab = 'this' | 'next' | 'part';
+const SHOW = 5; // rows shown before "Show all"
 
 /** Incoming deliveries: expected this week and next (by expected date), and part deliveries of the last 4 weeks still owed. */
 export function IncomingPanel() {
@@ -139,6 +114,7 @@ export function IncomingPanel() {
   const [tab, setTab] = useState<Tab>('this');
   const [open, setOpen] = useState<IncomingOrder | null>(null);
   const [removing, setRemoving] = useState<IncomingOrder | null>(null);
+  const [all, setAll] = useState(false);
   const [gone, setGone] = useState<IncomingDismissed[]>([]);
   const [showGone, setShowGone] = useState(false);
   const loadGone = useCallback(() => api.dismissedIncoming().then(setGone).catch(() => undefined), []);
@@ -161,26 +137,41 @@ export function IncomingPanel() {
   ];
   return (
     <section className="panel incPanel enter" aria-label="Incoming deliveries">
-      <header className="incHead">
-        <span className="incIc"><Icon name="truck" size={18} /></span>
-        <div className="incHT"><b>Incoming deliveries</b><span>Zoho purchase orders: what’s expected these two weeks, and part deliveries still owed</span></div>
-        <span className="incRef">
-          <button className={`recNew zohoRefresh ${busy ? 'busy' : ''}`} onClick={refresh} disabled={busy} aria-label="Refresh incoming deliveries from Zoho Books">
-            <span className="zrLogo"><ZohoBooksMark size={20} /></span>{busy ? 'Refreshing…' : 'Refresh'}<span className="zrSpin" aria-hidden="true"><Icon name="refresh" size={16} /></span>
-          </button>
-          <small>{data?.error ? <span className="incErr" title={data.error}>Zoho didn’t answer · showing last check</span> : data?.checked_at ? `checked ${ago(data.checked_at)}` : busy ? 'checking…' : ''}</small>
-        </span>
+      <header className="incHead incHead2">
+        <span className="incIc"><Icon name="truck" size={16} /></span>
+        <b className="incT2">Incoming deliveries</b>
+        <div className="incTabs2" role="tablist">
+          {cols.map((c) => <button key={c.k} role="tab" className={c.k} aria-selected={tab === c.k} onClick={() => { setTab(c.k); setAll(false); }}>{c.title}<span className="mono">{c.list.length}</span></button>)}
+        </div>
+        <button className={`incRef2 ${busy ? 'busy' : ''}`} onClick={refresh} disabled={busy} aria-label="Refresh incoming deliveries from Zoho Books" title={data?.error ? 'Zoho didn’t answer · showing last check' : data?.checked_at ? `Checked ${ago(data.checked_at)}` : 'Refresh'}>
+          <Icon name="refresh" size={15} />
+        </button>
       </header>
-      <div className="incTabs" role="tablist">
-        {cols.map((c) => <button key={c.k} role="tab" aria-selected={tab === c.k} onClick={() => setTab(c.k)}>{c.title} <span className="mono">{c.list.length}</span></button>)}
-      </div>
-      <div className="incCols">
-        {cols.map((c) => (
-          <div key={c.k} className={`incCol ${c.k} ${tab === c.k ? 'on' : ''}`}>
-            <div className="incColHead"><b>{c.title}</b><span className="mono">{c.list.length}</span><small>{c.sub}</small></div>
+      {(() => {
+        const c = cols.find((x) => x.k === tab)!;
+        const list = all ? c.list : c.list.slice(0, SHOW);
+        return (
+          <div className={`incTbl2 ${c.k}`} role="tabpanel">
             {!data && busy && <div className="incSkel" />}
-            {data && !c.list.length && <div className="incEmpty">{c.empty}</div>}
-            {c.list.map((o) => <OrderCard key={o.id + c.k} o={o} today={today} part={c.part} onOpen={() => setOpen(o)} onRemove={c.part ? () => setRemoving(o) : undefined} />)}
+            {data && !c.list.length && <div className="incEmpty2">{c.empty}</div>}
+            {list.map((o) => {
+              const dd = due(o, today);
+              const first = o.lines[0];
+              const more = o.lines.length - 1;
+              return (
+                <div key={o.id + c.k} className="incRow2">
+                  <button type="button" className="incRowBtn" onClick={() => setOpen(o)}>
+                    <b className="irV">{o.vendor ?? 'Vendor'}</b>
+                    <span className="irPo mono">{o.po}</span>
+                    <span className="irIt">{first?.name}{more > 0 ? ` · +${more}` : ''}</span>
+                    <b className="irQ mono">{first ? (c.part ? <>{fmt(first.ordered - first.received)}<small>/{fmt(first.ordered)}</small> {first.unit ?? ''}</> : `${fmt(first.ordered - first.received)} ${first.unit ?? ''}`) : ''}</b>
+                    {c.part ? <span className="irWhen">{o.lastIn ? `Last in ${short(o.lastIn)}` : ''}</span> : <span className={`irDue ${dd.k}`}>{dd.k === 'late' && o.expected === addDay(today, -1) ? 'Yesterday' : dd.k === 'today' ? 'Today' : dd.t}</span>}
+                  </button>
+                  {c.part && <button type="button" className="incNot" onClick={() => setRemoving(o)} title="This won’t be delivered"><Icon name="close" size={12} />Not coming</button>}
+                </div>
+              );
+            })}
+            {c.list.length > SHOW && <button type="button" className="incAll" onClick={() => setAll(!all)}>{all ? 'Show less' : `Show all ${c.list.length} →`}</button>}
             {c.part && gone.length > 0 && (
               <div className="incGone">
                 <button type="button" className="incGoneBtn" onClick={() => setShowGone(!showGone)}>Removed: {gone.length} · {showGone ? 'Hide' : 'Show'}</button>
@@ -190,8 +181,8 @@ export function IncomingPanel() {
               </div>
             )}
           </div>
-        ))}
-      </div>
+        );
+      })()}
       {open && <OrderSheet o={open} onClose={() => setOpen(null)} />}
       {removing && <RemoveSheet o={removing} onClose={() => setRemoving(null)} onDone={(r) => remove(removing, r)} />}
     </section>
