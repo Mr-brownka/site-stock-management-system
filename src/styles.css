@@ -3694,3 +3694,19 @@ select.pfIn { appearance: auto; }
   .irPo { display: none; } .irIt { grid-row: 2; grid-column: 1; font-size: 12.5px; } .irQ { grid-row: 1; grid-column: 2; } .irDue, .irWhen { grid-row: 2; grid-column: 2; }
   .incRow2 { align-items: stretch; flex-wrap: wrap; } .incRow2 .incNot { margin: 0 14px 10px auto; }
 }
+
+/* ───── Dashboard numbers: one slim strip (A) ───── */
+@media (min-width: 768px) {
+  .kpis.kStrip { display: flex !important; gap: 0 !important; background: #fff; border: 1px solid #E6E9E7; border-radius: 16px; box-shadow: 0 1px 2px rgba(16,24,22,.04), 0 6px 20px -14px rgba(16,24,22,.16); overflow: hidden; }
+  .kpis.kStrip .kpi3 { flex: 1; min-width: 0; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; background: transparent; padding: 14px 20px !important; gap: 14px; animation: none; }
+  .kpis.kStrip .kpi3 + .kpi3 { border-left: 1px solid #EEF0EE !important; }
+  .kpis.kStrip .kpi3::after { display: none; }
+  .kpis.kStrip .kpi3:hover { transform: none; background: #FAFBF9; }
+  .kpis.kStrip .k3L { font-size: 12px !important; font-weight: 700; color: var(--muted); letter-spacing: .01em; }
+  .kpis.kStrip .k3N { font-size: 24px !important; font-weight: 600; }
+  .kpis.kStrip .k3N small { font-size: 12px; }
+  .kpis.kStrip .k3F { font-size: 12px !important; }
+  .kpis.kStrip .ring { transform: none; width: 46px; height: 46px; }
+  .kpis.kStrip .k3Bars { width: 70px; height: 34px; }
+}
+.k3F.late { color: #C8322A; font-weight: 600; }

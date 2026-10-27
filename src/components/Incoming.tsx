@@ -200,3 +200,13 @@ export function useOnTheWay() {
   (m?.part ?? []).forEach((o) => o.lines.forEach((l) => { if (!names.has(l.name.toLowerCase())) names.set(l.name.toLowerCase(), 'part-delivered'); }));
   return names;
 }
+
+/** How many orders are expected this week, and how many of those are late, for the dashboard strip. */
+export function useIncomingCounts() {
+  const [m, setM] = useState<Incoming | null>(memo);
+  useEffect(() => { const t = setInterval(() => { if (memo !== m) setM(memo); }, 500); return () => clearInterval(t); }, [m]);
+  if (!m || !m.connected) return null;
+  const today = m.today ?? new Date().toISOString().slice(0, 10);
+  const wk = m.thisWeek ?? [];
+  return { week: wk.length, late: wk.filter((o) => o.expected && o.expected < today).length, today: wk.filter((o) => o.expected === today).length, part: (m.part ?? []).length };
+}

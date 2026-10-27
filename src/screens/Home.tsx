@@ -19,7 +19,7 @@ import { openRecords, useAddEntry } from '../components/AddEntry';
 import { useZohoDeliveries } from '../components/Zoho';
 import { openItems } from './Dashboard';
 import { continueEvening, startEvening, useFlow } from '../components/EveningFlow';
-import { IncomingPanel } from '../components/Incoming';
+import { IncomingPanel, useIncomingCounts } from '../components/Incoming';
 import { Ring } from '../components/Ring';
 
 
@@ -215,6 +215,16 @@ export function Home() {
   const lowHead = `${nLow} item${nLow === 1 ? ' is' : 's are'} ${outCount === nLow ? 'finished' : 'running low'}`;
   const lowSub = outCount === nLow ? 'Nothing left on the shelf. Order them now.' : outCount ? 'Some are out of stock, the rest will be soon.' : 'They will be out of stock soon.';
   const urgent = attention.slice(0, 3);
+  const inc = useIncomingCounts();
+  const [lastTake, setLastTake] = useState<number | null>(null);
+  useEffect(() => {
+    api.stockTakes().then((t) => {
+      const last = [...t].sort((a, b) => b.count_date.localeCompare(a.count_date))[0];
+      if (!last) return setLastTake(null);
+      const d = last.count_date;
+      setLastTake(Math.max(0, Math.round((new Date(day + 'T00:00:00Z').getTime() - new Date(d.slice(0, 10) + 'T00:00:00Z').getTime()) / 86400000)));
+    }).catch(() => undefined);
+  }, [day]);
   const lowCard = nLow > 0 && (
     <button className="lowCard lcA" onClick={() => toDash({ tab: 'bal', filter: 'low' })}>
       <span className="lcTop"><span className="lcDot" aria-hidden="true" /><span className="lcHead"><b>{lowHead}</b><small>{lowSub}</small></span></span>
@@ -297,14 +307,20 @@ export function Home() {
         ]} />
       )}
       {phoneA}
-      <section className="kpis k3 k2" aria-label="Key figures">
+      <section className="kpis k3 k2 kStrip" aria-label="Key figures">
         <button className="kpi3 green enter" style={{ animationDelay: '.05s' }} onClick={() => go('balances')}>
-          <span className="k3Txt"><b className="k3L">Balances</b><span className="k3N"><Num value={inStore} /><small>in store</small></span><span className="k3F">{movedToday ? `${movedToday} changed today` : 'Open balances'} <Icon name="arrow" size={12} /></span></span>
           <Ring p={balances.length ? inStore / balances.length : 0} label={`${balances.length ? Math.round((inStore / balances.length) * 100) : 0}%`} tone="green" />
+          <span className="k3Txt"><b className="k3L">Balances</b><span className="k3N"><Num value={inStore} /><small>in store</small></span><span className="k3F">{movedToday ? `${movedToday} changed today` : 'Open balances'} <Icon name="arrow" size={12} /></span></span>
         </button>
         <button className="kpi3 amber enter" onClick={() => go('consumption')}>
           <span className="k3Txt"><b className="k3L">Consumption</b><span className="k3N">{weekUse.top ? <><Num value={weekUse.top.used} /><small>{weekUse.top.it?.unit} this week</small></> : '0'}</span><span className="k3F">{weekUse.top ? `${weekUse.top.it?.name ?? 'Item'} most` : 'Nothing used yet'} <Icon name="arrow" size={12} /></span></span>
           <span className="k3Bars" aria-hidden="true">{weekBars.map((v, i) => <i key={i} className={i === todayIdx ? 'on' : ''} style={{ height: `${Math.max(8, (v / (Math.max(...weekBars) || 1)) * 100)}%` }} />)}</span>
+        </button>
+        {inc && <button className="kpi3 blue enter" onClick={() => document.querySelector('.incPanel')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>
+          <span className="k3Txt"><b className="k3L">Coming in</b><span className="k3N"><Num value={inc.week} /><small>order{inc.week === 1 ? '' : 's'} this week</small></span><span className={`k3F ${inc.late ? 'late' : ''}`}>{inc.late ? `${inc.late} late` : 'None late'}{inc.today ? ` · ${inc.today} today` : ''} <Icon name="arrow" size={12} /></span></span>
+        </button>}
+        <button className="kpi3 ink enter" onClick={() => go('stocktake')}>
+          <span className="k3Txt"><b className="k3L">Last stock take</b><span className="k3N">{lastTake == null ? '–' : <><Num value={lastTake} /><small>day{lastTake === 1 ? '' : 's'} ago</small></>}</span><span className={`k3F ${lastTake != null && lastTake > 14 ? 'late' : ''}`}>{lastTake == null ? 'None yet' : lastTake > 14 ? 'Time for a count' : 'Count is recent'} <Icon name="arrow" size={12} /></span></span>
         </button>
       </section>
 
