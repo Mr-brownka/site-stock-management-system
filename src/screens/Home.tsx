@@ -228,10 +228,10 @@ export function Home() {
   );
   // Phone home (design A): today's papers first, in one dark card.
   const phoneA = !locked && (
-    <section className="phA enter" aria-label="Today’s papers">
+    <section className="phA enter" aria-label="Tonight’s check-in">
       <div className="phATop">
         <StepRing done={submission ? 3 : done3} total={3} size={48} />
-        <span><b>{catchUp ? `${wd}’s papers` : 'Today’s papers'}</b><small>{submission ? 'Day submitted' : `${closeLabel(min)} · deliveries: ${zohoOnly ? `${delDocs} from Zoho` : delDocs ? `${delDocs} entered` : 'none yet'}`}</small></span>
+        <span><b>{catchUp ? `${wd}’s check-in` : 'Tonight’s check-in'}</b><small>{submission ? 'Day submitted' : `${closeLabel(min)} · deliveries: ${zohoOnly ? `${delDocs} from Zoho` : delDocs ? `${delDocs} entered` : 'none yet'}`}</small></span>
       </div>
       <div className="phASteps">
         {STEP3.map((k, i) => {

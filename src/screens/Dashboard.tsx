@@ -1,256 +1,184 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Icon, PulseDot } from '../components/fx';
-import { ItemSheet, type Use } from '../components/ItemSheet';
-import { PeriodPicker } from '../components/PeriodPicker';
+import { Icon } from '../components/fx';
+import { ItemSheet } from '../components/ItemSheet';
 import { fmt } from '../components/ui';
+import { toast } from '../components/feedback';
+import { AlertButton } from '../components/StockAlert';
 import { api } from '../lib/api';
-import { periodRange, type Period } from '../lib/dates';
+import { niceDate } from '../lib/dates';
 import { useData } from '../lib/store';
 import { useSignal } from '../lib/signals';
 import { BackPill } from '../components/BackPill';
-import { type Balance, type Line } from '../lib/types';
-import { subphaseRank } from '../lib/structure';
+import { type Balance } from '../lib/types';
 
 type Tab = 'cons' | 'bal';
 type Filter = 'all' | 'low' | 'today';
-const NO_SUB = 'No subphase';
+type LowPart = 'both' | 'out' | 'run';
+type SortK = 'name' | 'low' | 'qty';
+const PER_PAGE = 50;
 
-
-function usage(lines: Line[]): Map<number, Use> {
-  const m = new Map<number, Use>();
-  const get = (id: number) => m.get(id) ?? (m.set(id, { issued: 0, returned: 0, used: 0, bySub: new Map() }), m.get(id)!);
-  const issueSub = new Map(lines.filter((l) => l.kind === 'issue').map((l) => [l.id, l.subphase]));
-  for (const l of lines) {
-    // An approved fix to a card or return changes how much was used (stock up = used less).
-    if (l.kind === 'correction' && (l.corrects_kind === 'issue' || l.corrects_kind === 'return')) {
-      const u = get(l.item_id);
-      u.used -= l.qty;
-      const sub = l.subphase ?? NO_SUB;
-      u.bySub.set(sub, (u.bySub.get(sub) ?? 0) - l.qty);
-      if (l.corrects_kind === 'issue') u.issued -= l.qty; else u.returned += l.qty;
-      continue;
-    }
-    if (l.kind !== 'issue' && l.kind !== 'return') continue;
-    const u = get(l.item_id);
-    const sign = l.kind === 'issue' ? 1 : -1;
-    if (l.kind === 'issue') u.issued += l.qty; else u.returned += l.qty;
-    u.used += sign * l.qty;
-    const sub = l.subphase ?? (l.return_of ? issueSub.get(l.return_of) : null) ?? NO_SUB;
-    u.bySub.set(sub, (u.bySub.get(sub) ?? 0) + sign * l.qty);
-  }
-  return m;
-}
-
-type Jump = { tab?: Tab; filter?: Filter; item?: number; focus?: boolean; sort?: 'days' };
+type Jump = { tab?: Tab; filter?: 'all' | 'low' | 'today'; item?: number; focus?: boolean; sort?: 'days' };
 let pendingJump: Jump | null = null;
 /** Open the Items page (the full item list), optionally filtered or on one item. */
 export function openItems(go: (s: 'dashboard') => void, d: Jump = {}) { pendingJump = d; go('dashboard'); }
 
+/** All items: the whole page scrolls, 50 items to a page. Arriving from the low stock card, the page becomes the order list. */
 export function Dashboard({ embedded = false }: { embedded?: boolean }) {
-  const { day, balances, refresh, siteLabel, isLow, lowItems, docsToday, recent, daysLeft } = useData();
-  // Remember the last view; a link from another screen (low stock, balances after today) wins.
-  const [prefs] = useState(() => {
-    let p: { tab?: Tab; period?: Period; group?: 'none' | 'sub' } = {};
-    let jump = '';
-    try { p = JSON.parse(localStorage.getItem('ssms-dash-prefs') || '{}'); jump = sessionStorage.getItem('ssms-dash') || ''; sessionStorage.removeItem('ssms-dash'); } catch { /* ignore */ }
-    return { tab: (jump ? 'bal' : p.tab ?? 'cons') as Tab, filter: (jump === 'low' ? 'low' : jump === 'bal' ? 'today' : 'all') as Filter, period: p.period ?? 'day', group: p.group ?? 'none' };
-  });
-  // Consumption is switched off for now: the dashboard shows balances only.
-  const tab = 'bal' as Tab;
-  const setTab = (_t: Tab) => undefined;
-  const [filter, setFilter] = useState<Filter>(prefs.filter);
-  const [period, setPeriod] = useState<Period>(prefs.period);
-  const [date, setDate] = useState(day);
-  const [group, setGroup] = useState<'none' | 'sub'>(prefs.group);
-  useEffect(() => { try { localStorage.setItem('ssms-dash-prefs', JSON.stringify({ tab, period, group })); } catch { /* ignore */ } }, [tab, period, group]);
-  const movedToday = useMemo(() => new Set(docsToday.flatMap((d) => d.lines.map((l) => l.item_id))), [docsToday]);
-  const activeDays = useMemo(() => new Set(recent.filter((d) => d.kind === 'issue').map((d) => d.doc_date)), [recent]);
+  const { day, balances, refresh, isLow, docsToday, recent, site, company } = useData();
+  const [filter, setFilter] = useState<Filter>(() => { try { const j = sessionStorage.getItem('ssms-dash') || ''; sessionStorage.removeItem('ssms-dash'); return j === 'low' ? 'low' : j === 'bal' ? 'today' : 'all'; } catch { return 'all'; } });
+  const [lowPart, setLowPart] = useState<LowPart>('both');
   const [q, setQ] = useState('');
+  const [sort, setSort] = useState<SortK>('name');
+  const [pageNo, setPageNo] = useState(1);
   const [sel, setSel] = useState<number | null>(null);
-  const [sort, setSort] = useState<{ k: 'name' | 'val' | 'days'; dir: 1 | -1 }>({ k: 'name', dir: 1 });
-  const [lines, setLines] = useState<Line[] | null>(null);
-  const searchRef = useRef<HTMLInputElement>(null);
-
-  const range = periodRange(period, date || day);
-  useEffect(() => { if (!embedded) refresh(); }, [refresh, embedded]);
-  // The check-in page's tiles can switch the dashboard (e.g. "Low stock" → Balances, low only).
   const [pulse, setPulse] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const topRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (!embedded) refresh(); }, [refresh, embedded]);
+
   const jump = (d: Jump) => {
-    if (d.tab) setTab(d.tab);
-    if (d.filter) setFilter(d.filter);
-    if (d.sort === 'days') setSort({ k: 'days', dir: 1 });
-    // From "Items in store": land on the list with the search box ready, pulsing gently three times.
-    if (d.focus) {
-      setQ('');
-      setTimeout(() => { searchRef.current?.focus({ preventScroll: true }); setPulse(true); setTimeout(() => setPulse(false), 5200); }, 550);
-    }
-    if (d.item != null) { setTab('bal'); setFilter('all'); setQ(''); setSel(d.item); }
-    document.getElementById('dash')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (d.filter) { setFilter(d.filter); setLowPart('both'); }
+    if (d.focus) { setQ(''); setTimeout(() => { searchRef.current?.focus({ preventScroll: true }); setPulse(true); setTimeout(() => setPulse(false), 5200); }, 450); }
+    if (d.item != null) { setFilter('all'); setQ(''); setSel(d.item); }
+    window.scrollTo({ top: 0 });
   };
   useSignal<Jump>('dash', jump);
   useEffect(() => { if (pendingJump) { const d = pendingJump; pendingJump = null; jump(d); } }); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { setLines(null); api.linesBetween(range.from, range.to).then(setLines); }, [range.from, range.to]);
-  // Press "/" to jump to the search box.
   useEffect(() => {
-    const k = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement;
-      if (e.key === '/' && !/input|textarea|select/i.test(t.tagName)) { e.preventDefault(); searchRef.current?.focus(); }
-    };
-    document.addEventListener('keydown', k);
-    return () => document.removeEventListener('keydown', k);
+    const k = (e: KeyboardEvent) => { const t = e.target as HTMLElement; if (e.key === '/' && !/input|textarea|select/i.test(t.tagName)) { e.preventDefault(); searchRef.current?.focus(); } };
+    document.addEventListener('keydown', k); return () => document.removeEventListener('keydown', k);
   }, []);
 
-  const use = useMemo(() => usage(lines ?? []), [lines]);
-  const usedOf = (id: number) => use.get(id)?.used ?? 0;
-  const byName = (a: Balance, b: Balance) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' });
-  const search = q.trim().toLowerCase();
-  const shown = balances
-    .filter((b) => !search || b.name.toLowerCase().includes(search))
-    .filter((b) => tab !== 'bal' || filter === 'all' || (filter === 'low' ? isLow(b) : movedToday.has(b.item_id)))
-    .sort((a, b) => {
-      const v = (x: Balance) => sort.k === 'val' ? (tab === 'bal' ? x.balance : usedOf(x.item_id)) : sort.k === 'days' ? (daysLeft(x) ?? 1e9) : 0;
-      return sort.k === 'name' ? sort.dir * byName(a, b) : sort.dir * (v(a) - v(b)) || byName(a, b);
-    });
-
+  const movedToday = useMemo(() => new Set(docsToday.flatMap((d) => d.lines.map((l) => l.item_id))), [docsToday]);
+  const lastMoved = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const d of [...recent, ...docsToday]) for (const l of d.lines) if ((m.get(l.item_id) ?? '') < d.doc_date) m.set(l.item_id, d.doc_date);
+    return m;
+  }, [recent, docsToday]);
+  const out = (b: Balance) => b.balance <= 0;
+  const low = useMemo(() => balances.filter((b) => out(b) || isLow(b)), [balances, isLow]);
+  const nOut = low.filter(out).length, nRun = low.length - nOut;
+  const status = (b: Balance) => (out(b) ? 'Finished' : isLow(b) ? 'Running low' : 'Healthy');
+  const byName = (a: Balance, b: Balance) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base', numeric: true });
+  const s = q.trim().toLowerCase();
+  const shown = useMemo(() => {
+    const base = filter === 'low' ? low.filter((b) => lowPart === 'both' || (lowPart === 'out' ? out(b) : !out(b)))
+      : filter === 'today' ? balances.filter((b) => movedToday.has(b.item_id)) : balances;
+    const k: SortK = filter === 'low' && sort === 'name' ? 'low' : sort;
+    return base.filter((b) => !s || b.name.toLowerCase().includes(s)).sort((a, b) =>
+      k === 'low' ? (Number(out(b)) - Number(out(a))) || (a.balance / (a.reorder_level || 1)) - (b.balance / (b.reorder_level || 1)) || byName(a, b)
+        : k === 'qty' ? a.balance - b.balance || byName(a, b) : byName(a, b));
+  }, [balances, low, filter, lowPart, movedToday, s, sort]);
+  const pages = Math.max(1, Math.ceil(shown.length / PER_PAGE));
+  useEffect(() => { setPageNo(1); }, [filter, lowPart, s, sort]);
+  const pg = Math.min(pageNo, pages);
+  const rows = shown.slice((pg - 1) * PER_PAGE, pg * PER_PAGE);
+  const toPage = (n: number) => { setPageNo(n); topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
 
   const selected = balances.find((b) => b.item_id === sel) ?? null;
   const close = useCallback(() => setSel(null), []);
-  const saveReorder = async (v: number | null) => {
-    if (!selected) return;
-    await api.setReorder(selected.item_id, v);
-    await refresh();
+  const saveReorder = async (v: number | null) => { if (!selected) return; await api.setReorder(selected.item_id, v); await refresh(); };
+
+  const download = async () => {
+    const XLSX = await import('xlsx');
+    const ws = XLSX.utils.aoa_to_sheet([[`${company || 'Comex Builders'} · ${site}`], [filter === 'low' ? 'Items to order' : 'All items'], [niceDate(day)], [],
+      ['Item', 'Unit', 'In store', 'Reorder at', 'Status'], ...shown.map((b) => [b.name, b.unit, b.balance, b.reorder_level ?? '', status(b)])]);
+    ws['!cols'] = [38, 8, 10, 11, 12].map((wch) => ({ wch }));
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Items');
+    XLSX.writeFile(wb, `${site || 'Site'} - ${filter === 'low' ? 'Items to order' : 'All items'} - ${day}.xlsx`.replace(/[\\/:*?"<>|]/g, '-'));
+    toast('Excel file downloaded');
   };
-
-  const groups = useMemo(() => {
-    if (group !== 'sub') return [];
-    const seen = new Set<string>();
-    for (const u of use.values()) for (const k of u.bySub.keys()) seen.add(k);
-    const names = [...[...seen].filter((n) => n !== NO_SUB).sort((a, b) => subphaseRank(a) - subphaseRank(b) || a.localeCompare(b)), NO_SUB];
-    return names.map((name) => ({
-      name,
-      rows: shown.map((b) => ({ b, v: use.get(b.item_id)?.bySub.get(name) ?? 0 })).filter((r) => r.v > 0),
-    })).filter((g) => g.rows.length);
-  }, [group, shown, use]);
-
   const hl = (name: string) => {
-    if (!search) return name;
-    const i = name.toLowerCase().indexOf(search);
-    return i < 0 ? name : <>{name.slice(0, i)}<mark>{name.slice(i, i + search.length)}</mark>{name.slice(i + search.length)}</>;
+    if (!s) return name;
+    const i = name.toLowerCase().indexOf(s);
+    return i < 0 ? name : <>{name.slice(0, i)}<mark>{name.slice(i, i + s.length)}</mark>{name.slice(i + s.length)}</>;
   };
-  const sortBy = (k: 'name' | 'val' | 'days') => setSort((o) => ({ k, dir: o.k === k ? (o.dir === 1 ? -1 : 1) : k === 'name' ? 1 : -1 }));
-  const trow = (b: Balance, v?: number, key?: string) => {
-    const low = tab === 'bal' && isLow(b);
-    const out = tab === 'bal' && b.balance <= 0;
-    const u = use.get(b.item_id);
-    const dl = daysLeft(b);
-    return (
-      <tr key={(key ?? '') + b.item_id} className={`${low ? 'isLow' : ''} ${sel === b.item_id ? 'on' : ''}`} onClick={() => setSel(b.item_id)}>
-        <td><button className="cellLink" onClick={(e) => { e.stopPropagation(); setSel(b.item_id); }}>{low && <PulseDot label="Low stock" />}{hl(b.name)}</button></td>
-        <td className="muted">{b.unit}</td>
-        {tab === 'bal' ? <>
-          <td className={`num strong ${low ? 'low' : ''}`}>{fmt(b.balance)}</td>
-          <td className="num hideS muted">{b.reorder_level != null ? fmt(b.reorder_level) : '–'}</td>
-          <td className="num hideS">{dl == null ? <span className="muted">–</span> : dl < 1 ? '< 1' : fmt(dl)}</td>
-          <td><span className={`stPill ${out ? 'out' : low ? 'low' : 'ok'}`}>{out ? 'Finished' : low ? 'Running low' : 'Healthy'}</span></td>
-        </> : <>
-          <td className="num hideS">{u?.issued ? fmt(u.issued) : '–'}</td>
-          <td className="num hideS">{u?.returned ? fmt(u.returned) : '–'}</td>
-          <td className="num strong">{(v ?? u?.used) ? fmt(v ?? u!.used) : '–'}</td>
-        </>}
-      </tr>
-    );
+  const initials = (n: string) => n.replace(/["']/g, '').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+  const pageList = (): (number | '…')[] => {
+    if (pages <= 7) return Array.from({ length: pages }, (_, i) => i + 1);
+    const set = new Set([1, pages, pg - 1, pg, pg + 1].filter((n) => n >= 1 && n <= pages));
+    const arr = [...set].sort((a, b) => a - b); const outA: (number | '…')[] = [];
+    arr.forEach((n, i) => { if (i && n - arr[i - 1] > 1) outA.push('…'); outA.push(n); });
+    return outA;
   };
-  const exportCsv = () => {
-    const esc = (x: string | number) => /[",\n]/.test(String(x)) ? `"${String(x).replace(/"/g, '""')}"` : String(x);
-    const head = tab === 'bal' ? ['Item', 'Unit', 'Balance', 'Reorder at', 'Days left', 'Status'] : ['Item', 'Unit', 'Issued', 'Returned', 'Used'];
-    const rows = shown.map((b) => {
-      if (tab === 'bal') { const dl = daysLeft(b); return [b.name, b.unit, b.balance, b.reorder_level ?? '', dl == null ? '' : dl, b.balance <= 0 ? 'Finished' : isLow(b) ? 'Running low' : 'Healthy']; }
-      const u = use.get(b.item_id); return [b.name, b.unit, u?.issued ?? 0, u?.returned ?? 0, u?.used ?? 0];
-    });
-    const csv = [head, ...rows].map((r) => r.map(esc).join(',')).join('\n');
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-    a.download = `${tab === 'bal' ? 'balances' : 'consumption'}-${tab === 'bal' ? day : range.from + '_' + range.to}.csv`;
-    a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  };
-  const skeleton = Array.from({ length: 6 }, (_, i) => <div key={i} className="skelRow"><i className="skel" style={{ width: `${40 + ((i * 17) % 40)}%` }} /><i className="skel" style={{ width: 60 }} /></div>);
+  const isLowView = filter === 'low';
+  const nameOf = (n: number) => `${n} item${n === 1 ? '' : 's'}`;
 
   return (
-    <div className={`dash ${embedded ? 'embedded' : ''}`} id="dash">
-      {!embedded && <div className="dashTop"><div>
-          <BackPill />
-          <div className="mono" style={{ fontSize: 11, letterSpacing: '.08em', color: '#B9C0BC' }}>{siteLabel}{api.mode === 'demo' ? ' · DEMO' : ''}</div>
-          <h1>All items</h1>
-        </div></div>}
+    <div className={`page itPage ${isLowView ? 'lowView' : ''} ${embedded ? 'embedded' : ''}`} id="dash">
+      {!embedded && <BackPill />}
+      {isLowView ? (
+        <header className="itHead low enter">
+          <div className="itHT"><span className="itKick">All items › Low stock</span><h1>{low.length ? `${nameOf(low.length)} to order` : 'Nothing to order'}</h1>
+            <span className="itLead">{nOut && nRun ? 'Finished first, then the ones running low.' : nOut ? 'All of these are finished.' : 'These are running low.'}</span></div>
+          <div className="itActs"><span className="itAlert"><AlertButton /></span>
+            <button className="btn ghost sm" onClick={download} disabled={!shown.length}><Icon name="download" size={16} />Excel</button>
+            <button className="btn dark sm" onClick={() => setFilter('all')}>Show all {balances.length} items</button></div>
+        </header>
+      ) : (
+        <header className="itHead enter">
+          <div className="itHT"><span className="itKick">Records</span><h1>All items</h1><span className="itLead">Every item on this site, {PER_PAGE} to a page.</span></div>
+          <div className="itActs"><button className="btn ghost sm" onClick={download} disabled={!shown.length}><Icon name="download" size={16} />Excel</button></div>
+        </header>
+      )}
 
-      <div className="dashBody">
-        <main className="dashMain" key={tab}>
-          {tab === 'cons' && <PeriodPicker period={period} date={date} today={day} onPeriod={(p) => { setPeriod(p); setDate(day); }} onDate={setDate} activeDays={activeDays} />}
-
-          <section className="stack">
-            <div className="between" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
-              <h2>All items</h2>
-              {tab === 'cons' ? (
-                <span className="row small" style={{ fontWeight: 600 }}>Group by
-                  <span className="seg">
-                    <button aria-pressed={group === 'none'} onClick={() => setGroup('none')}>None</button>
-                    <button aria-pressed={group === 'sub'} onClick={() => setGroup('sub')}>Subphase</button>
-                  </span>
-                </span>
-              ) : (
-                <span className="seg" role="group" aria-label="Show">
-                  <button aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>All</button>
-                  <button aria-pressed={filter === 'today'} onClick={() => setFilter('today')}>Changed today ({movedToday.size})</button>
-                  <button aria-pressed={filter === 'low'} onClick={() => setFilter('low')}>{lowItems.length > 0 && <PulseDot />}Low only ({lowItems.length})</button>
-                </span>
-              )}
-            </div>
-            <div className="tblBar">
-              <div className={`searchWrap ${pulse ? 'pulse' : ''}`}>
-                <Icon name="search" size={18} />
-                <input ref={searchRef} className="search" type="search" placeholder={`Search ${balances.length} items`} value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search items" />
-                <kbd>/</kbd>
-              </div>
-              <span className="small muted">{shown.length} of {balances.length} items</span>
-              <button className="btn ghost sm" onClick={exportCsv}><Icon name="download" size={16} />Export CSV</button>
-            </div>
-            <div className="tblWrap">
-              {tab === 'cons' && lines === null ? <div className="list">{skeleton}</div> : (
-                <table className="dataTbl">
-                  <thead>
-                    <tr>
-                      <th aria-sort={sort.k === 'name' ? (sort.dir > 0 ? 'ascending' : 'descending') : undefined}><button onClick={() => sortBy('name')}>Item<Icon name="sort" size={12} /></button></th>
-                      <th>Unit</th>
-                      {tab === 'bal' ? <>
-                        <th className="num" aria-sort={sort.k === 'val' ? (sort.dir > 0 ? 'ascending' : 'descending') : undefined}><button onClick={() => sortBy('val')}>Balance<Icon name="sort" size={12} /></button></th>
-                        <th className="num hideS">Reorder at</th>
-                        <th className="num hideS" aria-sort={sort.k === 'days' ? (sort.dir > 0 ? 'ascending' : 'descending') : undefined}><button onClick={() => sortBy('days')}>Days left<Icon name="sort" size={12} /></button></th>
-                        <th>Status</th>
-                      </> : <>
-                        <th className="num hideS">Issued</th>
-                        <th className="num hideS">Returned</th>
-                        <th className="num" aria-sort={sort.k === 'val' ? (sort.dir > 0 ? 'ascending' : 'descending') : undefined}><button onClick={() => sortBy('val')}>Used<Icon name="sort" size={12} /></button></th>
-                      </>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tab === 'bal' && shown.map((b) => trow(b))}
-                    {tab === 'cons' && group === 'none' && shown.map((b) => trow(b))}
-                    {tab === 'cons' && group === 'sub' && groups.map((g) => [
-                      <tr key={g.name} className="grpRow"><td colSpan={5}>{g.name}<span className="muted"> · {g.rows.length} item{g.rows.length === 1 ? '' : 's'}</span></td></tr>,
-                      ...g.rows.map(({ b, v }) => trow(b, v, g.name)),
-                    ])}
-                  </tbody>
-                </table>
-              )}
-              {tab === 'cons' && group === 'sub' && lines !== null && !groups.length && <div className="pad muted">Nothing was issued in this period.</div>}
-              {!shown.length && <div className="pad muted">{search ? `No items match “${q}”.` : filter === 'low' && tab === 'bal' ? 'Nothing is low. All good.' : filter === 'today' && tab === 'bal' ? 'No stock moved today.' : 'No items yet. Do the first stock take.'}</div>}
-            </div>
-            <div className="small muted">Only items that have been in this store are listed. A new item appears the first time it arrives. Click an item for its history and details.</div>
-          </section>
-        </main>
+      <div className="itBar" ref={topRef}>
+        <label className={`itSearch ${pulse ? 'pulse' : ''}`}><Icon name="search" size={18} />
+          <input ref={searchRef} type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={isLowView ? `Search the ${low.length} low items` : `Search ${balances.length} items`} aria-label="Search items" />
+          <kbd>/</kbd></label>
+        {isLowView ? (
+          <span className="seg itSeg" role="group" aria-label="Show">
+            <button aria-pressed={lowPart === 'both'} onClick={() => setLowPart('both')}>Both {low.length}</button>
+            {nOut > 0 && <button className="out" aria-pressed={lowPart === 'out'} onClick={() => setLowPart('out')}>Finished {nOut}</button>}
+            {nRun > 0 && <button className="run" aria-pressed={lowPart === 'run'} onClick={() => setLowPart('run')}>Running low {nRun}</button>}
+          </span>
+        ) : (
+          <span className="itChips" role="group" aria-label="Show">
+            <button aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>All <span className="mono">{balances.length}</span></button>
+            <button className="low" aria-pressed={false} onClick={() => setFilter('low')}>Low stock <span className="mono">{low.length}</span></button>
+            <button aria-pressed={filter === 'today'} onClick={() => setFilter('today')}>Changed today <span className="mono">{movedToday.size}</span></button>
+          </span>
+        )}
+        <label className="itSort"><span className="sr">Sort</span>
+          <select value={sort} onChange={(e) => setSort(e.target.value as SortK)}>
+            <option value="name">{isLowView ? 'Sort: finished first' : 'Sort: name A–Z'}</option>
+            {!isLowView && <option value="low">Sort: lowest first</option>}
+            <option value="qty">Sort: least in store</option>
+          </select></label>
       </div>
-      {selected && <ItemSheet b={selected} mode={tab} use={use.get(selected.item_id)} rangeLabel={range.label} onClose={close} onSaveReorder={saveReorder} />}
+
+      <section className="itTable" aria-label="Items">
+        <div className="itRow th"><span /><span>Item</span><span>Level</span><span className="r">In store</span><span className="r">Last moved</span><span>Status</span><span /></div>
+        {!rows.length && <div className="pad muted">{s ? `No items match “${q}”.` : isLowView ? 'Nothing is low. All good.' : filter === 'today' ? 'No stock moved today.' : 'No items yet. Do the first stock take.'}</div>}
+        {rows.map((b, i) => {
+          const st = status(b); const k = st === 'Healthy' ? 'ok' : st === 'Finished' ? 'out' : 'low';
+          const fill = b.reorder_level ? Math.min(100, (b.balance / (b.reorder_level * 2)) * 100) : b.balance > 0 ? 60 : 0;
+          const lm = lastMoved.get(b.item_id);
+          return (
+            <button key={b.item_id} className={`itRow ${k}`} style={{ animationDelay: `${Math.min(i, 16) * 14}ms` }} onClick={() => setSel(b.item_id)}>
+              <span className="itAv" aria-hidden="true">{initials(b.name)}</span>
+              <span className="itName"><b>{hl(b.name)}</b><small><span className="itSt">{st} · </span>{b.unit}{b.reorder_level != null ? ` · reorder at ${fmt(b.reorder_level)}` : ''}</small></span>
+              <span className={`balBar ${k}`}><i style={{ width: `${Math.max(b.balance > 0 ? 3 : 0, fill)}%` }} />{b.reorder_level ? <em style={{ left: '50%' }} /> : null}</span>
+              <b className="mono itQty">{fmt(b.balance)} <small>{b.unit}</small></b>
+              <span className="r itLast">{lm ? (lm === day ? 'Today' : niceDate(lm).split(' ').slice(0, 3).join(' ')) : '—'}</span>
+              <span className={`stPill ${k}`}>{st}</span>
+              <span className="balGo" aria-hidden="true"><Icon name="arrow" size={14} /></span>
+            </button>
+          );
+        })}
+        {shown.length > 0 && (
+          <nav className="itPager" aria-label="Pages">
+            <span className="itShown">Showing <b>{(pg - 1) * PER_PAGE + 1}–{Math.min(pg * PER_PAGE, shown.length)}</b> of {shown.length}</span>
+            {pages > 1 && <>
+              <button className="pgBtn" disabled={pg <= 1} onClick={() => toPage(pg - 1)}>‹ Previous</button>
+              {pageList().map((n, i) => n === '…' ? <span key={`e${i}`} className="pgGap">…</span>
+                : <button key={n} className={`pgBtn num ${n === pg ? 'on' : ''}`} aria-current={n === pg ? 'page' : undefined} onClick={() => toPage(n)}>{n}</button>)}
+              <button className="pgBtn next" disabled={pg >= pages} onClick={() => toPage(pg + 1)}>Next {Math.min(PER_PAGE, shown.length - pg * PER_PAGE) || PER_PAGE} ›</button>
+            </>}
+          </nav>
+        )}
+      </section>
+      {selected && <ItemSheet b={selected} mode="bal" rangeLabel="" onClose={close} onSaveReorder={saveReorder} />}
     </div>
   );
 }
