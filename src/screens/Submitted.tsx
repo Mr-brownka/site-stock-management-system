@@ -70,7 +70,7 @@ export function Submitted() {
         <span className="abGrow" />
         <button className="btn ghost sm" onClick={() => window.print()}><Icon name="print" size={16} />Print</button>
         {submission
-          ? <button className="sumSend" onClick={send}><ChatMark />Send to site manager</button>
+          ? <button className="sumSend" onClick={send}><ChatMark />Send to Site Manager</button>
           : <button className="btn accent sm" onClick={() => { signal('proc'); go('home'); }}>{done3 ? 'Continue' : 'Start'}<Icon name="arrow" size={16} /></button>}
       </header>
 

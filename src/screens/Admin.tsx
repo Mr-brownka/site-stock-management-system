@@ -520,7 +520,7 @@ function SitePage({ d, day, id, tab, setTab, back, busy, act }: { d: Data; day: 
         return (
           <section className="panel adPad">
             <b>Site manager (WhatsApp)</b>
-            <span className="muted">Gets the stock alert when the store presses “Send to Site manager”.</span>
+            <span className="muted">Gets the stock alert when the store presses “Send to Site Manager”.</span>
             <div className="adGrid2">
               <label className="field"><span>Name</span><input className="input" placeholder="e.g. Eng. Juma Otieno" value={c.name ?? ''} onChange={(e) => setContact({ ...c, name: e.target.value })} /></label>
               <label className="field"><span>WhatsApp number</span><input className="input mono" inputMode="tel" placeholder="0712 345 678" value={c.phone ?? ''} onChange={(e) => setContact({ ...c, phone: e.target.value })} /></label>

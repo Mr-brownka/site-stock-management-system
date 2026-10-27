@@ -39,7 +39,7 @@ export function AlertButton() {
   const sent = info?.sent_at ? new Date(info.sent_at) : null;
   return (
     <>
-      <button className="alertBtn" onClick={() => setOpen(true)}><ChatMark />Send to Site manager</button>
+      <button className="alertBtn" onClick={() => setOpen(true)}><ChatMark />Send to Site Manager</button>
       {sent && <div className="alertLast">Last sent: {sent.toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' })}{info?.sent_by ? ` · by ${info.sent_by.split(' ')[0]}` : ''}</div>}
       {open && createPortal(<AlertSheet info={info} onClose={() => setOpen(false)} onSent={load} />, document.body)}
     </>
@@ -112,7 +112,7 @@ function AlertSheet({ info, onClose, onSent }: { info: AlertInfo | null; onClose
     <div className="sheetBack alertBack" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <section className="alertSheet" role="dialog" aria-modal="true" aria-labelledby="alertTitle">
         <div className="asLeft">
-          <div className="asHead"><div><span className="asKicker">Needs attention · {lowItems.length} item{lowItems.length === 1 ? '' : 's'}</span><h2 id="alertTitle">Send to Site manager</h2></div><button className="iconBtn" onClick={onClose} aria-label="Close"><Icon name="close" /></button></div>
+          <div className="asHead"><div><span className="asKicker">Needs attention · {lowItems.length} item{lowItems.length === 1 ? '' : 's'}</span><h2 id="alertTitle">Send to Site Manager</h2></div><button className="iconBtn" onClick={onClose} aria-label="Close"><Icon name="close" /></button></div>
           <div className="asField"><span>To</span>
             <div className="asTo">
               <span className="avatar">{(info?.name || 'SA').split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase()}</span>
