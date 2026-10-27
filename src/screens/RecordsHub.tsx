@@ -1,4 +1,5 @@
 import { Icon } from '../components/fx';
+import { BackPill } from '../components/BackPill';
 import { niceDate } from '../lib/dates';
 import { signal } from '../lib/signals';
 import { useData, type Screen } from '../lib/store';
@@ -23,6 +24,7 @@ export function RecordsHub() {
   };
   return (
     <div className="page recHub">
+      <BackPill />
       <header className="rhHead enter"><span className="phKicker">Everything entered</span><h1>Records</h1></header>
       <button className="rhSearch enter" onClick={() => signal('palette')}><Icon name="search" size={18} />Search card no., note, item…</button>
       <section className="rhGroup enter" aria-label="Papers">

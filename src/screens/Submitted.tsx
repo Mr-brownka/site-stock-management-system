@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '../components/fx';
+import { BackPill } from '../components/BackPill';
 import { Ring } from '../components/Ring';
 import { ChatMark, waNumber } from '../components/StockAlert';
 import { fmt } from '../components/ui';
@@ -62,6 +63,7 @@ export function Submitted() {
 
   return (
     <div className="page sumPage">
+      <BackPill />
       <header className="sumHead enter">
         <div>
           <span className={`sumKick ${submission ? 'ok' : ''}`}>{submission ? (day === realToday ? 'Today’s summary' : `${wd}’s summary`) : 'So far · not submitted yet'}</span>

@@ -3647,7 +3647,6 @@ select.pfIn { appearance: auto; }
   /* every page except the Dashboard: starts right under the top bar, no back pill, no outer margins */
   .screen:not(:has(> .home)) { padding: 14px 20px 40px; }
   .screen:not(:has(> .home)) > *, .screen:not(:has(> .home)) > * > .page { max-width: none !important; margin: 0 !important; padding: 0 !important; gap: 14px !important; width: auto !important; }
-  .screen .backPill, .screen .backWrap { display: none !important; }
   .screen:not(:has(> .home)) h1 { font-family: var(--body) !important; font-size: 22px !important; font-weight: 700 !important; letter-spacing: -.01em; line-height: 1.2; }
   .screen:not(:has(> .home)) .phKicker, .screen:not(:has(> .home)) .itKick { font-size: 10.5px; }
   .screen:not(:has(> .home)) .phLead, .screen:not(:has(> .home)) .itLead { font-size: 13px; }
@@ -3655,7 +3654,6 @@ select.pfIn { appearance: auto; }
 }
 /* Phone: same idea, every page except the Dashboard starts right under the top bar */
 @media (max-width: 767px) {
-  .shell.hasTab .screen .backPill, .shell.hasTab .screen .backWrap { display: none !important; }
   .screen:not(:has(> .home)) > .page, .screen:not(:has(> .home)) > * > .page { padding-top: 10px !important; gap: 12px !important; }
   .screen:not(:has(> .home)) h1 { font-size: 22px !important; line-height: 1.2; }
 }
@@ -3710,3 +3708,11 @@ select.pfIn { appearance: auto; }
   .kpis.kStrip .k3Bars { width: 70px; height: 34px; }
 }
 .k3F.late { color: #C8322A; font-weight: 600; }
+
+/* Classic back link: small, plain, top left of every page (not the Dashboard) */
+.screen .backWrap { display: block !important; margin: 0 0 2px !important; }
+.screen .backPill { display: inline-flex !important; align-self: flex-start; height: 24px !important; padding: 0 4px 0 0 !important; margin: 0 0 -4px !important; gap: 4px; border: 0; border-radius: 6px; background: none !important; color: #69736F !important; font-size: 13px !important; font-weight: 600; box-shadow: none !important; }
+.screen .backPill:hover { color: var(--ink) !important; background: none !important; transform: none !important; }
+.screen .backPill svg { width: 15px; height: 15px; transition: transform .15s; }
+.screen .backPill:hover svg { transform: translateX(-2px); }
+.top .backPill { color: inherit !important; }
