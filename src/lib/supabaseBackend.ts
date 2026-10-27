@@ -283,7 +283,7 @@ export function supabaseBackend(url: string, key: string): Backend {
       return (data ?? []) as IncomingDismissed[];
     },
     async dismissIncoming(o) {
-      const { error } = await sb.from('incoming_dismissed').upsert(o, { onConflict: 'site_id,po_id' });
+      const { error } = await sb.from('incoming_dismissed').insert(o);
       if (error) fail(error);
     },
     async restoreIncoming(poId) {
