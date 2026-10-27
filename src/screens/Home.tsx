@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Icon, Num, PulseDot, Ring as StepRing, greeting, useMinutesToClose } from '../components/fx';
+import { Icon, Num, Ring as StepRing, greeting, useMinutesToClose } from '../components/fx';
 import { useSignal } from '../lib/signals';
 import { closeLabel } from '../components/Shell';
 import { api, progressStore } from '../lib/api';
@@ -212,12 +212,20 @@ export function Home() {
     </div>
   );
 
-  const lowCard = lowItems.length > 0 && (
-    <button className="lowCard" onClick={() => toDash({ tab: 'bal', filter: 'low' })}>
-      <span className="lcTop"><PulseDot /><b>Low Stock Items! Need attention</b><span className="mono lcN">{lowItems.length}</span></span>
-      <span className="lcPills">{outCount > 0 && <span className="stPill out">{outCount} finished</span>}{lowItems.length - outCount > 0 && <span className="stPill low">{lowItems.length - outCount} running low</span>}</span>
-      <span className="lcNames">{attention.slice(0, 5).map((b) => <span key={b.item_id}>{b.name}</span>)}{lowItems.length > 5 && <span className="more">+{lowItems.length - 5}</span>}</span>
-      <span className="lcGo">See them in All items<Icon name="arrow" size={16} /></span>
+  // Wording: all finished → "n items are finished"; otherwise "n items are running low".
+  const nLow = lowItems.length, lowOnly = nLow - outCount;
+  const lowHead = `${nLow} item${nLow === 1 ? ' is' : 's are'} ${outCount === nLow ? 'finished' : 'running low'}`;
+  const lowSub = outCount === nLow ? 'Nothing left on the shelf. Order them now.' : outCount ? 'Some are out of stock, the rest will be soon.' : 'They will be out of stock soon.';
+  const urgent = attention.slice(0, 3);
+  const lowCard = nLow > 0 && (
+    <button className="lowCard lcA" onClick={() => toDash({ tab: 'bal', filter: 'low' })}>
+      <span className="lcTop"><span className="lcDot" aria-hidden="true" /><span className="lcHead"><b>{lowHead}</b><small>{lowSub}</small></span></span>
+      <span className="lcSplit" aria-label={`${outCount} out of stock, ${lowOnly} running out`}>
+        <span className="lcBar">{outCount > 0 && <i className="out" style={{ flex: outCount }} />}{lowOnly > 0 && <i className="low" style={{ flex: lowOnly }} />}</span>
+        <span className="lcLeg">{outCount > 0 && <span><b className="out">{outCount}</b> out of stock</span>}{lowOnly > 0 && <span><b className="low">{lowOnly}</b> running out</span>}</span>
+      </span>
+      <span className="lcList">{urgent.map((b) => { const dl = daysLeft(b); return <span key={b.item_id} className="lcItem"><span>{b.name}</span><b className={b.balance <= 0 ? 'out' : 'low'}>{b.balance <= 0 ? 'Out' : dl != null ? `${dl} day${dl === 1 ? '' : 's'} left` : `${fmt(b.balance)} ${b.unit}`}</b></span>; })}</span>
+      <span className="lcGo">Review all {nLow}<Icon name="arrow" size={16} /></span>
     </button>
   );
   // Phone home (design A): today's papers first, in one dark card.
@@ -244,7 +252,7 @@ export function Home() {
   );
   const phoneLow = lowItems.length > 0 && (
     <button className="phALow" onClick={() => toDash({ tab: 'bal', filter: 'low' })}>
-      <span className="phADot" aria-hidden="true" /><span><b>Low Stock Items! Need attention</b><small>{outCount} finished · {lowItems.length - outCount} running low</small></span><b className="mono">{lowItems.length}</b><Icon name="arrow" size={16} />
+      <span className="phADot" aria-hidden="true" /><span><b>{lowHead}</b><small>{[outCount ? `${outCount} out of stock` : '', lowOnly ? `${lowOnly} running out` : ''].filter(Boolean).join(' · ')}</small></span><b className="mono">{lowItems.length}</b><Icon name="arrow" size={16} />
     </button>
   );
 
@@ -308,7 +316,7 @@ export function Home() {
         <IncomingPanel />
         <aside className="homeAside">
           <section className="panel enter" aria-label="Needs attention" style={{ animationDelay: '.06s' }}>
-            <header className="panelHead"><b>Needs attention</b></header>
+            <header className="panelHead"><b>Needs attention</b>{nLow > 0 && <small className="muted">{nLow} item{nLow === 1 ? '' : 's'}</small>}</header>
             {!lowItems.length && <div className="pad small muted">Nothing is low. All good.</div>}
             {lowCard}
             {coming.length > 0 && <div className="attWay">On their way: {coming.map(([n, w]) => `${n} (${w})`).join(' · ')}</div>}

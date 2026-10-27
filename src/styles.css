@@ -3396,3 +3396,17 @@ select.pfIn { appearance: auto; }
   .home .homeAside .panelHead { display: none; }
 }
 @keyframes phDot { 0%,100% { box-shadow: 0 0 0 0 rgba(200,50,42,.4); } 60% { box-shadow: 0 0 0 7px rgba(200,50,42,0); } }
+/* Needs attention, design A */
+.lowCard.lcA { gap: 14px; }
+.lcA .lcTop { align-items: flex-start; }
+.lcDot { width: 12px; height: 12px; margin-top: 5px; border-radius: 50%; background: #C8322A; flex: none; animation: phDot 1.8s infinite; }
+.lcHead { flex: 1; display: flex; flex-direction: column; gap: 2px; } .lcHead b { font-size: 18px; font-weight: 800; line-height: 1.15; } .lcHead small { color: var(--muted); font-size: 13px; }
+.lcSplit { display: flex; flex-direction: column; gap: 6px; }
+.lcBar { display: flex; gap: 3px; height: 10px; border-radius: 9px; overflow: hidden; transform-origin: left; animation: lcGrow .7s .15s cubic-bezier(.2,.8,.2,1) both; }
+.lcBar i.out { background: #C8322A; } .lcBar i.low { background: var(--accent); }
+@keyframes lcGrow { from { transform: scaleX(0); } }
+.lcLeg { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); } .lcLeg b.out { color: #C8322A; } .lcLeg b.low { color: #8A5000; }
+.lcList { display: flex; flex-direction: column; }
+.lcItem { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-top: 1px solid #F3DCD9; font-size: 14px; } .lcItem span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lcItem b { font-size: 13px; white-space: nowrap; } .lcItem b.out { color: #C8322A; } .lcItem b.low { color: #8A5000; }
+.lowCard { box-sizing: border-box; width: calc(100% - 28px); }
