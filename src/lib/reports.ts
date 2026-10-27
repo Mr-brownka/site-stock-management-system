@@ -29,7 +29,7 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
 const inRange = (c: Ctx, d: string) => d >= c.from && d <= c.to;
 const nm = (c: Ctx, id: number) => c.itemById.get(id)?.name ?? `Item ${id}`;
 const un = (c: Ctx, id: number) => c.itemById.get(id)?.unit ?? '';
-const KIND: Record<string, string> = { opening: 'Opening count', delivery: 'Delivery', issue: 'Withdrawal card', return: 'Return', transfer_in: 'Transfer in', transfer_out: 'Transfer out', correction: 'Correction' };
+const KIND: Record<string, string> = { opening: 'Opening count', delivery: 'Delivery', issue: 'Issuance register', return: 'Return', transfer_in: 'Transfer in', transfer_out: 'Transfer out', correction: 'Correction' };
 const nice = (d: string) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 const hm = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' });
 

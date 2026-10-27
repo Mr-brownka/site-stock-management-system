@@ -9,7 +9,7 @@ import { subphasesFor } from './structure';
 
 export const STEPS: { key: StepKey; n: number; label: string; desc: string; kinds: Doc['kind'][]; screen: Screen }[] = [
   { key: 'deliveries', n: 1, label: 'Deliveries', desc: 'Supplier, delivery note, items received', kinds: ['delivery'], screen: 'deliveries' },
-  { key: 'issued', n: 2, label: 'Issued to production', desc: 'Copy each Material Withdrawal Card', kinds: ['issue'], screen: 'issued' },
+  { key: 'issued', n: 2, label: 'Issued to production', desc: 'Everything issued today, on one register', kinds: ['issue'], screen: 'issued' },
   { key: 'returns', n: 3, label: 'Returned to store', desc: 'Match leftovers to today’s cards', kinds: ['return'], screen: 'returns' },
   { key: 'transfers', n: 4, label: 'Project transfers', desc: 'Stock sent to or received from other projects', kinds: ['transfer_in', 'transfer_out'], screen: 'transfers' },
 ];

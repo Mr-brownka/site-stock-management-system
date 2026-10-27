@@ -219,7 +219,7 @@ function Detail({ row, cfg, onClose, onFix }: { row: Row; cfg: (typeof CFG)[RecK
   return (
     <section className="recDetail">
       <header>
-        <div><span className="recKicker">{d.source === 'zoho' && <ZohoTag />} {{ DLV: 'Delivery', ISS: 'Withdrawal card', RET: 'Return', TRF: 'Project transfer' }[cfg.prefix]} · {cfg.tag}</span><h2>{row.ref}</h2></div>
+        <div><span className="recKicker">{d.source === 'zoho' && <ZohoTag />} {{ DLV: 'Delivery', ISS: 'Issuance register', RET: 'Return', TRF: 'Project transfer' }[cfg.prefix]} · {cfg.tag}</span><h2>{row.ref}</h2></div>
         <button className="btn ghost sm" onClick={onFix}><Icon name="fix" size={16} />Fix an error</button>
         <button className="btn ghost sm" onClick={() => window.print()}><Icon name="print" size={16} />Print</button>
         <button className="iconBtn" onClick={onClose} aria-label="Close"><Icon name="close" /></button>

@@ -121,14 +121,14 @@ export function EveningFlow({ screen }: { screen: Screen }) {
   if (stage === 'askCard' || stage === 'askNoCard') {
     const first = stage === 'askNoCard';
     const before = count('issued'); // cards typed during the day, before the check-in
-    body = <Ask kicker={first ? (before ? `Withdrawal cards · ${before} entered during the day` : 'Withdrawal cards') : `${savedIn(day, 'issued')} card${savedIn(day, 'issued') === 1 ? '' : 's'} entered now`} icon="card"
-      title={first ? (before ? `Were any other materials issued ${wd}?` : `Were materials issued ${wd}?`) : 'Was there another material issued?'}
-      yes={{ label: first ? 'Yes, enter a card' : 'Yes, next card', hint: 'Opens a fresh card', run: () => enter('issued') }}
+    body = <Ask kicker={first ? (before ? `Issuance register · ${before} entered during the day` : 'Material Issuance Register') : 'Register saved'} icon="card"
+      title={first ? (before ? `Were any other materials issued ${wd}?` : `Were materials issued ${wd}?`) : 'Anything else issued?'}
+      yes={{ label: first ? 'Yes, open the register' : 'Yes, add more', hint: 'One sheet for the whole day', run: () => enter('issued') }}
       no={{ label: first && !before ? 'No, nothing issued' : 'No, that’s all', hint: 'Next: returns', run: () => { if (first) none('issued'); to('askReturns'); } }} />;
   } else if (stage === 'askReturns') {
     size = 'md';
     body = <Ask kicker="Returns" icon="back" title={`Were any materials returned to the stores ${wd} from production?`}
-      yes={{ label: 'Yes, enter the returns', hint: 'Against today’s cards', run: () => enter('returns') }}
+      yes={{ label: 'Yes, enter the returns', hint: 'Against today’s issues', run: () => enter('returns') }}
       no={{ label: 'No returns', hint: 'Next: project transfers', run: () => { none('returns'); to('askTransfer'); } }} />;
   } else if (stage === 'askTransfer' || stage === 'askMoreTransfer') {
     const more = stage === 'askMoreTransfer';

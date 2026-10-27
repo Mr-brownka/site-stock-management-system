@@ -10,7 +10,7 @@ import { BackPill } from './BackPill';
 import { DatePick } from './DatePick';
 
 export const ADD_NOUN: Record<StepKey, string> = { deliveries: 'a delivery', issued: 'a card', returns: 'a return', transfers: 'a transfer' };
-const NEW_TITLE: Record<StepKey, string> = { deliveries: 'New delivery', issued: 'New withdrawal card', returns: 'New return', transfers: 'New project transfer' };
+const NEW_TITLE: Record<StepKey, string> = { deliveries: 'New delivery', issued: 'Material Issuance Register', returns: 'New return', transfers: 'New project transfer' };
 
 /** The heading every entry page shares: where you came from, what you're entering, and for which day. */
 export function EntryHead({ step, title, sub, right }: { step: StepKey; title?: string; sub?: ReactNode; right?: ReactNode }) {

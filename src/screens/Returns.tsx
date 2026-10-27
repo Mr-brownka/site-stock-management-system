@@ -64,7 +64,7 @@ export function Returns() {
 
   return (
     <div className="entryPage">
-      <EntryHead step="returns" sub={stage === 'cards' ? 'Type only what came back. Cards left empty count as fully used.' : 'Only for stock that came back without a withdrawal card.'} />
+      <EntryHead step="returns" sub={stage === 'cards' ? 'Type only what came back. Lines left empty count as fully used.' : 'Only for stock that came back without a withdrawal card.'} />
       <main className="stack">
         {stage === 'cards' && (
           <div className="stack enter">
@@ -110,7 +110,7 @@ export function Returns() {
 
         {stage === 'loose' && (
           <div className="stack enter">
-            {!cards.length && <div className="note info">No withdrawal cards were entered today, so returns can only be recorded without a card.</div>}
+            {!cards.length && <div className="note info">Nothing was issued today, so returns can only be recorded on their own.</div>}
             <section className="panel" aria-label="Items returned"><header className="panelHead"><b>Items returned</b></header><LineTable lines={loose} setLines={setLoose} effect="in" /></section>
             {err && <div className="note err" role="alert">{err}</div>}
             <div className="actionBar">

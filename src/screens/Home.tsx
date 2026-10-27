@@ -239,7 +239,7 @@ export function Home() {
           return (
             <button key={k} className={`phAStep ${v} ${now ? 'now' : ''}`} onClick={() => openRecords(go, k)}>
               <span className="phANo">{v === 'done' ? <Icon name="check" size={12} /> : v === 'none' ? '–' : i + 1}</span>
-              {k === 'issued' ? 'Withdrawal cards' : k === 'returns' ? 'Returns' : 'Project transfers'}
+              {k === 'issued' ? 'Issuance register' : k === 'returns' ? 'Returns' : 'Project transfers'}
               <small>{now ? 'Next' : v === 'done' ? 'Done' : v === 'none' ? 'None' : '—'}</small>
             </button>
           );
@@ -261,7 +261,7 @@ export function Home() {
           {catchUp ? <>
             <span className="phKicker catch">Catch-up · day {runIndex} of {Math.max(runTotal, runIndex)}</span>
             <h1>{wd}’s check-in</h1>
-            <span className="phLead">Use {wd}’s delivery notes and withdrawal cards. Everything saved here is dated {niceDate(day)}.</span>
+            <span className="phLead">Use {wd}’s delivery notes and issuance register. Everything saved here is dated {niceDate(day)}.</span>
           </> : <>
             <span className="phKicker">Evening check-in · {longDate(day)}{api.mode === 'demo' ? ' · Demo' : ''}</span>
             <h1>{greeting()}, {first}</h1>
@@ -352,7 +352,7 @@ export function Home() {
   );
 }
 
-const KIND_LABEL: Record<string, string> = { delivery: 'Delivery', issue: 'Withdrawal card', return: 'Return', transfer_in: 'Transfer in', transfer_out: 'Transfer out', correction: 'Correction', opening: 'Stock take' };
+const KIND_LABEL: Record<string, string> = { delivery: 'Delivery', issue: 'Issuance register', return: 'Return', transfer_in: 'Transfer in', transfer_out: 'Transfer out', correction: 'Correction', opening: 'Stock take' };
 
 /** One colour and icon per category, so each is told apart at a glance. */
 const CAT: Record<string, { tag: string; icon: string }> = {

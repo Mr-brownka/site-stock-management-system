@@ -14,7 +14,7 @@ import { DateRange } from '../components/DateRange';
 type View = 'find' | 'fix' | 'recount' | 'mine';
 type KindKey = 'all' | 'deliveries' | 'issued' | 'returns' | 'transfers';
 const FIX_REASONS = ['Typing mistake', 'Wrong date', 'Wrong item', 'Wrong card / note', 'Other'];
-const CAT_TITLE: Record<string, string> = { issued: 'Withdrawal cards', deliveries: 'Deliveries', returns: 'Returns', transfers: 'Project transfers' };
+const CAT_TITLE: Record<string, string> = { issued: 'Issuance registers', deliveries: 'Deliveries', returns: 'Returns', transfers: 'Project transfers' };
 const COUNT_REASONS = ['Damaged / spoilt', 'Lost / not found', 'Delivery not entered', 'Issue not entered', 'Counting error'];
 const KINDS: { key: KindKey; label: string; kinds: Doc['kind'][] }[] = [
   { key: 'all', label: 'All', kinds: [] },
@@ -152,7 +152,7 @@ export function Corrections() {
                     {list.slice(0, cap).map((d) => (
                       <button key={d.id} className={`fxCard ${TONE[d.kind]}`} onClick={() => openFix(d)}>
                         <span className="fxCTop"><span className="fxCK">{PAPER[d.kind]?.replace(' on card', '') ?? 'Entry'}</span><small className="mono">{sysRef(d)}</small></span>
-                        <b className={`fxCNo ${d.kind === 'issue' ? 'red' : ''}`}>{d.ref_no || (d.kind === 'delivery' ? d.party : '–') || '–'}</b>
+                        <b className={`fxCNo ${d.kind === 'issue' ? 'red' : ''}`}>{d.ref_no || (d.kind === 'delivery' ? d.party : d.kind === 'issue' ? 'Register' : '–') || '–'}</b>
                         <span className="fxCL">{linesText(d)}</span>
                         <small className="fxCS">{niceDate(d.doc_date)}{who(d) ? ` · ${who(d)}` : ''}</small>
                         {waitingOn(d) && <span className="fxCW">Fix waiting</span>}
@@ -261,13 +261,15 @@ const FIELDS: Record<string, DocField[]> = {
   transfer_in: ['ref_no', 'party', 'authorised_by', 'doc_date'],
   transfer_out: ['ref_no', 'party', 'authorised_by', 'doc_date'],
 };
-const PAPER_NAME: Record<string, string> = { issue: 'Material withdrawal card', delivery: 'Delivery note', return: 'Return to store', transfer_in: 'Transfer note · received', transfer_out: 'Transfer note · sent' };
+const PAPER_NAME: Record<string, string> = { issue: 'Material Issuance Register', delivery: 'Delivery note', return: 'Return to store', transfer_in: 'Transfer note · received', transfer_out: 'Transfer note · sent' };
 
 function PaperFix({ doc, sysRef, waiting, onSent }: { doc: Doc; sysRef: string; waiting: boolean; onSent: (msg: string) => Promise<void> }) {
   const { itemById, subphases, realToday, company } = useData();
   const [team, setTeam] = useState<string[]>([]);
   useEffect(() => { api.siteTeam().then(setTeam).catch(() => undefined); }, []);
-  const F = FIELDS[doc.kind] ?? ['ref_no', 'party', 'doc_date'];
+  // A Material Issuance Register (no card no.) has only the date and the store person to fix.
+  const reg = doc.kind === 'issue' && !doc.ref_no;
+  const F: DocField[] = reg ? ['doc_date', 'authorised_by'] : FIELDS[doc.kind] ?? ['ref_no', 'party', 'doc_date'];
   const orig = (f: DocField) => { const v = (doc[f as keyof Doc] as string | null | undefined) ?? ''; return f === 'doc_time' ? v.slice(0, 5) : v; };
   const [hdr, setHdr] = useState<Record<string, string>>(() => Object.fromEntries(F.map((f) => [f, orig(f)])));
   const [ln, setLn] = useState<Record<number, { item: number; qty: string }>>(() => Object.fromEntries(doc.lines.map((l) => [l.id, { item: l.item_id, qty: String(l.qty) }])));
@@ -339,9 +341,9 @@ function PaperFix({ doc, sysRef, waiting, onSent }: { doc: Doc; sysRef: string; 
 
   return (
     <div className="fxFix pfWrap enter">
-      <section className={`pfPaper ${doc.kind === 'issue' ? 'card' : ''}`} aria-label={PAPER_NAME[doc.kind]}>
-        <div className="pfTitle">{doc.kind === 'issue' ? `${(company || 'Comex Builders').toUpperCase()} · MATERIAL WITHDRAWAL CARD` : PAPER_NAME[doc.kind]?.toUpperCase()}<small className="mono">{sysRef}</small></div>
-        {doc.kind === 'issue' ? (
+      <section className={`pfPaper ${doc.kind === 'issue' && !reg ? 'card' : ''}`} aria-label={PAPER_NAME[doc.kind]}>
+        <div className="pfTitle">{reg ? `${(company || 'Comex Builders').toUpperCase()} · MATERIAL ISSUANCE REGISTER` : doc.kind === 'issue' ? `${(company || 'Comex Builders').toUpperCase()} · MATERIAL WITHDRAWAL CARD` : PAPER_NAME[doc.kind]?.toUpperCase()}<small className="mono">{sysRef}</small></div>
+        {doc.kind === 'issue' && !reg ? (
           <>
             <div className="pfTop">{box('card_no', 'code')}{box('activity')}{box('ref_no', 'cardno')}</div>
             <div className="pfBody">{lines}<div className="pfSide">{box('doc_time')}{box('gemba')}{box('party')}{box('doc_date', 'date')}</div></div>
