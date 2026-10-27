@@ -61,19 +61,9 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
   const toFinish = unconfirmed.length + drafts.length;
   const [mini, setMini] = useState(readRail);
   // The menu can be dragged wider or narrower by its right edge; each person's width is remembered.
-  const [railW, setRailW] = useState(readRailW);
-  const dragRail = (e: React.PointerEvent) => {
-    e.preventDefault();
-    const x0 = e.clientX, w0 = railW;
-    document.body.classList.add('railDrag');
-    let w = w0;
-    const move = (ev: PointerEvent) => { w = Math.max(180, Math.min(340, w0 + ev.clientX - x0)); setRailW(w); };
-    const up = () => { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); document.body.classList.remove('railDrag'); try { localStorage.setItem('ssms-rail-w', String(w)); } catch { /* ignore */ } };
-    document.addEventListener('pointermove', move); document.addEventListener('pointerup', up);
-  };
-  const [recOpen, setRecOpen] = useState(readRecOpen);
+  const [railW] = useState(readRailW);
+  const [recOpen] = useState(readRecOpen);
   const [userMenu, setUserMenu] = useState(false);
-  const toggleRec = () => { const v = !recOpen; setRecOpen(v); try { localStorage.setItem('ssms-records', v ? 'open' : 'closed'); } catch { /* ignore */ } };
   const [palette, setPalette] = useState(false);
   const [siteOpen, setSiteOpen] = useState(false);
   const [sheet, setSheet] = useState<'more' | null>(null);
@@ -116,47 +106,43 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
   return (
     <div className={`shell ${TABBAR.includes(screen) ? 'hasTab' : ''} ${mini ? 'mini' : ''}`} style={mini ? undefined : ({ '--railW': `${railW}px` } as React.CSSProperties)}>
       <ZohoAutoSync />
-      <aside className="rail" aria-label="Main menu">
-        {!mini && <span className="railGrip" role="separator" aria-orientation="vertical" aria-label="Drag to make the menu wider or narrower" title="Drag to resize · double-click to reset" onPointerDown={dragRail} onDoubleClick={() => { setRailW(212); try { localStorage.removeItem('ssms-rail-w'); } catch { /* ignore */ } }} />}
-        <button type="button" className="railBrand comexBrand" title="Comex Builders Ltd · back to the dashboard" aria-label="Comex Builders · back to the dashboard" onClick={() => { if (catchUp) endCatchUp(); go('home'); }}>
-          {mini ? <ComexLogo dark hatOnly width={44} /> : <ComexLogo dark width={172} />}
-        </button>
-        <nav className="railNav" ref={navRef}>
+      <aside className="rail r2" aria-label="Main menu">
+        <div className="r2Top">
+          <button type="button" className="railBrand comexBrand" title="Comex Builders Ltd · back to the dashboard" aria-label="Comex Builders · back to the dashboard" onClick={() => { if (catchUp) endCatchUp(); go('home'); }}>
+            {mini ? <ComexLogo dark hatOnly width={36} /> : <ComexLogo dark width={128} />}
+          </button>
+          <button className="r2Collapse" onClick={toggleRail} aria-label={mini ? 'Expand the menu' : 'Collapse the menu'} title={mini ? 'Expand the menu' : 'Collapse the menu'}><Icon name="collapse" size={18} /></button>
+        </div>
+        <nav className="railNav r2Nav" ref={navRef}>
           <span className="railInk" aria-hidden="true" style={ink} />
-          <span className="railSec">Operations</span>
-          {NAV.slice(0, 2).map((n) => (
-            <button key={n.screen} className="railLink" title={n.label} aria-current={n.match.includes(screen) ? 'page' : undefined} onClick={() => go(n.screen)}>
-              <Icon name={n.icon} /><span className="rlText">{n.label}</span>
-              {n.screen === 'home' && lowItems.length > 0 && <span className="railLow"><PulseDot />{lowItems.length}</span>}
+          {([
+            { s: 'home', l: 'Dashboard', i: 'home', on: CHECKIN.includes(screen) },
+            { s: 'stocktake', l: 'Stock take', i: 'clip', on: screen === 'stocktake' },
+            { s: 'dashboard', l: 'Items', i: 'box', on: screen === 'dashboard' || screen === 'balances' || screen === 'consumption' },
+            { s: 'rec-deliveries', l: 'Deliveries', i: 'truck', on: screen === 'rec-deliveries' || screen === 'deliveries' },
+            { s: 'rec-issued', l: 'Issued items', i: 'issue', on: screen === 'rec-issued' || screen === 'issued' },
+            { s: 'rec-returns', l: 'Returned items', i: 'undo', on: screen === 'rec-returns' || screen === 'returns' },
+            { s: 'rec-transfers', l: 'Project transfers', i: 'swap', on: screen === 'rec-transfers' || screen === 'transfers' },
+            { s: 'reports', l: 'Reports', i: 'bars', on: screen === 'reports' },
+          ] as { s: Screen; l: string; i: string; on: boolean }[]).map((n) => (
+            <button key={n.s} className="railLink" title={n.l} aria-current={n.on ? 'page' : undefined} onClick={() => go(n.s)}>
+              <Icon name={n.i} size={19} /><span className="rlText">{n.l}</span>
+              {n.s === 'home' && lowItems.length > 0 && <span className="r2Badge" title={`${lowItems.length} items running low`}>{lowItems.length}</span>}
             </button>
           ))}
-          <button className="railSec railSecBtn" aria-expanded={recOpen} onClick={toggleRec} title={recOpen ? 'Hide records' : 'Show records'}>
-            Records<span className={`rgChev ${recOpen ? 'open' : ''}`} aria-hidden="true"><svg viewBox="0 0 24 24" width="12" height="12"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
-          </button>
-          {recOpen && <>
-            <button className="railLink railSub items" title="Items" aria-current={screen === 'dashboard' ? 'page' : undefined} onClick={() => go('dashboard')}>
-              <span className="rsDot" aria-hidden="true" /><span className="rlText">Items</span>
-            </button>
-            {RECORDS.map((r) => (
-              <button key={r.screen} className={`railLink railSub ${r.tone}`} title={r.label} aria-current={screen === r.screen || screen === r.entry ? 'page' : undefined} onClick={() => go(r.screen)}>
-                <span className="rsDot" aria-hidden="true" /><span className="rlText">{r.label}</span>
-              </button>
-            ))}
-            <button className="railLink railSub" title="Reports" aria-current={screen === 'reports' ? 'page' : undefined} onClick={() => go('reports')}>
-              <Icon name="report" size={17} /><span className="rlText">Reports</span>
-            </button>
-          </>}
-          <span className="railSec">Corrections</span>
+          <span className="r2Rule" aria-hidden="true" />
           <button className="railLink" title="Fix an error" aria-current={screen === 'corrections' ? 'page' : undefined} onClick={() => go('corrections')}>
-            <Icon name="fix" /><span className="rlText">Fix an error</span>
+            <Icon name="warn" size={19} /><span className="rlText">Fix an error</span>
+          </button>
+          <span className="r2Rule" aria-hidden="true" />
+          <button className={`railLink r2Today ${urgent ? 'urgent' : ''}`} title="Today’s summary" aria-current={screen === 'submitted' ? 'page' : undefined} onClick={() => go('submitted')}>
+            <Icon name="calendar" size={19} /><span className="rlText">Today’s summary</span>
+            <span className="r2Prog mono rlText">{submission ? 3 : done}/3</span><span className="r2Chev rlText"><Icon name="chevR" size={15} /></span>
           </button>
         </nav>
-        <div className={`railToday ${urgent ? 'urgent' : ''}`}>
-          <Ring done={submission ? 3 : done} total={3} size={44} />
-          <div className="rlText">
-            <b>{submission ? 'Today’s summary' : done === 3 ? 'Ready to submit' : 'Today’s summary'}</b>
-            <span>{submission ? 'All three steps done' : closeLabel(min)}</span>
-          </div>
+        <div className="r2Site rlText">
+          <span className="r2Dot" aria-hidden="true" />
+          <span><small>Site: <b>{site || '–'}</b></small><small>{projectWeek != null ? <>Project week: <b>{projectWeek}</b></> : closeLabel(min)}</small></span>
         </div>
         <div className="railUserWrap">
           {userMenu && (
@@ -167,13 +153,12 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
               <button className="railLink signOut" role="menuitem" onClick={signOut}><Icon name="out" /><span className="rlText">Sign out</span></button>
             </div>
           )}
-          <button className="railUser" onClick={() => setUserMenu((v) => !v)} aria-expanded={userMenu} aria-haspopup="menu" title="Your account">
+          <button className="railUser r2User" onClick={() => setUserMenu((v) => !v)} aria-expanded={userMenu} aria-haspopup="menu" title="Your account">
             <span className="avatar">{initials}</span>
-            <div className="rlText"><b>{user.name}</b><span>{user.role === 'admin' ? 'Admin' : 'Store'}{site ? ` · ${site}` : ''}{api.mode === 'demo' ? ' · demo' : ''}</span></div>
-            <span className={`rgChev rlText ${userMenu ? 'open' : ''}`} aria-hidden="true">▴</span>
+            <div className="rlText"><b>{user.name}</b><span>{user.role === 'admin' ? 'Admin' : 'Store keeper'}{api.mode === 'demo' ? ' · demo' : ''}</span></div>
+            <span className={`r2Chev rlText ${userMenu ? 'open' : ''}`} aria-hidden="true"><Icon name="chevR" size={15} /></span>
           </button>
         </div>
-        <button className="railCollapse" onClick={toggleRail} aria-label={mini ? 'Expand the menu' : 'Collapse the menu'} title={mini ? 'Expand the menu' : 'Collapse the menu'}><Icon name="panel" size={18} /><span className="rlText">Collapse menu</span></button>
       </aside>
 
       <div className="shellMain">

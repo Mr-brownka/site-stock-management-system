@@ -49,6 +49,14 @@ export function Ring({ done, total, size = 64 }: { done: number; total: number; 
 
 const P = { fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
 const ICONS: Record<string, ReactNode> = {
+  home: <><path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z" {...P} /></>,
+  clip: <><rect x="5" y="4" width="14" height="17" rx="2" {...P} /><path d="M9 4V3h6v1M9 10h6M9 14h4" {...P} /></>,
+  issue: <><rect x="4" y="4" width="16" height="16" rx="2" {...P} /><path d="M10 14l7-7M12 7h5v5" {...P} /></>,
+  undo: <><path d="M9 14L4 9l5-5" {...P} /><path d="M4 9h10a6 6 0 0 1 0 12h-3" {...P} /></>,
+  bars: <><path d="M6 20V11M12 20V4M18 20v-6" {...P} /></>,
+  warn: <><path d="M12 4l9 16H3z" {...P} /><path d="M12 10v4M12 17h.01" {...P} /></>,
+  chevR: <><path d="M9 6l6 6-6 6" {...P} /></>,
+  collapse: <><rect x="3" y="4" width="18" height="16" rx="3" {...P} /><path d="M9 4v16M15 10l-2 2 2 2" {...P} /></>,
   checkin: <><rect x="4" y="3" width="16" height="18" rx="2" {...P} /><path d="M8 8h8M8 12h5" {...P} /><path d="M9 16.5l2 2 4-4" {...P} /></>,
   report: <><path d="M6 3h9l4 4v14H6z" {...P} /><path d="M14 3v5h5M9 13h7M9 17h5" {...P} /></>,
   chart: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" {...P} /></>,
