@@ -224,7 +224,7 @@ export function Home() {
         <span className="lcBar">{outCount > 0 && <i className="out" style={{ flex: outCount }} />}{lowOnly > 0 && <i className="low" style={{ flex: lowOnly }} />}</span>
         <span className="lcLeg">{outCount > 0 && <span><b className="out">{outCount}</b> out of stock</span>}{lowOnly > 0 && <span><b className="low">{lowOnly}</b> running out</span>}</span>
       </span>
-      <span className="lcList">{urgent.map((b) => { const dl = daysLeft(b); return <span key={b.item_id} className="lcItem"><span>{b.name}</span><b className={b.balance <= 0 ? 'out' : 'low'}>{b.balance <= 0 ? 'Out' : dl != null ? `${dl} day${dl === 1 ? '' : 's'} left` : `${fmt(b.balance)} ${b.unit}`}</b></span>; })}</span>
+      <span className="lcList">{urgent.map((b) => <span key={b.item_id} className="lcItem"><span>{b.name}</span><b className={b.balance <= 0 ? 'out' : 'low'}>{b.balance <= 0 ? 'Finished' : `${fmt(b.balance)} ${b.unit}`}</b></span>)}</span>
       <span className="lcGo">Review all {nLow}<Icon name="arrow" size={16} /></span>
     </button>
   );
