@@ -19,7 +19,7 @@ import { openRecords, useAddEntry } from '../components/AddEntry';
 import { useZohoDeliveries } from '../components/Zoho';
 import { openItems } from './Dashboard';
 import { continueEvening, startEvening, useFlow } from '../components/EveningFlow';
-import { IncomingPanel, useOnTheWay } from '../components/Incoming';
+import { IncomingPanel } from '../components/Incoming';
 import { Ring } from '../components/Ring';
 
 
@@ -77,8 +77,6 @@ export function Home() {
     });
     return { weekBars: bars, todayIdx: (new Date(day + 'T00:00:00Z').getUTCDay() + 6) % 7 };
   }, [recent, day]);
-  const onWay = useOnTheWay();
-  const coming = lowItems.map((b) => [b.name, onWay.get(b.name.toLowerCase())] as [string, string | undefined]).filter((x): x is [string, string] => !!x[1]).slice(0, 3);
   useSignal('entries', () => setShowEntries(true));
   const movedToday = new Set(docsToday.flatMap((d) => d.lines.map((l) => l.item_id))).size;
 
@@ -319,7 +317,6 @@ export function Home() {
             <header className="panelHead"><b>Needs attention</b>{nLow > 0 && <small className="muted">{nLow} item{nLow === 1 ? '' : 's'}</small>}</header>
             {!lowItems.length && <div className="pad small muted">Nothing is low. All good.</div>}
             {lowCard}
-            {coming.length > 0 && <div className="attWay">On their way: {coming.map(([n, w]) => `${n} (${w})`).join(' · ')}</div>}
             <AlertButton />
           </section>
         </aside>
