@@ -209,7 +209,8 @@ function lowCount(bs: Balance[], site: string, docs: SiteDoc[], day: string) {
   for (let i = 0; i < 14; i++) if (weekday(addDays(day, -i)) !== 'Sun') workdays++;
   return bs.filter((b) => {
     if (b.site_id !== site) return false;
-    if (b.balance <= 0 || (b.reorder_level != null && b.balance <= b.reorder_level)) return true;
+    if (b.balance <= 0) return true;
+    if (b.reorder_level != null) return b.balance <= b.reorder_level;
     const a = Math.max(0, used.get(b.item_id) ?? 0) / workdays;
     return a > 0 && b.balance / a <= 5;
   }).length;
