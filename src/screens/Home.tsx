@@ -316,7 +316,7 @@ export function Home() {
           <span className="k3Txt"><b className="k3L">Consumption</b><span className="k3N">{weekUse.top ? <><Num value={weekUse.top.used} /><small>{weekUse.top.it?.unit} this week</small></> : '0'}</span><span className="k3F">{weekUse.top ? `${weekUse.top.it?.name ?? 'Item'} most` : 'Nothing used yet'} <Icon name="arrow" size={12} /></span></span>
           <span className="k3Bars" aria-hidden="true">{weekBars.map((v, i) => <i key={i} className={i === todayIdx ? 'on' : ''} style={{ height: `${Math.max(8, (v / (Math.max(...weekBars) || 1)) * 100)}%` }} />)}</span>
         </button>
-        {inc && <button className="kpi3 blue enter" onClick={() => document.querySelector('.incPanel')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>
+        {inc && <button className="kpi3 blue enter" onClick={() => go('incoming')}>
           <span className="k3Txt"><b className="k3L">Coming in</b><span className="k3N"><Num value={inc.week} /><small>order{inc.week === 1 ? '' : 's'} this week</small></span><span className={`k3F ${inc.late ? 'late' : ''}`}>{inc.late ? `${inc.late} late` : 'None late'}{inc.today ? ` · ${inc.today} today` : ''} <Icon name="arrow" size={12} /></span></span>
         </button>}
         <button className="kpi3 ink enter" onClick={() => go('stocktake')}>

@@ -3739,3 +3739,58 @@ select.pfIn { appearance: auto; }
 .delQ { font-weight: 600; font-size: 14px; } .delQ small { color: var(--muted); font-weight: 400; }
 .adBtn.danger { background: #B42318; border-color: #B42318; color: #fff; }
 .incGrnLink { all: unset; cursor: pointer; } .incGrnLink:hover .incPo { text-decoration: underline; }
+
+/* ═════ Coming in page (design A) ═════ */
+.incChip.part { background: #EAF1FF; color: #2D5BD0; }
+.incPageLink { color: #2D5BD0 !important; }
+.cinPage { display: flex; flex-direction: column; gap: 12px; }
+.cinHead { display: flex; align-items: flex-end; gap: 12px; }
+.cinHead > div { flex: 1; min-width: 0; } .cinHead h1 { margin: 0; } .cinHead p { margin: 2px 0 0; font-size: 13.5px; }
+.cinRef { white-space: nowrap; } .cinRef.busy svg { animation: spin 1s linear infinite; }
+.cinKpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: #fff; border: 1px solid #E6E9E7; border-radius: 12px; overflow: hidden; }
+.cinKpis > div { padding: 12px 16px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cinKpis > div + div { border-left: 1px solid #EEF0EE; }
+.cinKpis small { font-size: 12px; font-weight: 700; color: var(--muted); } .cinKpis small.muted { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cinKpis b { font-size: 22px; font-weight: 600; } .cinKpis b span { font-family: var(--body); font-size: 13px; font-weight: 500; color: var(--muted); }
+.cinKpis .blue b { color: #2D5BD0; } .cinKpis .red b { color: var(--error); }
+.cinGrid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-items: start; }
+.cinGrid.open { grid-template-columns: minmax(0, 1fr) 380px; }
+.cinList { padding: 0 !important; overflow: hidden; }
+.cinBar { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid #EEF0EE; flex-wrap: wrap; }
+.cinTabs { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: #EEF0EE; }
+.cinTabs button { height: 28px; padding: 0 11px; border: 0; border-radius: 8px; background: transparent; font: inherit; font-size: 12.5px; font-weight: 700; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; cursor: pointer; white-space: nowrap; }
+.cinTabs button[aria-selected="true"] { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.cinTabs button span { font-size: 11px; color: var(--muted); }
+.cinFind { margin-left: auto; width: 240px; height: 32px; border-radius: 8px; background: #F4F5F3; display: flex; align-items: center; gap: 8px; padding: 0 10px; color: var(--muted); }
+.cinFind input { border: 0; background: transparent; font: inherit; font-size: 13px; outline: 0; flex: 1; min-width: 0; color: var(--ink); }
+.cinTh, .cinRow { display: grid; grid-template-columns: minmax(0, 1.3fr) 112px minmax(0, 1.8fr) 110px 110px; gap: 12px; align-items: center; padding: 0 16px; }
+.cinTh { height: 34px; background: #FAFBFA; border-bottom: 1px solid #EEF0EE; font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.cinTh > :nth-child(n+4) { text-align: right; }
+.cinRow { width: 100%; min-height: 44px; border: 0; border-bottom: 1px solid #F1F3F1; background: #fff; font: inherit; font-size: 13px; color: var(--ink); text-align: left; cursor: pointer; }
+.cinRow:hover { background: #FAFBFA; } .cinRow.on { background: #FFF9EE; box-shadow: inset 3px 0 0 var(--accent); }
+.cinV { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cinIt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .cinIt em { font-style: normal; color: var(--muted); }
+.cinQ { text-align: right; font-weight: 600; white-space: nowrap; } .cinQ small { color: var(--muted); font-weight: 500; }
+.cinDue { text-align: right; }
+.cinSide { padding: 0 !important; position: sticky; top: 62px; overflow: hidden; display: flex; flex-direction: column; max-height: calc(100vh - 80px); overflow-y: auto; }
+.cinSide .incSHead { padding: 14px 16px; } .cinSide .incSFoot { margin-top: auto; }
+.incNotBig { color: var(--error) !important; }
+@media (max-width: 1100px) { .cinGrid.open { grid-template-columns: minmax(0, 1fr) 330px; } .cinTh, .cinRow { grid-template-columns: minmax(0, 1.2fr) 100px minmax(0, 1.4fr) 90px 96px; } }
+@media (max-width: 767px) {
+  .cinHead { align-items: flex-start; } .cinHead p { display: none; }
+  .cinKpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cinKpis > div:nth-child(3) { border-left: 0; } .cinKpis > div:nth-child(n+3) { border-top: 1px solid #EEF0EE; }
+  .cinKpis b { font-size: 19px; }
+  .cinBar { padding: 10px; } .cinTabs { width: 100%; overflow-x: auto; } .cinFind { width: 100%; margin: 0; }
+  .cinTh { display: none; }
+  .cinRow { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "v q" "i d"; row-gap: 2px; padding: 10px 14px; }
+  .cinV { grid-area: v; font-size: 14px; } .cinPo { display: none; } .cinIt { grid-area: i; font-size: 12.5px; color: var(--muted); }
+  .cinQ { grid-area: q; } .cinDue { grid-area: d; }
+}
+.cinSide .incSHead { padding: 14px 16px 12px; gap: 6px; } .cinSide .incSHead h2 { font-family: var(--body); font-size: 19px; font-weight: 700; line-height: 1.2; }
+.cinSide .incDates span { min-width: 0; padding: 6px 10px; } .cinSide .incDates b { font-size: 13px; }
+.cinSide .incTbl .th, .cinSide .incTbl .tr { grid-template-columns: minmax(0, 1fr) 58px 44px 78px; gap: 8px; padding: 0 16px; }
+.cinSide .incTbl .tr { min-height: 46px; font-size: 13px; } .cinSide .incTbl .th { font-size: 10px; letter-spacing: .06em; }
+.cinSide .incTbl .tr .incBar { width: 100%; }
+.cinSide .incGrns { padding: 12px 16px 4px; } .cinSide .incSFoot { padding: 12px 16px 16px; flex-direction: column; }
+@media (max-width: 767px) { .incTbl .th { letter-spacing: .03em; font-size: 10.5px; } .incTbl .th span { white-space: nowrap; } }

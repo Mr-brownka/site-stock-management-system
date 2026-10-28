@@ -31,7 +31,7 @@ const RECORDS: { screen: Screen; label: string; tone: string; entry: Screen }[] 
 ];
 const readRecOpen = () => { try { return localStorage.getItem('ssms-records') !== 'closed'; } catch { return true; } };
 // Screens that show the phone tab bar (not the step-by-step forms).
-const TABBAR: Screen[] = ['home', 'dashboard', 'corrections', 'submitted', 'reports', 'stocktake', 'rec-deliveries', 'rec-issued', 'rec-returns', 'rec-transfers', 'consumption', 'balances', 'records'];
+const TABBAR: Screen[] = ['home', 'dashboard', 'corrections', 'submitted', 'reports', 'stocktake', 'rec-deliveries', 'rec-issued', 'rec-returns', 'rec-transfers', 'consumption', 'balances', 'records', 'incoming'];
 
 export function closeLabel(min: number): string {
   if (min <= 0) return 'Register closed at 6:00 pm';
@@ -50,6 +50,7 @@ function crumbs(screen: Screen): string[] {
   if (screen === 'reports') return ['Records', 'Reports'];
   if (screen === 'consumption') return ['Dashboard', 'Consumption'];
   if (screen === 'balances') return ['Dashboard', 'Balances'];
+  if (screen === 'incoming') return ['Dashboard', 'Coming in'];
   return [NAV.find((n) => n.match.includes(screen))?.label ?? ''];
 }
 

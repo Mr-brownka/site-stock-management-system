@@ -8,6 +8,8 @@ import { fmt } from './ui';
 import { toast } from './feedback';
 import { ZohoBooksMark, ZohoOpen, openInZoho } from './Zoho';
 import { useData } from '../lib/store';
+import { useIsPhone } from './Ring';
+import { BackPill } from './BackPill';
 
 const KEY = 'ostock-incoming';
 const FRESH = 30 * 60_000; // checked at most every 30 minutes unless Refresh is pressed
@@ -69,35 +71,44 @@ function RemoveSheet({ o, onClose, onDone }: { o: IncomingOrder; onClose: () => 
     </div>, document.body);
 }
 
-/** The order, opened from a card: ordered, received and still to come per item, and each delivery so far. */
-function OrderSheet({ o, onClose }: { o: IncomingOrder; onClose: () => void }) {
+/** One order: ordered, received and still to come per item, each delivery so far, and Open in Zoho Books. */
+function OrderView({ o, onClose, onNot }: { o: IncomingOrder; onClose: () => void; onNot?: () => void }) {
+  const anyIn = o.lines.some((l) => l.received > 0);
+  return (
+    <>
+      <header className="incSHead">
+        <div className="incSTop"><PoTag po={o.po} />{anyIn && <span className="incChip today">Part in</span>}<span className="abGrow" /><button className="iconBtn" onClick={onClose} aria-label="Close"><Icon name="close" /></button></div>
+        <h2 id="incTitle">{o.vendor ?? 'Vendor'}</h2>
+        <div className="incDates">
+          {[['Ordered', o.date], ['Expected', o.expected], ['Last in', o.lastIn]].filter(([, v]) => v).map(([k, v]) => <span key={k}><small>{k}</small><b>{niceDate(v!)}</b></span>)}
+        </div>
+      </header>
+      <div className="incTbl">
+        <div className="th"><span>Item</span><span>Ordered</span><span>In</span><span>To come</span></div>
+        {o.lines.map((l, i) => (
+          <div key={i} className="tr"><span><b>{l.name}</b><i className="incBar"><i style={{ width: `${Math.min(100, (l.received / (l.ordered || 1)) * 100)}%` }} /></i></span>
+            <span className="mono">{fmt(l.ordered)}</span><span className="mono ok">{fmt(l.received)}</span><span className="mono strong">{l.ordered - l.received > 0 ? `${fmt(l.ordered - l.received)} ${l.unit ?? ''}` : '✓ all in'}</span></div>
+        ))}
+      </div>
+      {!!o.grns?.length && <div className="incGrns"><span className="incGrnsT">Delivered so far</span>
+        {o.grns.map((g) => <div key={g.grn + g.date}><span><button type="button" className="incGrnLink" title="Open this receive in Zoho Books" onClick={() => openInZoho({ receive_id: g.id, grn: g.grn })}><PoTag po={g.grn} /></button> {short(g.date)}</span><small>{g.lines}</small></div>)}</div>}
+      <footer className="incSFoot"><ZohoOpen zref={{ po_id: o.id, po: o.po }} label={`Open ${o.po} in Zoho Books ↗`} />{onNot && <button className="btn ghost incNotBig" onClick={onNot}>Not coming</button>}</footer>
+    </>
+  );
+}
+
+/** The order as a sheet (dashboard panel, and the page on phones). */
+function OrderSheet({ o, onClose, onNot }: { o: IncomingOrder; onClose: () => void; onNot?: () => void }) {
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', k); document.body.classList.add('noScroll');
     return () => { document.removeEventListener('keydown', k); document.body.classList.remove('noScroll'); };
   }, [onClose]);
-  const anyIn = o.lines.some((l) => l.received > 0);
   return createPortal(
     <div className="sheetBack incBack" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <section className="incSheet" role="dialog" aria-modal="true" aria-labelledby="incTitle">
         <span className="incGrab" aria-hidden="true" />
-        <header className="incSHead">
-          <div className="incSTop"><PoTag po={o.po} />{anyIn && <span className="incChip today">Part in</span>}<span className="abGrow" /><button className="iconBtn" onClick={onClose} aria-label="Close"><Icon name="close" /></button></div>
-          <h2 id="incTitle">{o.vendor ?? 'Vendor'}</h2>
-          <div className="incDates">
-            {[['Ordered', o.date], ['Expected', o.expected], ['Last in', o.lastIn]].filter(([, v]) => v).map(([k, v]) => <span key={k}><small>{k}</small><b>{niceDate(v!)}</b></span>)}
-          </div>
-        </header>
-        <div className="incTbl">
-          <div className="th"><span>Item</span><span>Ordered</span><span>In</span><span>To come</span></div>
-          {o.lines.map((l, i) => (
-            <div key={i} className="tr"><span><b>{l.name}</b><i className="incBar"><i style={{ width: `${Math.min(100, (l.received / (l.ordered || 1)) * 100)}%` }} /></i></span>
-              <span className="mono">{fmt(l.ordered)}</span><span className="mono ok">{fmt(l.received)}</span><span className="mono strong">{l.ordered - l.received > 0 ? `${fmt(l.ordered - l.received)} ${l.unit ?? ''}` : '✓ all in'}</span></div>
-          ))}
-        </div>
-        {!!o.grns?.length && <div className="incGrns"><span className="incGrnsT">Delivered so far</span>
-          {o.grns.map((g) => <div key={g.grn + g.date}><span><button type="button" className="incGrnLink" title="Open this receive in Zoho Books" onClick={() => openInZoho({ receive_id: g.id, grn: g.grn })}><PoTag po={g.grn} /></button> {short(g.date)}</span><small>{g.lines}</small></div>)}</div>}
-        <footer className="incSFoot"><ZohoOpen zref={{ po_id: o.id, po: o.po }} /><button className="btn" onClick={onClose}>Close</button></footer>
+        <OrderView o={o} onClose={onClose} onNot={onNot} />
       </section>
     </div>, document.body);
 }
@@ -108,7 +119,7 @@ const SHOW = 11; // rows shown before "Show all"
 /** Incoming deliveries: expected this week and next (by expected date), and part deliveries of the last 4 weeks still owed. */
 export function IncomingPanel() {
   const { data, busy, refresh } = useIncoming();
-  const { projectWeek } = useData();
+  const { projectWeek, go } = useData();
   // Named by the project's week number (Week 121, Week 122) when the site has one.
   const wkName = (k: 0 | 1) => (projectWeek != null ? `Week ${projectWeek + k}` : k ? 'Next week' : 'This week');
   const [tab, setTab] = useState<Tab>('this');
@@ -136,10 +147,10 @@ export function IncomingPanel() {
     { k: 'part', title: 'Part-delivered', sub: 'Part came in, the rest still owed · kept 2 weeks', list: partList, part: true, empty: 'No part deliveries waiting' },
   ];
   return (
-    <section className="panel incPanel enter" aria-label="Incoming deliveries">
+    <section className="panel incPanel enter" aria-label="Deliveries to expect">
       <header className="incHead incHead2">
         <span className="incIc"><Icon name="truck" size={16} /></span>
-        <b className="incT2">Incoming deliveries</b>
+        <b className="incT2">Deliveries to expect</b>
         <div className="incTabs2" role="tablist">
           {cols.map((c) => <button key={c.k} role="tab" className={c.k} aria-selected={tab === c.k} onClick={() => { setTab(c.k); setAll(false); }}>{c.title}<span className="mono">{c.list.length}</span></button>)}
         </div>
@@ -172,6 +183,7 @@ export function IncomingPanel() {
               );
             })}
             {c.list.length > SHOW && <button type="button" className="incAll" onClick={() => setAll(!all)}>{all ? 'Show less' : `Show all ${c.list.length} →`}</button>}
+            {data && <button type="button" className="incAll incPageLink" onClick={() => go('incoming')}>See all {cols.reduce((a, x) => a + x.list.length, 0)} on the Coming in page →</button>}
             {c.part && gone.length > 0 && (
               <div className="incGone">
                 <button type="button" className="incGoneBtn" onClick={() => setShowGone(!showGone)}>Removed: {gone.length} · {showGone ? 'Hide' : 'Show'}</button>
@@ -183,7 +195,7 @@ export function IncomingPanel() {
           </div>
         );
       })()}
-      {open && <OrderSheet o={open} onClose={() => setOpen(null)} />}
+      {open && <OrderSheet o={open} onClose={() => setOpen(null)} onNot={tab === 'part' ? () => { setRemoving(open); setOpen(null); } : undefined} />}
       {removing && <RemoveSheet o={removing} onClose={() => setRemoving(null)} onDone={(r) => remove(removing, r)} />}
     </section>
   );
@@ -209,4 +221,91 @@ export function useIncomingCounts() {
   const today = m.today ?? new Date().toISOString().slice(0, 10);
   const wk = m.thisWeek ?? [];
   return { week: wk.length, late: wk.filter((o) => o.expected && o.expected < today).length, today: wk.filter((o) => o.expected === today).length, part: (m.part ?? []).length };
+}
+
+type PTab = 'this' | 'next' | 'part' | 'all';
+/** Coming in: every order Zoho expects at this site, in one table. The order opens on the right (a sheet on phones). */
+export function ComingInPage() {
+  const { data, busy, refresh } = useIncoming();
+  const { projectWeek, site } = useData();
+  const phone = useIsPhone();
+  const wkName = (k: 0 | 1) => (projectWeek != null ? `Week ${projectWeek + k}` : k ? 'Next week' : 'This week');
+  const [tab, setTab] = useState<PTab>('this');
+  const [q, setQ] = useState('');
+  const [selId, setSelId] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<IncomingOrder | null>(null);
+  const [gone, setGone] = useState<IncomingDismissed[]>([]);
+  const loadGone = useCallback(() => api.dismissedIncoming().then(setGone).catch(() => undefined), []);
+  useEffect(() => { loadGone(); }, [loadGone]);
+  const today = data?.today ?? new Date().toISOString().slice(0, 10);
+  const goneIds = new Set(gone.map((g) => g.po_id));
+  const keepFrom = addDay(today, -13);
+  const lists: Record<Exclude<PTab, 'all'>, IncomingOrder[]> = {
+    this: data?.thisWeek ?? [], next: data?.nextWeek ?? [],
+    part: (data?.part ?? []).filter((o) => !goneIds.has(o.id) && (!o.firstIn || o.firstIn >= keepFrom)),
+  };
+  const all: { o: IncomingOrder; k: Exclude<PTab, 'all'> }[] = [];
+  const seen = new Set<string>();
+  (['this', 'next', 'part'] as const).forEach((k) => lists[k].forEach((o) => { if (!seen.has(o.id)) { seen.add(o.id); all.push({ o, k }); } }));
+  const rows = (tab === 'all' ? all : lists[tab].map((o) => ({ o, k: tab }))).filter(({ o }) => {
+    const s = q.trim().toLowerCase();
+    return !s || [o.vendor, o.po, ...o.lines.map((l) => l.name)].some((x) => (x ?? '').toLowerCase().includes(s));
+  });
+  const late = lists.this.filter((o) => o.expected && o.expected < today);
+  const dueToday = lists.this.filter((o) => o.expected === today).length;
+  const sel = all.find((x) => x.o.id === selId) ?? null;
+  const remove = async (o: IncomingOrder, reason: string) => {
+    await api.dismissIncoming({ po_id: o.id, po: o.po, vendor: o.vendor, reason });
+    setRemoving(null); setSelId(null); await loadGone();
+    toast(`${o.po} removed from incoming`, 'ok', { label: 'Undo', run: () => { api.restoreIncoming(o.id).then(loadGone).catch(() => undefined); } });
+  };
+  const kp = [
+    { l: 'Due this week', n: lists.this.length, s: `${late.length ? `${late.length} late` : 'None late'}${dueToday ? ` · ${dueToday} today` : ''}`, t: '' },
+    { l: wkName(1), n: lists.next.length, s: data?.next ? `${short(data.next.from)} – ${short(data.next.to)}` : 'Next week', t: '' },
+    { l: 'Part-delivered', n: lists.part.length, s: 'rest still owed', t: 'blue' },
+    { l: 'Late', n: late.length, s: late.slice(0, 2).map((o) => (o.vendor ?? '').split(' ')[0]).join(' · ') || 'Nothing late', t: late.length ? 'red' : '' },
+  ];
+  const tabs: { k: PTab; t: string; n: number }[] = [
+    { k: 'this', t: wkName(0), n: lists.this.length }, { k: 'next', t: wkName(1), n: lists.next.length },
+    { k: 'part', t: 'Part-delivered', n: lists.part.length }, { k: 'all', t: 'All', n: all.length },
+  ];
+  if (data && !data.connected) return <div className="page cinPage"><BackPill /><h1>Coming in</h1><div className="panel pad muted">Zoho Books isn’t connected for this site yet.</div></div>;
+  return (
+    <div className="page cinPage">
+      <BackPill />
+      <header className="cinHead">
+        <div><h1>Coming in</h1><p className="muted">Every order Zoho expects at {site || 'this site'}. Fully received items drop off by themselves.</p></div>
+        <button className={`btn ghost sm cinRef ${busy ? 'busy' : ''}`} onClick={refresh} disabled={busy}><Icon name="refresh" size={15} />{busy ? 'Checking Zoho…' : data?.checked_at ? `Checked ${ago(data.checked_at)}` : 'Check Zoho'}</button>
+      </header>
+      {data?.error && <div className="note" role="status">Zoho didn’t answer just now. Showing the last check.</div>}
+      <div className="cinKpis">{kp.map((k) => <div key={k.l} className={k.t}><small>{k.l}</small><b className="mono">{k.n}<span>{k.n === 1 ? ' order' : ' orders'}</span></b><small className="muted">{k.s}</small></div>)}</div>
+      <div className={`cinGrid ${sel && !phone ? 'open' : ''}`}>
+        <section className="panel cinList">
+          <div className="cinBar">
+            <div className="cinTabs" role="tablist">{tabs.map((t) => <button key={t.k} role="tab" aria-selected={tab === t.k} onClick={() => setTab(t.k)}>{t.t}<span className="mono">{t.n}</span></button>)}</div>
+            <label className="cinFind"><Icon name="search" size={15} /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Vendor, PO or item" aria-label="Find a vendor, PO or item" /></label>
+          </div>
+          <div className="cinTh" aria-hidden="true"><span>Vendor</span><span>PO</span><span>Items still to come</span><span>Qty</span><span>Expected</span></div>
+          {!data && busy && <div className="incSkel" />}
+          {data && !rows.length && <div className="incEmpty2">{q ? `Nothing matches “${q}”.` : tab === 'part' ? 'No part deliveries waiting.' : 'Nothing expected here.'}</div>}
+          {rows.map(({ o, k }) => {
+            const dd = due(o, today); const first = o.lines[0]; const more = o.lines.length - 1;
+            const owed = first ? first.ordered - first.received : 0;
+            return (
+              <button key={o.id + k} type="button" className={`cinRow ${selId === o.id ? 'on' : ''}`} onClick={() => setSelId(selId === o.id && !phone ? null : o.id)}>
+                <b className="cinV">{o.vendor ?? 'Vendor'}</b>
+                <span className="cinPo"><PoTag po={o.po} /></span>
+                <span className="cinIt">{first?.name}{more > 0 && <em> · +{more} more</em>}</span>
+                <b className="cinQ mono">{first ? <>{fmt(owed)}{k === 'part' && <small>/{fmt(first.ordered)}</small>} <small>{first.unit ?? ''}</small></> : ''}</b>
+                <span className="cinDue">{k === 'part' ? <span className="incChip part">{o.lastIn ? `Last in ${short(o.lastIn)}` : 'Part in'}</span> : <span className={`incChip ${dd.k}`}>{dd.k === 'late' && o.expected === addDay(today, -1) ? 'Yesterday' : dd.k === 'today' ? 'Today' : dd.t.replace('Due ', '')}</span>}</span>
+              </button>
+            );
+          })}
+        </section>
+        {sel && !phone && <aside className="panel cinSide" aria-label={`Order ${sel.o.po}`}><OrderView o={sel.o} onClose={() => setSelId(null)} onNot={sel.k === 'part' ? () => setRemoving(sel.o) : undefined} /></aside>}
+      </div>
+      {sel && phone && <OrderSheet o={sel.o} onClose={() => setSelId(null)} onNot={sel.k === 'part' ? () => setRemoving(sel.o) : undefined} />}
+      {removing && <RemoveSheet o={removing} onClose={() => setRemoving(null)} onDone={(r) => remove(removing, r)} />}
+    </div>
+  );
 }

@@ -26,6 +26,7 @@ const StockTake = lazy(() => import('./screens/StockTake').then((m) => ({ defaul
 const Records = lazy(() => import('./screens/Records').then((m) => ({ default: m.Records })));
 const Consumption = lazy(() => import('./screens/Consumption').then((m) => ({ default: m.Consumption })));
 const Balances = lazy(() => import('./screens/Balances').then((m) => ({ default: m.Balances })));
+const ComingIn = lazy(() => import('./components/Incoming').then((m) => ({ default: m.ComingInPage })));
 const Reports = lazy(() => import('./screens/Reports').then((m) => ({ default: m.Reports })));
 const PageSkeleton = () => (
   <div className="page" aria-busy="true">
@@ -39,7 +40,7 @@ const SCREENS: Record<Screen, React.ComponentType> = {
   home: Home, deliveries: Deliveries, issued: Issued, returns: Returns, transfers: Transfers,
   submitted: Submitted, dashboard: DashboardJump, stocktake: StockTake, corrections: Corrections, reports: Reports, welcome: Home,
   'rec-deliveries': () => <Records recKey="deliveries" />, 'rec-issued': () => <Records recKey="issued" />,
-  'rec-returns': () => <Records recKey="returns" />, 'rec-transfers': () => <Records recKey="transfers" />, consumption: Consumption, balances: Balances, records: RecordsHub,
+  'rec-returns': () => <Records recKey="returns" />, 'rec-transfers': () => <Records recKey="transfers" />, consumption: Consumption, balances: Balances, records: RecordsHub, incoming: ComingIn,
 };
 
 const fromHash = (): Screen => {
