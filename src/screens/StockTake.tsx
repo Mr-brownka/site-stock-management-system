@@ -74,6 +74,7 @@ export function StockTake() {
   const [openTake, setOpenTake] = useState<Take | null>(null);
   const [sharing, setSharing] = useState<Take | null>(null);
   const [saving, setSaving] = useState<Take | null>(null);
+  const [savingLive, setSavingLive] = useState(false);
   const editable = canEdit(user);
   const [printing, setPrinting] = useState<{ items: Item[]; values?: Record<number, number>; take?: Take } | null>(null);
   const rowsRef = useRef<HTMLDivElement>(null);
@@ -234,7 +235,16 @@ export function StockTake() {
       <header className="pageHead enter">
         <div className="phText"><h1>{first ? 'First stock take' : 'Stock take'}</h1><span className="phLead">{!editable ? 'Every count of the store, newest first. Print one to download it as Excel or PDF.' : first ? 'Count the store once. Every balance starts from this count.' : 'Every count of the store, newest first.'}</span></div>
       </header>
-      {!editable ? null : list && !list.length ? (
+      {!editable ? (
+        <section className="panel stNext">
+          <span className="stNextIc" aria-hidden="true"><Icon name="box" size={22} /></span>
+          <div className="stNextText">
+            <b>Live balances · {dShort(realToday)}</b>
+            <span>What the system shows in the store right now, {balances.length} items, in the stock take template.</span>
+          </div>
+          <button className="btn accent sm" disabled={!balances.length} onClick={() => setSavingLive(true)}><Icon name="print" size={16} />Print live balances</button>
+        </section>
+      ) : list && !list.length ? (
         <div className="note stack">
           <b>This store’s item list is not ready yet.</b>
           <span>The admin lists the items in each store first (without quantities). Then you can count here.</span>
@@ -299,6 +309,7 @@ export function StockTake() {
         </div>, document.body)}
       {printLayer}
       {saving && <SaveTake take={saving} refName={refOf(saving)} onClose={() => setSaving(null)} />}
+      {savingLive && <SaveTake take={{ id: 'live', count_date: realToday, lines: [...balances].sort((a, b) => a.name.localeCompare(b.name)).map((b) => ({ item_id: b.item_id, qty: b.balance })) } as unknown as Take} refName="Live balances" live onClose={() => setSavingLive(false)} />}
       {sharing && <ShareTake take={sharing} refName={refOf(sharing)} onClose={() => setSharing(null)} />}
     </div>
   );
@@ -354,13 +365,13 @@ function ShareTake({ take, refName, onClose }: { take: Take; refName: string; on
 }
 
 /** View-only people print a stock take by downloading it, in the same template as the email: Excel or PDF. */
-function SaveTake({ take, refName, onClose }: { take: Take; refName: string; onClose: () => void }) {
+function SaveTake({ take, refName, live = false, onClose }: { take: Take; refName: string; live?: boolean; onClose: () => void }) {
   const { site, itemById } = useData();
   const [busy, setBusy] = useState('');
   const rows = sorted(take.lines.map((l) => itemById.get(l.item_id)).filter(Boolean) as Item[]);
   const qty = new Map(take.lines.map((l) => [l.item_id, l.qty]));
   const data = rows.map((it) => ({ name: it.name, unit: it.unit, qty: qty.get(it.id) ?? 0, inZoho: it.in_zoho !== false }));
-  const base = `${site} stock take ${take.count_date.split('-').reverse().join('-')}`.replace(/[\\/:*?"<>|]/g, '-');
+  const base = `${site} ${live ? 'live balances' : 'stock take'} ${take.count_date.split('-').reverse().join('-')}`.replace(/[\\/:*?"<>|]/g, '-');
   const go = async (kind: 'xlsx' | 'pdf') => {
     setBusy(kind);
     try {
