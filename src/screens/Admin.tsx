@@ -699,11 +699,11 @@ function ShareDetails({ name, password, phone, onDone }: { name: string; passwor
       <b>Send {name.split(' ')[0]} the login details</b>
       <pre className="adShareText">{text}</pre>
       <span className="adActs">
-        {phone && <button className="adBtn ok" onClick={() => window.open(`https://wa.me/${waNumber(phone)}?text=${encodeURIComponent(text)}`, '_blank')}>Send on WhatsApp</button>}
+        <button className="adBtn ok" onClick={() => window.open(`https://wa.me/${phone ? waNumber(phone) : ''}?text=${encodeURIComponent(text)}`, '_blank')}>Send on WhatsApp</button>
         <button className="adBtn" onClick={() => { navigator.clipboard?.writeText(text).then(() => toast('Copied')).catch(() => toast('Select the text and copy it', 'warn')); }}>Copy</button>
         <button className="adBtn dark" onClick={onDone}>Done</button>
       </span>
-      {!phone && <small className="muted">No phone number saved, so no WhatsApp button. Copy and send it any way you like.</small>}
+      {!phone && <small className="muted">No phone number saved: WhatsApp will ask who to send it to. Add their number with Edit to skip that.</small>}
     </section>
   );
 }
@@ -801,6 +801,8 @@ function People({ d, me, busy, act }: { d: Data; me: User; busy: string; act: Ac
                 <span>{f === 'off' ? <span className="stPill idle">{p.status === 'removed' ? 'Removed' : 'Declined'}</span> : p.role === 'admin' ? '—' : p.training_waived ? <span className="muted">Skipped</span> : done >= TRAINING_DAYS ? <span className="stPill ok">Trained</span>
                   : <span className="adTrain"><i><b style={{ width: `${(done / TRAINING_DAYS) * 100}%` }} /></i>{done}/{TRAINING_DAYS} days</span>}</span>
                 <span className="muted">{ago(lastSeen(p.id))}</span>
+                <span className="adRowActs">{f !== 'off' && p.email !== me.email && <button className="adSend" title={`Send ${p.full_name.split(' ')[0]} the login details on WhatsApp`} aria-label={`Send ${p.full_name} the login details`}
+                  onClick={() => { const cur = issued[p.id]; if (cur) { setPwFor(null); setShare({ name: p.full_name, password: cur.password, phone: p.phone }); window.scrollTo({ top: 0, behavior: 'smooth' }); } else { setPagesFor(null); setPwFor({ id: p.id, value: newPassword(), show: true }); toast(`${p.full_name.split(' ')[0]}’s password isn’t known · save a new one and the message opens`, 'warn'); } }}><Icon name="mail" size={15} />Send</button>}
                 <Dots items={f === 'off' ? [{ label: 'Give access back', onClick: () => act(p.id, () => api.admin.setProfile(p.id, { status: 'approved' })) }] : [
                   ...(p.role !== 'admin' ? [{ label: 'Pages they see…', onClick: () => setPagesFor({ id: p.id, pages: p.pages ?? null }) }] : []),
                   { label: 'Password…', onClick: () => { setPagesFor(null); setPwFor({ id: p.id, value: issued[p.id]?.password ?? '', show: false }); } },
@@ -810,7 +812,7 @@ function People({ d, me, busy, act }: { d: Data; me: User; busy: string; act: Ac
                     : { label: 'Skip training', onClick: async () => { if (await ask({ title: `Let ${p.full_name} skip training?`, body: <p>Their store opens now (or the first stock take unlocks, if the store has no stock yet).</p>, yes: 'Skip training' })) act(p.id, () => api.admin.setProfile(p.id, { training_waived: true })); } }] : []),
                   ...(p.email !== me.email ? [{ label: 'Delete account', danger: true, onClick: async () => { if (await ask({ title: `Delete ${p.full_name}’s account?`, body: <p>The account is gone for good and the name is free to use again. If they have entries on record, use “Remove access” instead so the entries keep their name.</p>, yes: 'Delete account', tone: 'danger' })) act(p.id, () => api.admin.deletePerson(p.id)).then(() => toast(`${p.full_name}’s account is deleted`)); } }] : []),
                   ...(p.email !== me.email ? [{ label: 'Remove access', danger: true, onClick: async () => { if (await ask({ title: `Remove ${p.full_name}’s access?`, body: <p>They will no longer be able to sign in. You can give access back later.</p>, yes: 'Remove access', tone: 'danger' })) act(p.id, () => api.admin.setProfile(p.id, { status: 'removed' })); } }] : []),
-                ]} />
+                ]} /></span>
               </div>
             );
           })}
