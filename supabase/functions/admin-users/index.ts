@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
     const { data: made, error } = await db.auth.admin.createUser({ email, password: pw, email_confirm: true, user_metadata: { full_name: full, phone: b.phone ?? '', site_id: b.site_id ?? '', role } });
     if (error || !made.user) return json({ error: error?.message ?? 'Could not create the account.' });
     const { error: e2 } = await db.from('profiles').upsert({
-      id: made.user.id, full_name: full, email, phone: (b.phone as string) || null, role, access, pages,
+      id: made.user.id, full_name: full, email, phone: (b.phone as string) || null, role, access, pages, head_office: b.head_office === true,
       site_id: (b.site_id as string) || null, status: 'approved', decided_at: new Date().toISOString(),
       training_waived: role !== 'store' && role !== 'assistant',
     });

@@ -84,7 +84,7 @@ export interface Submission {
   closed_reason?: string | null;
 }
 
-export interface NewPerson { full_name: string; password: string; role: Role; site_id: string | null; access: Access; pages: string[] | null; phone: string | null }
+export interface NewPerson { full_name: string; password: string; role: Role; site_id: string | null; access: Access; pages: string[] | null; phone: string | null; head_office?: boolean }
 export type Role = 'store' | 'assistant' | 'admin' | 'procurement';
 /** Edit: can enter and change. Read: can only look. */
 export type Access = 'edit' | 'read';
@@ -103,6 +103,8 @@ export interface User {
   access?: Access;
   /** Pages the admin allows (null: every page). */
   pages?: string[] | null;
+  /** Head office: not tied to one site; picks which site to look at. */
+  headOffice?: boolean;
 }
 
 /** How a project is built: decides the sub-phases (floors) offered on forms. */
@@ -175,6 +177,7 @@ export interface Profile {
   training_waived?: boolean;
   access?: Access;
   pages?: string[] | null;
+  head_office?: boolean;
 }
 
 export interface SignUpInput {
@@ -230,7 +233,7 @@ export interface AdminApi {
   createPerson(p: NewPerson): Promise<void>;
   /** Set a new password for someone (the admin shares it). */
   setPersonPassword(userId: string, password: string): Promise<void>;
-  setProfile(id: string, patch: Partial<Pick<Profile, 'status' | 'role' | 'site_id' | 'full_name' | 'phone' | 'training_waived' | 'access' | 'pages'>>): Promise<void>;
+  setProfile(id: string, patch: Partial<Pick<Profile, 'status' | 'role' | 'site_id' | 'full_name' | 'phone' | 'training_waived' | 'access' | 'pages' | 'head_office'>>): Promise<void>;
   /** Item ids on a site's stock take list. */
   checklist(siteId: string): Promise<number[]>;
   setChecklist(siteId: string, itemIds: number[]): Promise<void>;
@@ -326,6 +329,8 @@ export interface Backend {
   submission(day: string): Promise<Submission | null>;
   /** Days already submitted at this site, between two dates. */
   submittedDays(from: string, to: string): Promise<string[]>;
+  /** Head office and admin: look at another site. */
+  viewSite(siteId: string): Promise<void>;
   submitDay(day: string, steps: Submission['steps'], closedReason?: string | null): Promise<void>;
   /** The latest submitted day before the given day (null if none yet). */
   lastSubmittedDay(before: string): Promise<string | null>;

@@ -733,7 +733,7 @@ function AddPerson({ d, busy, act, onClose, onMade }: { d: Data; busy: string; a
         <label className="field"><span>Last name</span><input className="input" value={v.last} onChange={(e) => setV({ ...v, last: e.target.value })} /></label>
         <label className="field"><span>Phone (for WhatsApp)</span><input className="input" inputMode="tel" value={v.phone} placeholder="07…" onChange={(e) => setV({ ...v, phone: e.target.value })} /></label>
         <label className="field"><span>Role</span><select className="select input" value={v.role} onChange={(e) => { const r = e.target.value as Role; setV({ ...v, role: r, access: r === 'procurement' ? 'read' : v.access }); }}>{ROLE_OPTS.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select></label>
-        <label className="field"><span>Site</span><select className="select input" value={v.site_id} onChange={(e) => setV({ ...v, site_id: e.target.value })}>{d.sites.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
+        <label className="field"><span>Site</span><select className="select input" value={v.site_id} onChange={(e) => setV({ ...v, site_id: e.target.value })}><option value="__ho">Head office (all sites)</option>{d.sites.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
         <label className="field"><span>Can they change things?</span><select className="select input" value={v.role === 'procurement' ? 'read' : v.access} disabled={v.role === 'procurement' || v.role === 'admin'} onChange={(e) => setV({ ...v, access: e.target.value as Access })}><option value="edit">Yes, can edit</option><option value="read">No, view only</option></select></label>
         <label className="field"><span>Password</span><span className="adInline"><input className="input mono" value={v.password} onChange={(e) => setV({ ...v, password: e.target.value })} /><button type="button" className="adBtn" onClick={() => setV({ ...v, password: newPassword() })} title="Make another">↻</button></span></label>
       </div>
@@ -742,7 +742,8 @@ function AddPerson({ d, busy, act, onClose, onMade }: { d: Data; busy: string; a
         <button className="adBtn" onClick={onClose}>Cancel</button>
         <button className="adBtn dark" disabled={!!busy || !v.first.trim() || !v.last.trim() || v.password.length < 6}
           onClick={() => act('addperson', async () => {
-            await api.admin.createPerson({ full_name: full, password: v.password, role: v.role, site_id: v.site_id || null, access: v.role === 'procurement' ? 'read' : v.access, pages: readOnly ? v.pages : null, phone: v.phone.trim() || null });
+            const ho = v.site_id === '__ho';
+            await api.admin.createPerson({ full_name: full, password: v.password, role: v.role, head_office: ho, site_id: ho ? (d.sites[0]?.id ?? null) : v.site_id || null, access: v.role === 'procurement' ? 'read' : v.access, pages: readOnly ? v.pages : null, phone: v.phone.trim() || null });
             onMade({ name: full, password: v.password, phone: v.phone.trim() || null });
           })}>Add {v.first.trim() || 'person'}</button>
       </span>
@@ -776,17 +777,17 @@ function People({ d, me, busy, act }: { d: Data; me: User; busy: string; act: Ac
               <div key={p.id} className="tr adEditRow">
                 <label className="field"><span>Full name</span><input className="input" value={edit.full_name} autoFocus onChange={(e) => setEdit({ ...edit, full_name: e.target.value })} /></label>
                 <label className="field"><span>Phone</span><input className="input" inputMode="tel" value={edit.phone} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} /></label>
-                <label className="field"><span>Site</span><select className="select input" value={edit.site_id} onChange={(e) => setEdit({ ...edit, site_id: e.target.value })}>{d.sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+                <label className="field"><span>Site</span><select className="select input" value={edit.site_id} onChange={(e) => setEdit({ ...edit, site_id: e.target.value })}><option value="__ho">Head office (all sites)</option>{d.sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
                 <label className="field"><span>Role</span><select className="select input" value={edit.role} disabled={p.email === me.email} onChange={(e) => setEdit({ ...edit, role: e.target.value as Role })}>{(ROLE_OPTS).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select></label>
                 <span className="adActs">
                   <button className="adBtn" onClick={() => setEdit(null)}>Cancel</button>
-                  <button className="adBtn dark" disabled={!!busy || !edit.full_name.trim()} onClick={() => act(p.id, () => api.admin.setProfile(p.id, { full_name: edit.full_name.trim(), phone: edit.phone.trim() || null, site_id: edit.site_id, ...(p.email === me.email ? {} : { role: edit.role }) })).then(() => setEdit(null))}>Save</button>
+                  <button className="adBtn dark" disabled={!!busy || !edit.full_name.trim()} onClick={() => act(p.id, () => api.admin.setProfile(p.id, { full_name: edit.full_name.trim(), phone: edit.phone.trim() || null, ...(edit.site_id === '__ho' ? { head_office: true, site_id: p.site_id ?? d.sites[0]?.id ?? null } : { head_office: false, site_id: edit.site_id }), ...(p.email === me.email ? {} : { role: edit.role }) })).then(() => setEdit(null))}>Save</button>
                 </span>
               </div>
             ) : (
               <div key={p.id} className="tr">
                 <span className="adWhoS"><Av name={p.full_name} /><span><b>{p.full_name}</b><small>{p.email}{p.phone ? ` · ${p.phone}` : ''}</small></span></span>
-                <span>{p.role === 'admin' ? 'All sites' : name(p.site_id) || '—'}</span>
+                <span>{p.role === 'admin' ? 'All sites' : p.head_office ? <span className="adHO">Head office</span> : name(p.site_id) || '—'}</span>
                 <span><span className={`adRole ${p.role}`}>{ROLE_LABEL[p.role]}</span></span>
                 <span>{p.role === 'admin' ? <span className="muted">Everything</span> : p.role === 'procurement'
                   ? <span className="adAcc read" title="Procurement is view only">View only</span>
@@ -799,7 +800,7 @@ function People({ d, me, busy, act }: { d: Data; me: User; busy: string; act: Ac
                 <Dots items={f === 'off' ? [{ label: 'Give access back', onClick: () => act(p.id, () => api.admin.setProfile(p.id, { status: 'approved' })) }] : [
                   ...(p.role !== 'admin' ? [{ label: 'Pages they see…', onClick: () => setPagesFor({ id: p.id, pages: p.pages ?? null }) }] : []),
                   { label: 'Set a new password', onClick: () => { const pw = newPassword(); act(p.id, () => api.admin.setPersonPassword(p.id, pw)).then(() => setShare({ name: p.full_name, password: pw, phone: p.phone })); } },
-                  { label: 'Edit', onClick: () => setEdit({ id: p.id, full_name: p.full_name, phone: p.phone ?? '', site_id: p.site_id ?? d.sites[0]?.id ?? '', role: p.role }) },
+                  { label: 'Edit', onClick: () => setEdit({ id: p.id, full_name: p.full_name, phone: p.phone ?? '', site_id: p.head_office ? '__ho' : p.site_id ?? d.sites[0]?.id ?? '', role: p.role }) },
                   ...(p.role !== 'admin' && done < TRAINING_DAYS ? [p.training_waived
                     ? { label: 'Undo skip training', onClick: () => act(p.id, () => api.admin.setProfile(p.id, { training_waived: false })) }
                     : { label: 'Skip training', onClick: async () => { if (await ask({ title: `Let ${p.full_name} skip training?`, body: <p>Their store opens now (or the first stock take unlocks, if the store has no stock yet).</p>, yes: 'Skip training' })) act(p.id, () => api.admin.setProfile(p.id, { training_waived: true })); } }] : []),

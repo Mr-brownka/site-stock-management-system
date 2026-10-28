@@ -4043,3 +4043,8 @@ button.adAcc:hover { border-color: currentColor; }
 }
 .cpSheet { display: flex; flex-direction: column; gap: 12px; max-width: 420px; }
 .cpSheet h2 { margin: 0; font-size: 20px; }
+.adHO { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 99px; background: #EAF1FF; color: #2D5BD0; font-size: 12px; font-weight: 700; }
+.spSites { display: flex; flex-direction: column; gap: 4px; padding-top: 8px; border-top: 1px solid var(--line); }
+.spSites > span { font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.spSites button { text-align: left; border: 1px solid #E4E7E5; background: #fff; border-radius: 8px; padding: 7px 10px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.spSites button:hover:not(:disabled) { background: #F4F5F3; } .spSites button.on { background: #EAF1FF; border-color: #C9D8F7; color: #2D5BD0; cursor: default; }

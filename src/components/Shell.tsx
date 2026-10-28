@@ -9,6 +9,7 @@ import { ZohoAutoSync, ZohoStatusLine } from './Zoho';
 import { markDeliveriesSeen, useNewZohoDeliveries } from '../lib/newDeliveries';
 import { canEdit, canSee, roleLabel } from '../lib/access';
 import { ChangePassword } from './ChangePassword';
+import { toast } from './feedback';
 import { DatePick } from './DatePick';
 import { continueEvening, EveningFlow, stageFor } from './EveningFlow';
 import { Icon, PulseDot, Ring, useMinutesToClose } from './fx';
@@ -192,7 +193,8 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
                 <div className="spRow"><span>Site</span><b>{site || '–'}</b></div>
                 {projectWeek != null && <div className="spRow"><span>Project week</span><b>{projectWeek}</b></div>}
                 <div className="spRow"><span>Items in store</span><b>{balances.filter((b) => b.balance > 0).length}</b></div>
-                <div className="spRow"><span>You</span><b>{user.name} · {roleLabel(user)}</b></div>
+                <div className="spRow"><span>You</span><b>{user.name} · {roleLabel(user)}{user.headOffice ? ' · Head office' : ''}</b></div>
+                {(user.headOffice || user.role === 'admin') && <SitePicker current={site} />}
                 {user.role === 'admin' && <button className="btn ghost sm" onClick={() => { setSiteOpen(false); openAdmin(); }}>Manage sites</button>}
               </div>
             )}
@@ -271,6 +273,27 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
         </div>
       )}
       {palette && <CommandPalette onClose={() => setPalette(false)} />}
+    </div>
+  );
+}
+
+/** Head office (and the admin): switch the site being looked at. Everything reloads for that site. */
+function SitePicker({ current }: { current: string }) {
+  const [sites, setSites] = useState<{ id: string; name: string }[]>([]);
+  const [busy, setBusy] = useState('');
+  useEffect(() => { api.signupSites().then((x) => setSites(x.map((y) => ({ id: y.id, name: y.name })))).catch(() => undefined); }, []);
+  if (sites.length < 2) return null;
+  const pick = async (id: string) => {
+    setBusy(id);
+    try {
+      await api.viewSite(id);
+      try { Object.keys(localStorage).filter((k) => k.startsWith('ssms-cache:') || k.startsWith('ostock-incoming')).forEach((k) => localStorage.removeItem(k)); } catch { /* ignore */ }
+      location.hash = '/home'; location.reload();
+    } catch (e) { setBusy(''); toast((e as Error).message, 'warn'); }
+  };
+  return (
+    <div className="spSites"><span>Look at another site</span>
+      {sites.map((x) => <button key={x.id} className={x.name === current ? 'on' : ''} disabled={!!busy || x.name === current} onClick={() => pick(x.id)}>{busy === x.id ? 'Opening…' : x.name}{x.name === current && ' ✓'}</button>)}
     </div>
   );
 }

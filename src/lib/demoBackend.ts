@@ -152,7 +152,7 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
       async profiles() { return s.profiles; },
       async createPerson(p) {
         if (s.profiles.some((x) => x.full_name.toLowerCase() === p.full_name.trim().toLowerCase())) throw new Error(`Someone called ${p.full_name} already has an account.`);
-        s.profiles.unshift({ id: uid(), full_name: p.full_name.trim(), email: null, phone: p.phone, role: p.role, status: 'approved', site_id: p.site_id, created_at: new Date().toISOString(), decided_at: new Date().toISOString(), access: p.role === 'procurement' ? 'read' : p.access, pages: p.pages, training_waived: p.role !== 'store' && p.role !== 'assistant' });
+        s.profiles.unshift({ id: uid(), full_name: p.full_name.trim(), email: null, phone: p.phone, role: p.role, status: 'approved', site_id: p.site_id, created_at: new Date().toISOString(), decided_at: new Date().toISOString(), access: p.role === 'procurement' ? 'read' : p.access, pages: p.pages, head_office: !!p.head_office, training_waived: p.role !== 'store' && p.role !== 'assistant' });
         save();
       },
       async setPersonPassword() { /* demo: nothing to store */ },
@@ -322,6 +322,7 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
       save();
       return (s.trainingDays ?? []).length;
     },
+    async viewSite() { /* demo: one site */ },
     async submittedDays(from, to) { return Object.keys(s.submissions ?? {}).filter((d) => d >= from && d <= to); },
     async submitDay(day, steps, closedReason) { s.submissions[day] = { day, steps, closed_reason: closedReason ?? null, submitted_at: new Date().toISOString() }; save(); },
     async lastSubmittedDay(before) { return Object.keys(s.submissions).filter((d) => d < before).sort().pop() ?? null; },

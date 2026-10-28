@@ -44,7 +44,7 @@ function toBalance(r: Record<string, unknown>): Balance {
 function adminApi(sb: SupabaseClient): AdminApi {
   return {
     async profiles() {
-      const { data, error } = await sb.from('profiles').select('id, full_name, email, phone, role, status, site_id, created_at, decided_at, training_days, training_waived, access, pages').order('created_at', { ascending: false });
+      const { data, error } = await sb.from('profiles').select('id, full_name, email, phone, role, status, site_id, created_at, decided_at, training_days, training_waived, access, pages, head_office').order('created_at', { ascending: false });
       if (error) fail(error);
       return (data ?? []) as Profile[];
     },
@@ -232,12 +232,12 @@ export function supabaseBackend(url: string, key: string): Backend {
       const { data } = await sb.auth.getSession();
       const u = data.session?.user;
       if (!u) return null;
-      const { data: p } = await sb.from('profiles').select('full_name, role, status, site_id, training_days, training_waived, access, pages').eq('id', u.id).maybeSingle();
+      const { data: p } = await sb.from('profiles').select('full_name, role, status, site_id, training_days, training_waived, access, pages, head_office').eq('id', u.id).maybeSingle();
       return {
         email: u.email ?? '', name: p?.full_name || (u.email ?? '').split('@')[0],
         role: (p?.role ?? 'store') as User['role'], status: (p?.status ?? 'pending') as User['status'], siteId: p?.site_id ?? null,
         trainingDays: (p?.training_days as string[] | null) ?? [], trainingWaived: !!p?.training_waived,
-        access: (p?.access ?? 'edit') as User['access'], pages: (p?.pages as string[] | null) ?? null,
+        access: (p?.access ?? 'edit') as User['access'], pages: (p?.pages as string[] | null) ?? null, headOffice: !!p?.head_office,
       };
     },
 
@@ -474,6 +474,11 @@ export function supabaseBackend(url: string, key: string): Backend {
       return (data as Submission) ?? null;
     },
 
+    async viewSite(siteId) {
+      const { error } = await sb.rpc('view_site', { site: siteId });
+      if (error) fail(error);
+      siteCache = null;
+    },
     async submittedDays(from, to) {
       const { data, error } = await sb.from('day_submissions').select('day').eq('site_id', await mySite()).gte('day', from).lte('day', to);
       if (error) fail(error);
