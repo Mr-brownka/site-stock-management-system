@@ -242,7 +242,7 @@ export function StockTake() {
             <b>Live balances · {dShort(realToday)}</b>
             <span>What the system shows in the store right now, {balances.length} items, in the stock take template.</span>
           </div>
-          <button className="btn accent sm" disabled={!balances.length} onClick={() => setSavingLive(true)}><Icon name="print" size={16} />Print live balances</button>
+          <button className="btn accent sm" disabled={!balances.length} onClick={() => { setSavingLive(true); refresh().catch(() => undefined); }}><Icon name="print" size={16} />Print live balances</button>
         </section>
       ) : list && !list.length ? (
         <div className="note stack">

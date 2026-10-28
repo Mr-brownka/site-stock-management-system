@@ -128,6 +128,15 @@ export function DataProvider({ user, go, signOut, openAdmin, children }: { user:
     refresh().catch((e) => setError(e.message || String(e)));
   }, [refresh]);
 
+  // Stay live: what anyone enters for this site shows within half a minute, and at once when the tab comes back into view.
+  useEffect(() => {
+    const tick = () => { if (document.visibilityState === 'visible') refreshRef.current().catch(() => undefined); };
+    const t = setInterval(tick, 30_000);
+    document.addEventListener('visibilitychange', tick);
+    window.addEventListener('focus', tick);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', tick); window.removeEventListener('focus', tick); };
+  }, []);
+
   // Last visit's data shows at once (live mode only) while fresh data loads behind it.
   const cacheKey = `ssms-cache:${api.mode}:${user.email}`;
   const [syncing, setSyncing] = useState(false);
