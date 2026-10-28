@@ -1,6 +1,5 @@
 // Every store report, built from the same entries the check-in saves.
 import { addDays, eachDay, weekday } from './dates';
-import { subphaseRank } from './structure';
 import { delta, type Balance, type CorrectionRequest, type Doc, type Item, type Line, type Submission } from './types';
 
 export interface Col { key: string; label: string; num?: boolean; total?: boolean }
@@ -121,28 +120,6 @@ export const REPORTS: Def[] = [
     },
   },
   {
-    key: 'subphase', group: 'Consumption', icon: 'chart', needs: ['range'],
-    title: 'Consumption by floor / subphase',
-    desc: 'Materials used on each floor or subphase, so you can see where stock goes.',
-    build(c) {
-      const issueSub = new Map<number, string | null>();
-      c.docs.forEach((d) => d.lines.forEach((l) => { if (l.kind === 'issue') issueSub.set(l.id, l.subphase); }));
-      const agg = new Map<string, number>();
-      for (const { l } of linesIn(c)) {
-        let v = 0, sub = l.subphase;
-        if (l.kind === 'issue') v = l.qty;
-        else if (l.kind === 'return') { v = -l.qty; sub = sub ?? (l.return_of ? issueSub.get(l.return_of) ?? null : null); }
-        else continue;
-        const k = `${sub ?? 'No subphase'}|${l.item_id}`;
-        agg.set(k, (agg.get(k) ?? 0) + v);
-      }
-      const order = subphaseRank;
-      const rows = [...agg].filter(([, v]) => v > 0).map(([k, v]) => { const [sub, id] = k.split('|'); return { sub, item: nm(c, Number(id)), unit: un(c, Number(id)), used: r2(v) }; })
-        .sort((a, b) => order(a.sub) - order(b.sub) || a.sub.localeCompare(b.sub) || b.used - a.used);
-      return { cols: [{ key: 'sub', label: 'Floor / subphase' }, { key: 'item', label: 'Item' }, { key: 'unit', label: 'Unit' }, { key: 'used', label: 'Used', num: true }], rows, group: 'sub', tiles: [{ label: 'Floors / subphases', value: new Set(rows.map((r) => r.sub)).size }] };
-    },
-  },
-  {
     key: 'activity', group: 'Consumption', icon: 'card', needs: ['range'],
     title: 'Consumption by activity',
     desc: 'Materials issued for each activity (plaster, walling, slab…) from the withdrawal cards.',
@@ -204,14 +181,16 @@ export const REPORTS: Def[] = [
   },
   {
     key: 'cards', group: 'Registers', icon: 'card', needs: ['range'],
-    title: 'Withdrawal cards register',
-    desc: 'Every Material Withdrawal Card: card no., time, issued to, activity, floor, supervisor and items.',
+    title: 'Issuance register',
+    desc: 'Everything the store gave out, day by day: item, issued, returned and used, with who was on store.',
     build(c) {
       const retBy = new Map<number, number>();
       c.docs.forEach((d) => d.lines.forEach((l) => { if (l.kind === 'return' && l.return_of) retBy.set(l.return_of, (retBy.get(l.return_of) ?? 0) + l.qty); }));
-      const rows = linesIn(c).filter(({ l }) => l.kind === 'issue').map(({ d, l }) => ({ date: d.doc_date, card: d.ref_no ?? '', time: d.doc_time ?? '', to: d.party ?? '', act: d.activity ?? '', gemba: l.subphase ?? d.gemba ?? '', sup: d.supervisor ?? '', item: nm(c, l.item_id), unit: un(c, l.item_id), qty: r2(l.qty), ret: r2(retBy.get(l.id) ?? 0) }))
-        .sort((a, b) => a.date.localeCompare(b.date) || a.card.localeCompare(b.card));
-      return { cols: [{ key: 'date', label: 'Date' }, { key: 'card', label: 'Card no.' }, { key: 'time', label: 'Time' }, { key: 'to', label: 'Issued to' }, { key: 'act', label: 'Activity' }, { key: 'gemba', label: 'Floor' }, { key: 'sup', label: 'Supervisor' }, { key: 'item', label: 'Item' }, { key: 'unit', label: 'Unit' }, { key: 'qty', label: 'Issued', num: true }, { key: 'ret', label: 'Returned', num: true }], rows, tiles: [{ label: 'Cards', value: new Set(rows.map((r) => `${r.date}${r.card}`)).size }] };
+      const rows = linesIn(c).filter(({ l }) => l.kind === 'issue').map(({ d, l }) => {
+        const ret = retBy.get(l.id) ?? 0;
+        return { date: d.doc_date, paper: d.ref_no ? `Card ${d.ref_no}` : 'Register', item: nm(c, l.item_id), unit: un(c, l.item_id), qty: r2(l.qty), ret: r2(ret), used: r2(l.qty - ret), store: d.authorised_by ?? '' };
+      }).sort((a, b) => a.date.localeCompare(b.date) || a.item.localeCompare(b.item));
+      return { cols: [{ key: 'date', label: 'Date' }, { key: 'paper', label: 'Paper' }, { key: 'item', label: 'Item' }, { key: 'unit', label: 'Unit' }, { key: 'qty', label: 'Issued', num: true }, { key: 'ret', label: 'Returned', num: true }, { key: 'used', label: 'Used', num: true }, { key: 'store', label: 'Store' }], rows, group: 'date' };
     },
   },
   {

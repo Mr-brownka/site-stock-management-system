@@ -2,8 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api';
 import { addDays, eachDay, niceDate, periodRange, weekday } from '../lib/dates';
 import { useData } from '../lib/store';
-import { consumption, NO_FLOOR } from '../lib/consumption';
-import { subphaseRank } from '../lib/structure';
+import { consumption } from '../lib/consumption';
 import type { Line } from '../lib/types';
 import { Icon } from '../components/fx';
 import { fmt } from '../components/ui';
@@ -14,7 +13,6 @@ import { PopNav, usePopKeys } from '../components/ListPop';
 
 type P = 'day' | 'week' | 'month' | 'pick';
 const PERIODS: [P, string][] = [['day', 'Today'], ['week', 'This week'], ['month', 'This month']];
-const SHOWN = 3; // floor chips visible beside "All floors"
 
 export function Consumption() {
   const { day, itemById, balanceOf, site, company, go } = useData();
@@ -30,9 +28,8 @@ export function Consumption() {
   const prev = { from: addDays(range.from, -len), to: addDays(range.from, -1) };
   const [lines, setLines] = useState<Line[] | null>(null);
   const [prevLines, setPrevLines] = useState<Line[]>([]);
-  const [floor, setFloor] = useState<string | null>(null);
-  const [start, setStart] = useState(0); // first floor chip in view
-  const [leaving, setLeaving] = useState<string | null>(null); // the chip that folds away on the left
+  // Floors are gone: the register doesn't record where things went, so a split by floor would be wrong.
+  const floor: string | null = null;
   const [q, setQ] = useState('');
   const [sel, setSel] = useState<number | null>(null);
   /** Opened from Balances: this item's pop-up opens once the period has loaded. */
@@ -50,13 +47,6 @@ export function Consumption() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [range.from, range.to]);
 
-  const floors = useMemo(() => {
-    const all = consumption(lines ?? []);
-    const s = new Set<string>();
-    for (const u of all.values()) for (const [f, v] of u.byFloor) if (v > 0) s.add(f);
-    return [...s].sort((a, b) => (a === NO_FLOOR ? 1 : b === NO_FLOOR ? -1 : subphaseRank(a) - subphaseRank(b) || a.localeCompare(b)));
-  }, [lines]);
-  useEffect(() => { if (floor && !floors.includes(floor)) setFloor(null); setStart(0); }, [floors]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const use = useMemo(() => consumption(lines ?? [], floor), [lines, floor]);
   const before = useMemo(() => consumption(prevLines, floor), [prevLines, floor]);
@@ -80,8 +70,6 @@ export function Consumption() {
     setWant(null);
   }, [want, lines, rows]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const step = () => { if (floors.length <= SHOWN) return; setLeaving(floors[start % floors.length]); setStart((x) => (x + 1) % floors.length); };
-  const visible = floors.length <= SHOWN ? floors : Array.from({ length: SHOWN }, (_, i) => floors[(start + i) % floors.length]);
   const periodText = period === 'day' ? 'today' : period === 'week' ? 'this week' : period === 'month' ? 'this month' : `${niceDate(range.from)} – ${niceDate(range.to)}`;
 
   const download = async () => {
@@ -111,14 +99,6 @@ export function Consumption() {
         <section className="panel consList" aria-label="Items used">
           <div className="consBar">
             <label className="recSearch consFind"><Icon name="search" size={16} /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Search ${rows.length} item${rows.length === 1 ? '' : 's'} used`} aria-label="Search items used" onKeyDown={(e) => { if (e.key === 'Enter' && shown[0]) { e.preventDefault(); setSel(shown[0].id); setPhoneOpen(true); } }} />{s && shown.length > 0 && <kbd className="lpHint">↵ opens {shown.length === 1 ? 'it' : 'the first'}</kbd>}</label>
-            <div className="floorNav" role="group" aria-label="Floor">
-              <button className={`fChip ${floor === null ? 'on' : ''}`} onClick={() => setFloor(null)}>All floors</button>
-              <div className="fTrack">
-                {leaving && <span key={`out-${start}`} className="fChip leave" aria-hidden="true" onAnimationEnd={() => setLeaving(null)}>{leaving.replace(/ floor$/i, '')}</span>}
-                {visible.map((f, i) => <button key={f} className={`fChip ${floor === f ? 'on' : ''} ${leaving && i === SHOWN - 1 ? 'arrive' : ''}`} onClick={() => setFloor(f)}>{f.replace(/ floor$/i, '')}</button>)}
-              </div>
-              {floors.length > SHOWN && <button className="fMore" onClick={step} aria-label="More floors" title="More floors">···</button>}
-            </div>
           </div>
           <div className="consRows">
             {lines === null && Array.from({ length: 6 }, (_, i) => <div key={i} className="consRow"><i className="skel" style={{ width: 20 }} /><i className="skel" style={{ width: `${40 + i * 7}%` }} /><i className="skel" /><i className="skel" style={{ width: 60 }} /></div>)}
@@ -154,8 +134,6 @@ function ItemDetail({ r, before, days, periodText, floor, balance, onBalances }:
   // Per day = used ÷ the days it was actually used (days with no work don't count).
   const worked = days.filter((d) => (r.u.byDay.get(d) ?? 0) > 0).length || 1;
   const change = before > 0 ? Math.round(((r.u.used - before) / before) * 100) : null;
-  const floors = [...r.u.byFloor.entries()].filter(([, v]) => v > 0).sort((a, b) => (a[0] === NO_FLOOR ? 1 : b[0] === NO_FLOOR ? -1 : subphaseRank(a[0]) - subphaseRank(b[0])));
-  const fmx = Math.max(1, ...floors.map(([, v]) => v));
   const thin = days.length > 10;
   return (
     <div className="cdIn">
@@ -182,11 +160,6 @@ function ItemDetail({ r, before, days, periodText, floor, balance, onBalances }:
         <div><span>Per day</span><b className="mono">~{fmt(r.u.used / worked >= 10 ? Math.round(r.u.used / worked) : Math.round((r.u.used / worked) * 10) / 10)}</b></div>
         <div><span>In store now</span><b className="mono">{fmt(balance)}</b></div>
       </div></div>
-      {floors.length > 0 && !floor && (
-        <div className="cdFloors"><b>Where it went</b>
-          {floors.map(([f, v]) => <div key={f} className="cdFloor"><span>{f}</span><span className="cdFBar"><i style={{ width: `${(v / fmx) * 100}%` }} /></span><b className="mono">{fmt(v)}</b></div>)}
-        </div>
-      )}
       <div className="popFoot"><small className="lpKeys">← → next item · Esc closes</small>
         <button className="btn dark sm" onClick={onBalances}>Open in Balances<Icon name="arrow" size={16} /></button></div>
     </div>

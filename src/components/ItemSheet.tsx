@@ -74,8 +74,6 @@ export function ItemSheet({ b, mode, use, rangeLabel, onClose, onSaveReorder }: 
   const hist = useMemo(() => history(b.item_id, b.balance, day, recent), [b.item_id, b.balance, day, recent]);
   const moves = useMemo(() => recent.flatMap((d) => d.lines.filter((l) => l.item_id === b.item_id).map((l) => ({ d, l })))
     .sort((x, y) => y.d.doc_date.localeCompare(x.d.doc_date) || y.l.id - x.l.id).slice(0, 8), [recent, b.item_id]);
-  const subs = use ? [...use.bySub].filter(([, v]) => v > 0).sort((a, c) => c[1] - a[1]) : [];
-  const subMax = Math.max(1, ...subs.map(([, v]) => v));
   const status = out ? { t: 'Finished', c: 'out' } : low ? { t: 'Low stock', c: 'low' } : { t: 'In stock', c: 'ok' };
   const gauge = days == null ? null : Math.min(1, days / 30);
   const step = (n: number) => setDraft((v) => String(Math.max(0, (Number(v) || 0) + n)));
@@ -161,16 +159,6 @@ export function ItemSheet({ b, mode, use, rangeLabel, onClose, onSaveReorder }: 
               <div className="tile"><span className="label">Issued</span><b><Num value={use?.issued ?? 0} /></b></div>
               <div className="tile"><span className="label">Returned</span><b><Num value={use?.returned ?? 0} /></b></div>
               <div className="tile"><span className="label">Lasts about</span><b>{days == null ? '–' : days > 30 ? '30+ d' : `${days} d`}</b></div>
-            </div>
-            <div className="stack" style={{ gap: 8 }}>
-              <div className="label">By subphase</div>
-              {subs.length ? subs.map(([s, v], i) => (
-                <div className="subBar" key={s}>
-                  <span className="subName">{s}</span>
-                  <span className="subTrack"><i style={{ width: `${(v / subMax) * 100}%`, animationDelay: `${0.06 * i}s` }} /></span>
-                  <span className="mono">{fmt(v)}</span>
-                </div>
-              )) : <div className="muted small">Not used in this period.</div>}
             </div>
           </>
         )}
