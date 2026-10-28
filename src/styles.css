@@ -3949,13 +3949,13 @@ select.pfIn { appearance: auto; }
 }
 @media (max-width: 900px) { .adRail:not(.open) { box-shadow: none !important; } .adSitesT .tr { min-height: 46px !important; } .adSitesT .tr > * { align-self: center; } }
 
-/* Deliveries to expect: neat columns with a header; every entry right-aligned */
+/* Deliveries to expect: neat columns with a header; every entry left-aligned */
 .incTh2, .incRowBtn { display: grid !important; grid-template-columns: minmax(0, 1.25fr) 96px minmax(0, 1.25fr) 104px 104px !important; gap: 14px !important; align-items: center; padding: 0 16px !important; }
 .incTh2 { height: 32px; background: #FAFBFA; border-bottom: 1px solid #EEF0EE; font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-.incTh2 > span, .incRowBtn > * { text-align: right; justify-self: stretch; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.incTh2 > span, .incRowBtn > * { text-align: left; justify-self: stretch; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .incTbl2.part .incTh2, .incTbl2.part .incRowBtn { grid-template-columns: 96px minmax(0, 1.2fr) minmax(0, 1.2fr) 104px minmax(0, 1fr) !important; }
 .incTbl2.part .incTh2 { padding-right: 58px !important; } .incTbl2.part .incTh2 > span:last-child { display: none; }
-.irDueW { display: flex; justify-content: flex-end; }
+.irDueW { display: flex; justify-content: flex-start; }
 .irPo { color: #2D5BD0; }
 .irIt { color: var(--ink) !important; }
 .irSub { color: var(--muted) !important; }
