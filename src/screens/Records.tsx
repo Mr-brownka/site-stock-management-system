@@ -1,3 +1,4 @@
+import { openFixFor } from '../lib/fixLink';
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import { api } from '../lib/api';
 import { addDays, niceDate } from '../lib/dates';
@@ -158,7 +159,7 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
               </button>
             ))}
           </aside>
-          <Detail row={open} cfg={C} onClose={() => setOpenId(null)} onFix={() => go('corrections')} />
+          <Detail row={open} cfg={C} onClose={() => setOpenId(null)} onFix={() => openFixFor(go, open.doc)} />
         </div>
       )}
     </div>

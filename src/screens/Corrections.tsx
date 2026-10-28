@@ -9,6 +9,7 @@ import { useData } from '../lib/store';
 import type { CorrectionRequest, Doc, DocField, EditChanges, Item } from '../lib/types';
 import { deleteEffects, describeEdit, fieldLabel, paperName, requestTitle } from '../lib/editFix';
 import { toast } from '../components/feedback';
+import { takeFixDoc } from '../lib/fixLink';
 import { ItemPicker, Suggest } from '../components/ui';
 import { DateRange } from '../components/DateRange';
 
@@ -100,8 +101,18 @@ export function Corrections() {
   const findRef = useRef<HTMLInputElement>(null);
 
   const loadMine = () => api.myCorrections().then(setMine).catch(() => setMine([]));
+  // Came from a record's "Fix an error": open that entry straight away.
+  const [wanted] = useState(takeFixDoc);
   useEffect(() => {
-    api.documents(addDays(day, -(LOOKBACK - 1)), day).then((ds) => setDocs(ds.filter((d) => d.kind !== 'correction' && d.kind !== 'opening'))).catch(() => setDocs([]));
+    api.documents(addDays(day, -(LOOKBACK - 1)), day).then((ds) => {
+      const list = ds.filter((d) => d.kind !== 'correction' && d.kind !== 'opening');
+      if (wanted) {
+        const d = list.find((x) => x.id === wanted.id) ?? wanted;
+        if (!list.some((x) => x.id === d.id)) list.push(d);
+        setPickDay(d.doc_date); setOpenDoc(d); setView('fix'); window.scrollTo({ top: 0 });
+      }
+      setDocs(list);
+    }).catch(() => { setDocs(wanted ? [wanted] : []); if (wanted) { setPickDay(wanted.doc_date); setOpenDoc(wanted); setView('fix'); } });
     loadMine();
   }, [day]);
 
@@ -182,7 +193,7 @@ export function Corrections() {
 
   return (
     <div className="page fxPage">
-      {view === 'find' ? <BackPill /> : <BackPill label="Fix an error" onClick={toFind} />}
+      {view === 'find' || (wanted && openDoc?.id === wanted.id) ? <BackPill /> : <BackPill label="Fix an error" onClick={toFind} />}
       <header className="pageHead enter">
         <div className="phText"><h1>{head.title}</h1><span className="phLead">{head.lead}</span></div>
       </header>
