@@ -693,7 +693,7 @@ const ROLE_OPTS: Role[] = ['store', 'assistant', 'procurement', 'site_manager', 
 /** The details to send a new person (or a new password): name, password, link. */
 function ShareDetails({ name, password, phone, onDone }: { name: string; password: string; phone: string | null; onDone: () => void }) {
   const link = location.origin;
-  const text = `Hello ${name.split(' ')[0]}, your Ostock account is ready.\n\nOpen: ${link}\nName: ${name}\nPassword: ${password}\n\nSign in with your first and last name. You can change the password any time from the menu (Change password).`;
+  const text = `Hello ${name.split(' ')[0]}, your SiteStock account is ready.\n\nOpen: ${link}\nName: ${name}\nPassword: ${password}\n\nSign in with your first and last name. You can change the password any time from the menu (Change password).`;
   return (
     <section className="panel adPad adShare enter">
       <b>Send {name.split(' ')[0]} the login details</b>
