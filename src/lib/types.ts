@@ -85,7 +85,7 @@ export interface Submission {
 }
 
 export interface NewPerson { full_name: string; password: string; role: Role; site_id: string | null; access: Access; pages: string[] | null; phone: string | null; head_office?: boolean }
-export type Role = 'store' | 'assistant' | 'admin' | 'procurement';
+export type Role = 'store' | 'assistant' | 'admin' | 'procurement' | 'site_manager';
 /** Edit: can enter and change. Read: can only look. */
 export type Access = 'edit' | 'read';
 export type Status = 'pending' | 'approved' | 'declined' | 'removed';

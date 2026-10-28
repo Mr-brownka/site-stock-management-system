@@ -7,6 +7,7 @@ import type { AlertInfo, Balance } from '../lib/types';
 import { fmt } from './ui';
 import { toast } from './feedback';
 import { Icon } from './fx';
+import { viewerRole } from '../lib/access';
 
 type Style = 'quick' | 'detailed' | 'order';
 const STYLES: [Style, string][] = [['quick', 'Quick alert'], ['detailed', 'Detailed'], ['order', 'Order request']];
@@ -36,7 +37,7 @@ export function AlertButton() {
   const load = () => api.alertInfo().then(setInfo).catch(() => setInfo(null));
   useEffect(() => { load(); }, []);
   // Procurement hears from the site manager, so they only review the list.
-  if (!lowItems.length || user.role === 'procurement') return null;
+  if (!lowItems.length || viewerRole(user.role)) return null;
   const sent = info?.sent_at ? new Date(info.sent_at) : null;
   return (
     <>

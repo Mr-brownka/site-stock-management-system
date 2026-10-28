@@ -10,6 +10,7 @@ import { useData } from '../lib/store';
 import type { Item, StockTake as Take } from '../lib/types';
 import { Upload } from './Opening';
 import { BackPill } from '../components/BackPill';
+import { canEdit } from '../lib/access';
 
 type View = 'home' | 'enter' | 'upload';
 const nice = (d: string) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
@@ -72,6 +73,8 @@ export function StockTake() {
   const [reviewing, setReviewing] = useState(false);
   const [openTake, setOpenTake] = useState<Take | null>(null);
   const [sharing, setSharing] = useState<Take | null>(null);
+  const [saving, setSaving] = useState<Take | null>(null);
+  const editable = canEdit(user);
   const [printing, setPrinting] = useState<{ items: Item[]; values?: Record<number, number>; take?: Take } | null>(null);
   const rowsRef = useRef<HTMLDivElement>(null);
   // A long count can be put down and picked up later on this device.
@@ -229,9 +232,9 @@ export function StockTake() {
     <div className="page stHomePage">
       <BackPill />
       <header className="pageHead enter">
-        <div className="phText"><h1>{first ? 'First stock take' : 'Stock take'}</h1><span className="phLead">{first ? 'Count the store once. Every balance starts from this count.' : 'Every count of the store, newest first.'}</span></div>
+        <div className="phText"><h1>{first ? 'First stock take' : 'Stock take'}</h1><span className="phLead">{!editable ? 'Every count of the store, newest first. Print one to download it as Excel or PDF.' : first ? 'Count the store once. Every balance starts from this count.' : 'Every count of the store, newest first.'}</span></div>
       </header>
-      {list && !list.length ? (
+      {!editable ? null : list && !list.length ? (
         <div className="note stack">
           <b>This store’s item list is not ready yet.</b>
           <span>The admin lists the items in each store first (without quantities). Then you can count here.</span>
@@ -248,10 +251,10 @@ export function StockTake() {
           <button className="btn accent sm" disabled={!sheet?.length} onClick={() => (hasDraft ? startTyping() : setChoosing(true))}><Icon name="plus" size={16} />{hasDraft ? 'Continue the count' : 'New stock take'}</button>
         </section>
       )}
-      {hasDraft && <div className="stDraftNote">An unfinished count is saved on this device. <button className="btn link inline" onClick={startTyping}>Continue it</button> · <button className="btn link inline" onClick={dropDraft}>Discard it</button></div>}
+      {editable && hasDraft && <div className="stDraftNote">An unfinished count is saved on this device. <button className="btn link inline" onClick={startTyping}>Continue it</button> · <button className="btn link inline" onClick={dropDraft}>Discard it</button></div>}
 
       <section className="panel stTakes" aria-label="Stock takes">
-        <div className="stTakeRow th"><span>Ref</span><span>Date</span><span>Time</span><span>Counted by</span><span>Items</span><span>Status</span><span className="r">Share</span></div>
+        <div className="stTakeRow th"><span>Ref</span><span>Date</span><span>Time</span><span>Counted by</span><span>Items</span><span>Status</span><span className="r">{editable ? 'Share' : 'Print'}</span></div>
         {takes === null && <div className="pad muted">Loading…</div>}
         {takes && !takes.length && <div className="pad muted">No stock takes yet. Press “New stock take” to count the store.</div>}
         {takes && [...takes].reverse().map((t) => (
@@ -262,7 +265,7 @@ export function StockTake() {
             <span className="ellip">{t.counted_by ?? '–'}</span>
             <span className="mono">{t.lines.length}</span>
             <span><span className={`stPill ${t.is_first || t.status === 'confirmed' ? 'ok' : 'idle'}`}>{t.is_first ? 'Opening balances' : t.status === 'confirmed' ? 'Confirmed' : 'Recorded'}</span></span>
-            <span className="r"><button className="stShare" title="Share by email (Zoho Mail)" aria-label={`Share ${refOf(t)} by email`} onClick={(e) => { e.stopPropagation(); setSharing(t); }}><Icon name="mail" size={17} /></button></span>
+            <span className="r">{!editable ? <button className="stShare" title="Download as Excel or PDF" aria-label={`Print ${refOf(t)}`} onClick={(e) => { e.stopPropagation(); setSaving(t); }}><Icon name="print" size={17} /></button> : <button className="stShare" title="Share by email (Zoho Mail)" aria-label={`Share ${refOf(t)} by email`} onClick={(e) => { e.stopPropagation(); setSharing(t); }}><Icon name="mail" size={17} /></button>}</span>
           </div>
         ))}
       </section>
@@ -289,12 +292,13 @@ export function StockTake() {
         <div className="sheetBack dayAskBack" onMouseDown={(e) => { if (e.target === e.currentTarget) setOpenTake(null); }}>
           <section className="stTakeView" role="dialog" aria-modal="true" aria-labelledby="stViewTitle">
             <header><div><span className="daKicker">{refOf(openTake)}</span><h2 id="stViewTitle">{nice(openTake.count_date)}</h2></div>
-              <button className="btn ghost sm" onClick={() => print({ items: openTake.lines.map((l) => itemById.get(l.item_id)).filter(Boolean) as Item[], values: Object.fromEntries(openTake.lines.map((l) => [l.item_id, l.qty])), take: openTake })}><Icon name="print" size={16} />Print</button>
+              <button className="btn ghost sm" onClick={() => !editable ? setSaving(openTake) : print({ items: openTake.lines.map((l) => itemById.get(l.item_id)).filter(Boolean) as Item[], values: Object.fromEntries(openTake.lines.map((l) => [l.item_id, l.qty])), take: openTake })}><Icon name="print" size={16} />Print</button>
               <button className="iconBtn" onClick={() => setOpenTake(null)} aria-label="Close"><Icon name="close" /></button></header>
             <div className="stViewSheet"><StockSheet items={openTake.lines.map((l) => itemById.get(l.item_id)).filter(Boolean) as Item[]} values={Object.fromEntries(openTake.lines.map((l) => [l.item_id, l.qty]))} head={{ date: openTake.count_date, start: openTake.start_time, end: openTake.end_time, by: openTake.counted_by, checked: openTake.checked_by }} title={openTake.is_first ? 'First stock take' : 'Stock take'} /></div>
           </section>
         </div>, document.body)}
       {printLayer}
+      {saving && <SaveTake take={saving} refName={refOf(saving)} onClose={() => setSaving(null)} />}
       {sharing && <ShareTake take={sharing} refName={refOf(sharing)} onClose={() => setSharing(null)} />}
     </div>
   );
@@ -344,6 +348,45 @@ function ShareTake({ take, refName, onClose }: { take: Take; refName: string; on
           <button className="btn ghost sm" disabled={busy} onClick={onClose}>Cancel</button>
           <span className="abGrow" />
           <button className="btn sm" disabled={busy} onClick={send}><Icon name="mail" size={16} />{busy ? 'Sending…' : 'Send email'}</button>
+        </div>
+      </section>
+    </div>, document.body);
+}
+
+/** View-only people print a stock take by downloading it, in the same template as the email: Excel or PDF. */
+function SaveTake({ take, refName, onClose }: { take: Take; refName: string; onClose: () => void }) {
+  const { site, itemById } = useData();
+  const [busy, setBusy] = useState('');
+  const rows = sorted(take.lines.map((l) => itemById.get(l.item_id)).filter(Boolean) as Item[]);
+  const qty = new Map(take.lines.map((l) => [l.item_id, l.qty]));
+  const data = rows.map((it) => ({ name: it.name, unit: it.unit, qty: qty.get(it.id) ?? 0, inZoho: it.in_zoho !== false }));
+  const base = `${site} stock take ${take.count_date.split('-').reverse().join('-')}`.replace(/[\\/:*?"<>|]/g, '-');
+  const go = async (kind: 'xlsx' | 'pdf') => {
+    setBusy(kind);
+    try {
+      const m = await import('../lib/stockTakeExcel');
+      const blob = kind === 'xlsx'
+        ? m.b64ToBlob(await m.stockTakeExcel(take.count_date, data), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        : await m.stockTakePdf(take.count_date, data, site || 'Site');
+      m.saveFile(`${base}.${kind}`, blob);
+      toast(`${refName} downloaded as ${kind === 'xlsx' ? 'Excel' : 'PDF'}`);
+      onClose();
+    } catch (e) { toast((e as Error).message, 'warn'); } finally { setBusy(''); }
+  };
+  return createPortal(
+    <div className="sheetBack dayAskBack" onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onClose(); }}>
+      <section className="dirPick" role="dialog" aria-modal="true" aria-labelledby="stSaveTitle">
+        <header><span className="daKicker">Print {refName} · {nice(take.count_date)}</span><h2 id="stSaveTitle">Download it as</h2>
+          <button className="iconBtn" onClick={onClose} aria-label="Close"><Icon name="close" /></button></header>
+        <div className="dirOpts">
+          <button className="dirOpt type" disabled={!!busy} onClick={() => go('xlsx')} autoFocus>
+            <span className="dirIc" aria-hidden="true"><Icon name="download" size={22} /></span>
+            <b>{busy === 'xlsx' ? 'Preparing…' : 'Excel'}</b><small>{rows.length} items · the stock take template</small>
+          </button>
+          <button className="dirOpt in" disabled={!!busy} onClick={() => go('pdf')}>
+            <span className="dirIc" aria-hidden="true"><Icon name="download" size={22} /></span>
+            <b>{busy === 'pdf' ? 'Preparing…' : 'PDF'}</b><small>Ready to print or forward</small>
+          </button>
         </div>
       </section>
     </div>, document.body);

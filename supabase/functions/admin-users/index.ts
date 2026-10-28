@@ -44,8 +44,8 @@ Deno.serve(async (req) => {
   if (b.action === 'create') {
     const full = String(b.full_name ?? '').replace(/\s+/g, ' ').trim();
     const pw = String(b.password ?? '');
-    const role = ['store', 'assistant', 'admin', 'procurement'].includes(String(b.role)) ? String(b.role) : 'store';
-    const access = role === 'procurement' ? 'read' : b.access === 'read' ? 'read' : 'edit';
+    const role = ['store', 'assistant', 'admin', 'procurement', 'site_manager'].includes(String(b.role)) ? String(b.role) : 'store';
+    const access = role === 'procurement' || role === 'site_manager' ? 'read' : b.access === 'read' ? 'read' : 'edit';
     const pages = Array.isArray(b.pages) ? (b.pages as unknown[]).map(String) : null;
     if (full.split(' ').length < 2) return json({ error: 'Type the first and last name.' });
     if (pw.length < 6) return json({ error: 'The password needs at least 6 characters.' });

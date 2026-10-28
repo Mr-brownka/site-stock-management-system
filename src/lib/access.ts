@@ -17,12 +17,15 @@ export const PAGES: { key: string; label: string; screens: Screen[] }[] = [
 /** Screens that change stock: never open for someone who can only read. */
 const WRITE: Screen[] = ['deliveries', 'issued', 'returns', 'transfers', 'corrections', 'stocktake'];
 
-export const canEdit = (u: User) => u.role === 'admin' || (u.role !== 'procurement' && (u.access ?? 'edit') === 'edit');
+/** Procurement and site managers: view only, always. */
+export const viewerRole = (r: string) => r === 'procurement' || r === 'site_manager';
+export const canEdit = (u: User) => u.role === 'admin' || (!viewerRole(u.role) && (u.access ?? 'edit') === 'edit');
 
 /** May this person open this screen? */
 export function canSee(u: User, s: Screen): boolean {
   if (u.role === 'admin') return true;
-  if (!canEdit(u) && WRITE.includes(s)) return false;
+  // Stock take opens read only (view and download); the other write pages stay closed.
+  if (!canEdit(u) && WRITE.includes(s) && s !== 'stocktake') return false;
   if (!u.pages) return true;
   // The low stock list behind "Review all" opens for anyone who sees the dashboard.
   if (s === 'dashboard' && u.pages.includes('home')) return true;
@@ -31,8 +34,8 @@ export function canSee(u: User, s: Screen): boolean {
 }
 /** Where to land when a screen is not allowed. */
 export function firstAllowed(u: User): Screen {
-  for (const p of PAGES) for (const s of p.screens) if (canSee(u, s) && !WRITE.includes(s)) return s;
+  for (const p of PAGES) for (const s of p.screens) if (canSee(u, s) && (!WRITE.includes(s) || s === 'stocktake')) return s;
   return 'home';
 }
 /** "Admin", "Store keeper", "Procurement · view only" … */
-export const roleLabel = (u: User) => `${{ admin: 'Admin', store: 'Store keeper', assistant: 'Assistant', procurement: 'Procurement' }[u.role] ?? 'Store keeper'}${u.role !== 'admin' && !canEdit(u) ? ' · view only' : ''}`;
+export const roleLabel = (u: User) => `${{ admin: 'Admin', store: 'Store keeper', assistant: 'Assistant', procurement: 'Procurement', site_manager: 'Site manager' }[u.role] ?? 'Store keeper'}${u.role !== 'admin' && !canEdit(u) ? ' · view only' : ''}`;

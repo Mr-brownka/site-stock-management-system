@@ -13,7 +13,7 @@ export interface Store {
   /** Demo: passwords the admin gave out. */
   issued?: Record<string, { password: string; set_at: string }>;
   items?: Item[];
-  meta?: { company: string; site: string; user: { email: string; name: string; role: 'store' | 'assistant' | 'admin' | 'procurement' } };
+  meta?: { company: string; site: string; user: { email: string; name: string; role: 'store' | 'assistant' | 'admin' | 'procurement' | 'site_manager' } };
   docs: Doc[];
   nextLine: number;
   submissions: Record<string, Submission>;
@@ -155,7 +155,7 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
       async createPerson(p) {
         if (s.profiles.some((x) => x.full_name.toLowerCase() === p.full_name.trim().toLowerCase())) throw new Error(`Someone called ${p.full_name} already has an account.`);
         const nid = uid(); s.issued = { ...(s.issued ?? {}), [nid]: { password: p.password, set_at: new Date().toISOString() } };
-        s.profiles.unshift({ id: nid, full_name: p.full_name.trim(), email: null, phone: p.phone, role: p.role, status: 'approved', site_id: p.site_id, created_at: new Date().toISOString(), decided_at: new Date().toISOString(), access: p.role === 'procurement' ? 'read' : p.access, pages: p.pages, head_office: !!p.head_office, training_waived: p.role !== 'store' && p.role !== 'assistant' });
+        s.profiles.unshift({ id: nid, full_name: p.full_name.trim(), email: null, phone: p.phone, role: p.role, status: 'approved', site_id: p.site_id, created_at: new Date().toISOString(), decided_at: new Date().toISOString(), access: p.role === 'procurement' || p.role === 'site_manager' ? 'read' : p.access, pages: p.pages, head_office: !!p.head_office, training_waived: p.role !== 'store' && p.role !== 'assistant' });
         save();
       },
       async setPersonPassword(id, pw) { s.issued = { ...(s.issued ?? {}), [id]: { password: pw, set_at: new Date().toISOString() } }; save(); },
