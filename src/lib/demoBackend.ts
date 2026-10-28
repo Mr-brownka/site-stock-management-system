@@ -316,6 +316,7 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
       save();
       return (s.trainingDays ?? []).length;
     },
+    async submittedDays(from, to) { return Object.keys(s.submissions ?? {}).filter((d) => d >= from && d <= to); },
     async submitDay(day, steps, closedReason) { s.submissions[day] = { day, steps, closed_reason: closedReason ?? null, submitted_at: new Date().toISOString() }; save(); },
     async lastSubmittedDay(before) { return Object.keys(s.submissions).filter((d) => d < before).sort().pop() ?? null; },
     async setReorder(itemId, level) { s.reorder[itemId] = level; save(); },

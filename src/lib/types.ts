@@ -312,6 +312,8 @@ export interface Backend {
   linesBetween(from: string, to: string): Promise<Line[]>;
   balances(): Promise<Balance[]>;
   submission(day: string): Promise<Submission | null>;
+  /** Days already submitted at this site, between two dates. */
+  submittedDays(from: string, to: string): Promise<string[]>;
   submitDay(day: string, steps: Submission['steps'], closedReason?: string | null): Promise<void>;
   /** The latest submitted day before the given day (null if none yet). */
   lastSubmittedDay(before: string): Promise<string | null>;

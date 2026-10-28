@@ -12,6 +12,7 @@ import { toast } from '../components/feedback';
 import { checkZohoNow, useZohoDeliveries, ZohoOpen, ZohoRefresh, ZohoTag } from '../components/Zoho';
 import { BackPill } from '../components/BackPill';
 import { DateRange, rangeLabel, type Range } from '../components/DateRange';
+import { IssuedTable, RegisterSheet } from './IssuedRegisters';
 
 export type RecKey = 'deliveries' | 'issued' | 'returns' | 'transfers';
 type Row = { doc: Doc; ref: string; paper: string; who: string; where: string };
@@ -122,14 +123,16 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
         <label className="recSearch"><Icon name="search" size={16} /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Search ${C.title.toLowerCase()}`} aria-label={`Search ${C.title}`} /></label>
         {zohoOnly
           ? <ZohoRefresh />
-          : <button className="recNew" onClick={addNew}><span><Icon name="plus" size={16} /></span>New</button>}
+          : <button className="recNew" onClick={addNew}><span><Icon name="plus" size={16} /></span>{key === 'issued' ? 'Today’s register' : 'New'}</button>}
         <div className="recMore">
           <button className="recDots" onClick={() => setMenu((v) => !v)} aria-label="More" aria-expanded={menu}>···</button>
           {menu && <div className="recMenu" onMouseLeave={() => setMenu(false)}><button onClick={download}><Icon name="download" size={16} />Download as Excel</button></div>}
         </div>
       </header>
 
-      {all === null ? <div className="recEmpty">Loading…</div> : !open ? (
+      {all === null ? <div className="recEmpty">Loading…</div> : key === 'issued' && !open ? (
+        <IssuedTable rows={shown} all={all} onOpen={setOpenId} />
+      ) : !open ? (
         <section className="recTable" aria-label={C.title}>
           <div className="recRow recTh" ref={cols.headRef} style={cols.style(src)}>
             {['System ref', 'Date', C.paper, C.who, C.where, ...(src ? ['Source'] : [])].map((h, i, a) => (
@@ -154,12 +157,16 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
           <aside className="recSide" aria-label={C.title}>
             {shown.map((r) => (
               <button key={r.doc.id} className={`recMini ${r.doc.id === open.doc.id ? 'on' : ''}`} onClick={() => setOpenId(r.doc.id)}>
-                <span><b>{r.who || r.paper || r.ref}</b><small>{niceDate(r.doc.doc_date).split(' ').slice(1).join(' ')}</small></span>
+                {key === 'issued'
+                  ? <span><b>{niceDate(r.doc.doc_date)}</b><small>{r.doc.lines.length} item{r.doc.lines.length === 1 ? '' : 's'} · {r.doc.lines.slice(0, 3).map((l) => (itemById.get(l.item_id)?.name ?? '').split(' ')[0]).join(', ')}{r.doc.ref_no ? ` · card ${r.doc.ref_no}` : ''}</small></span>
+                  : <span><b>{r.who || r.paper || r.ref}</b><small>{niceDate(r.doc.doc_date).split(' ').slice(1).join(' ')}</small></span>}
                 <span><span className="recRef">{r.ref}</span><small className="mono">{r.paper}</small></span>
               </button>
             ))}
           </aside>
-          <Detail row={open} cfg={C} onClose={() => setOpenId(null)} onFix={() => openFixFor(go, open.doc)} />
+          {key === 'issued'
+            ? <RegisterSheet row={open} all={all} onClose={() => setOpenId(null)} onFix={() => openFixFor(go, open.doc)} />
+            : <Detail row={open} cfg={C} onClose={() => setOpenId(null)} onFix={() => openFixFor(go, open.doc)} />}
         </div>
       )}
     </div>

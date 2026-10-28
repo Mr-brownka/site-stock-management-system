@@ -453,6 +453,11 @@ export function supabaseBackend(url: string, key: string): Backend {
       return (data as Submission) ?? null;
     },
 
+    async submittedDays(from, to) {
+      const { data, error } = await sb.from('day_submissions').select('day').eq('site_id', await mySite()).gte('day', from).lte('day', to);
+      if (error) fail(error);
+      return (data ?? []).map((r) => String(r.day));
+    },
     async submitDay(day, steps, closedReason) {
       const { error } = await sb.from('day_submissions').insert({ day, steps, ...(closedReason ? { closed_reason: closedReason } : {}) });
       if (error) fail(error);
