@@ -44,9 +44,19 @@ function toBalance(r: Record<string, unknown>): Balance {
 function adminApi(sb: SupabaseClient): AdminApi {
   return {
     async profiles() {
-      const { data, error } = await sb.from('profiles').select('id, full_name, email, phone, role, status, site_id, created_at, decided_at, training_days, training_waived').order('created_at', { ascending: false });
+      const { data, error } = await sb.from('profiles').select('id, full_name, email, phone, role, status, site_id, created_at, decided_at, training_days, training_waived, access, pages').order('created_at', { ascending: false });
       if (error) fail(error);
       return (data ?? []) as Profile[];
+    },
+    async createPerson(p) {
+      const { data, error } = await sb.functions.invoke('admin-users', { body: { action: 'create', ...p } });
+      if (error) throw new Error(error.message);
+      if ((data as { error?: string }).error) throw new Error((data as { error: string }).error);
+    },
+    async setPersonPassword(userId, password) {
+      const { data, error } = await sb.functions.invoke('admin-users', { body: { action: 'password', user_id: userId, password } });
+      if (error) throw new Error(error.message);
+      if ((data as { error?: string }).error) throw new Error((data as { error: string }).error);
     },
     async setProfile(id, patch) {
       const { error } = await sb.from('profiles').update({ ...patch, ...(patch.status ? { decided_at: new Date().toISOString() } : {}) }).eq('id', id);
@@ -222,16 +232,27 @@ export function supabaseBackend(url: string, key: string): Backend {
       const { data } = await sb.auth.getSession();
       const u = data.session?.user;
       if (!u) return null;
-      const { data: p } = await sb.from('profiles').select('full_name, role, status, site_id, training_days, training_waived').eq('id', u.id).maybeSingle();
+      const { data: p } = await sb.from('profiles').select('full_name, role, status, site_id, training_days, training_waived, access, pages').eq('id', u.id).maybeSingle();
       return {
         email: u.email ?? '', name: p?.full_name || (u.email ?? '').split('@')[0],
         role: (p?.role ?? 'store') as User['role'], status: (p?.status ?? 'pending') as User['status'], siteId: p?.site_id ?? null,
         trainingDays: (p?.training_days as string[] | null) ?? [], trainingWaived: !!p?.training_waived,
+        access: (p?.access ?? 'edit') as User['access'], pages: (p?.pages as string[] | null) ?? null,
       };
     },
 
-    async signIn(email, password) {
-      const { error } = await sb.auth.signInWithPassword({ email, password });
+    async signIn(who, password) {
+      // First and last name (no @): the name-login function finds the account; email still works too.
+      if (!who.includes('@')) {
+        const { data, error } = await sb.functions.invoke('name-login', { body: { name: who, password } });
+        if (error) throw new Error('Could not reach the server. Check the internet and try again.');
+        const r = data as { access_token?: string; refresh_token?: string; error?: string };
+        if (!r.access_token || !r.refresh_token) throw new Error(r.error ?? 'Name or password is wrong.');
+        const { error: e2 } = await sb.auth.setSession({ access_token: r.access_token, refresh_token: r.refresh_token });
+        if (e2) fail(e2);
+        return;
+      }
+      const { error } = await sb.auth.signInWithPassword({ email: who, password });
       if (error) fail(error);
     },
 

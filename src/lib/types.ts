@@ -84,7 +84,10 @@ export interface Submission {
   closed_reason?: string | null;
 }
 
-export type Role = 'store' | 'assistant' | 'admin';
+export interface NewPerson { full_name: string; password: string; role: Role; site_id: string | null; access: Access; pages: string[] | null; phone: string | null }
+export type Role = 'store' | 'assistant' | 'admin' | 'procurement';
+/** Edit: can enter and change. Read: can only look. */
+export type Access = 'edit' | 'read';
 export type Status = 'pending' | 'approved' | 'declined' | 'removed';
 
 export interface User {
@@ -97,6 +100,9 @@ export interface User {
   trainingDays?: string[];
   /** The admin let this person skip training. */
   trainingWaived?: boolean;
+  access?: Access;
+  /** Pages the admin allows (null: every page). */
+  pages?: string[] | null;
 }
 
 /** How a project is built: decides the sub-phases (floors) offered on forms. */
@@ -167,6 +173,8 @@ export interface Profile {
   decided_at: string | null;
   training_days?: string[];
   training_waived?: boolean;
+  access?: Access;
+  pages?: string[] | null;
 }
 
 export interface SignUpInput {
@@ -218,7 +226,11 @@ export interface SiteDoc extends Doc {
 /** Admin-only reads and actions across all sites. */
 export interface AdminApi {
   profiles(): Promise<Profile[]>;
-  setProfile(id: string, patch: Partial<Pick<Profile, 'status' | 'role' | 'site_id' | 'full_name' | 'phone' | 'training_waived'>>): Promise<void>;
+  /** Add a person: they sign in with their first and last name and this password. */
+  createPerson(p: NewPerson): Promise<void>;
+  /** Set a new password for someone (the admin shares it). */
+  setPersonPassword(userId: string, password: string): Promise<void>;
+  setProfile(id: string, patch: Partial<Pick<Profile, 'status' | 'role' | 'site_id' | 'full_name' | 'phone' | 'training_waived' | 'access' | 'pages'>>): Promise<void>;
   /** Item ids on a site's stock take list. */
   checklist(siteId: string): Promise<number[]>;
   setChecklist(siteId: string, itemIds: number[]): Promise<void>;

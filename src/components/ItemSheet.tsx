@@ -38,7 +38,7 @@ function Spark({ data, low }: { data: number[]; low: boolean }) {
 }
 
 export function ItemSheet({ b, mode, use, rangeLabel, onClose, onSaveReorder }: {
-  b: Balance; mode: 'cons' | 'bal'; use?: Use; rangeLabel: string; onClose: () => void; onSaveReorder: (v: number | null) => Promise<void>;
+  b: Balance; mode: 'cons' | 'bal'; use?: Use; rangeLabel: string; onClose: () => void; onSaveReorder?: (v: number | null) => Promise<void>;
 }) {
   const { day, recent, isLow, daysLeft } = useData();
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -82,6 +82,7 @@ export function ItemSheet({ b, mode, use, rangeLabel, onClose, onSaveReorder }: 
   const save = async () => {
     const v = draft.trim() === '' ? null : Number(draft);
     if (v != null && !(v >= 0)) return;
+    if (!onSaveReorder) return;
     await onSaveReorder(v); setSaved(true); setTimeout(() => setSaved(false), 1600);
   };
 
@@ -119,12 +120,14 @@ export function ItemSheet({ b, mode, use, rangeLabel, onClose, onSaveReorder }: 
               </div>
               <div className="tile">
                 <span className="label">Reorder level</span>
+{onSaveReorder ? (<>
                 <div className="stepper">
                   <button onClick={() => step(-1)} aria-label="Lower">−</button>
                   <input inputMode="decimal" value={draft} placeholder="Not set" aria-label="Reorder level" onChange={(e) => setDraft(e.target.value.replace(/[^0-9.]/g, ''))} />
                   <button onClick={() => step(1)} aria-label="Higher">+</button>
                 </div>
                 <button className="btn link" onClick={save} disabled={draft === (b.reorder_level == null ? '' : String(b.reorder_level))}>{saved ? '✓ Saved' : 'Save level'}</button>
+                </>) : <b>{b.reorder_level == null ? 'Not set' : fmt(b.reorder_level)}</b>}
               </div>
             </div>
             {low && <div className="note err sheetNote"><PulseDot />{out ? 'None left in the store.' : 'Running low.'} Tell the site manager so it can be ordered.</div>}

@@ -1,3 +1,4 @@
+import { canEdit } from '../lib/access';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../components/fx';
 import { ItemSheet } from '../components/ItemSheet';
@@ -24,7 +25,7 @@ export function openItems(go: (s: 'dashboard') => void, d: Jump = {}) { pendingJ
 
 /** All items: the whole page scrolls, 50 items to a page. Arriving from the low stock card, the page becomes the order list. */
 export function Dashboard({ embedded = false }: { embedded?: boolean }) {
-  const { day, balances, refresh, isLow, docsToday, recent, site, company } = useData();
+  const { day, balances, refresh, isLow, docsToday, recent, site, company, user } = useData();
   const [filter, setFilter] = useState<Filter>(() => { try { const j = sessionStorage.getItem('ssms-dash') || ''; sessionStorage.removeItem('ssms-dash'); return j === 'low' ? 'low' : j === 'bal' ? 'today' : 'all'; } catch { return 'all'; } });
   const [lowPart, setLowPart] = useState<LowPart>('both');
   const [q, setQ] = useState('');
@@ -178,7 +179,7 @@ export function Dashboard({ embedded = false }: { embedded?: boolean }) {
           </nav>
         )}
       </section>
-      {selected && <ItemSheet b={selected} mode="bal" rangeLabel="" onClose={close} onSaveReorder={saveReorder} />}
+      {selected && <ItemSheet b={selected} mode="bal" rangeLabel="" onClose={close} onSaveReorder={canEdit(user) ? saveReorder : undefined} />}
     </div>
   );
 }

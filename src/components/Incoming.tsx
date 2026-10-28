@@ -10,6 +10,7 @@ import { ZohoBooksMark, ZohoOpen, openInZoho } from './Zoho';
 import { useData } from '../lib/store';
 import { useIsPhone } from './Ring';
 import { BackPill } from './BackPill';
+import { canEdit } from '../lib/access';
 
 const KEY = 'ostock-incoming-2'; // bumped when the shape changes (subphase)
 const FRESH = 30 * 60_000; // checked at most every 30 minutes unless Refresh is pressed
@@ -120,7 +121,8 @@ const SHOW = 11; // rows shown before "Show all"
 /** Incoming deliveries: expected this week and next (by expected date), and part deliveries of the last 4 weeks still owed. */
 export function IncomingPanel() {
   const { data, busy, refresh } = useIncoming();
-  const { projectWeek, go } = useData();
+  const { projectWeek, go, user } = useData();
+  const editable = canEdit(user);
   // Named by the project's week number (Week 121, Week 122) when the site has one.
   const wkName = (k: 0 | 1) => (projectWeek != null ? `Week ${projectWeek + k}` : k ? 'Next week' : 'This week');
   const [tab, setTab] = useState<Tab>('this');
@@ -194,7 +196,7 @@ export function IncomingPanel() {
                       </>
                     )}
                   </button>
-                  {c.part && <button type="button" className="incBin" onClick={() => setRemoving(o)} title="Remove: the rest won’t be delivered" aria-label={`Remove ${o.po} from part-delivered`}><Icon name="trash" size={15} /></button>}
+                  {c.part && editable && <button type="button" className="incBin" onClick={() => setRemoving(o)} title="Remove: the rest won’t be delivered" aria-label={`Remove ${o.po} from part-delivered`}><Icon name="trash" size={15} /></button>}
                 </div>
               );
             })}
@@ -211,7 +213,7 @@ export function IncomingPanel() {
           </div>
         );
       })()}
-      {open && <OrderSheet o={open} onClose={() => setOpen(null)} onNot={tab === 'part' ? () => { setRemoving(open); setOpen(null); } : undefined} />}
+      {open && <OrderSheet o={open} onClose={() => setOpen(null)} onNot={tab === 'part' && editable ? () => { setRemoving(open); setOpen(null); } : undefined} />}
       {removing && <RemoveSheet o={removing} onClose={() => setRemoving(null)} onDone={(r) => remove(removing, r)} />}
     </section>
   );
@@ -243,7 +245,8 @@ type PTab = 'this' | 'next' | 'part' | 'all';
 /** Coming in: every order Zoho expects at this site, in one table. The order opens on the right (a sheet on phones). */
 export function ComingInPage() {
   const { data, busy, refresh } = useIncoming();
-  const { projectWeek, site } = useData();
+  const { projectWeek, site, user } = useData();
+  const editable = canEdit(user);
   const phone = useIsPhone();
   const wkName = (k: 0 | 1) => (projectWeek != null ? `Week ${projectWeek + k}` : k ? 'Next week' : 'This week');
   const [tab, setTab] = useState<PTab>('this');
@@ -317,14 +320,14 @@ export function ComingInPage() {
                 <b className="cinQ mono">{first ? <>{fmt(owed)}{k === 'part' && <small>/{fmt(first.ordered)}</small>} <small>{first.unit ?? ''}</small></> : ''}</b>
                 <span className="cinDue">{k === 'part' ? <span className="incChip part">{o.lastIn ? `Last in ${short(o.lastIn)}` : 'Part in'}</span> : <span className={`incChip ${dd.k}`}>{dd.k === 'late' && o.expected === addDay(today, -1) ? 'Yesterday' : dd.k === 'today' ? 'Today' : dd.t.replace('Due ', '')}</span>}</span>
               </button>
-              {tab === 'part' && <button type="button" className="incBin" onClick={() => setRemoving(o)} title="Remove: the rest won’t be delivered" aria-label={`Remove ${o.po} from part-delivered`}><Icon name="trash" size={15} /></button>}
+              {tab === 'part' && editable && <button type="button" className="incBin" onClick={() => setRemoving(o)} title="Remove: the rest won’t be delivered" aria-label={`Remove ${o.po} from part-delivered`}><Icon name="trash" size={15} /></button>}
               </div>
             );
           })}
         </section>
-        {sel && !phone && <aside className="panel cinSide" aria-label={`Order ${sel.o.po}`}><OrderView o={sel.o} onClose={() => setSelId(null)} onNot={sel.k === 'part' ? () => setRemoving(sel.o) : undefined} /></aside>}
+        {sel && !phone && <aside className="panel cinSide" aria-label={`Order ${sel.o.po}`}><OrderView o={sel.o} onClose={() => setSelId(null)} onNot={sel.k === 'part' && editable ? () => setRemoving(sel.o) : undefined} /></aside>}
       </div>
-      {sel && phone && <OrderSheet o={sel.o} onClose={() => setSelId(null)} onNot={sel.k === 'part' ? () => setRemoving(sel.o) : undefined} />}
+      {sel && phone && <OrderSheet o={sel.o} onClose={() => setSelId(null)} onNot={sel.k === 'part' && editable ? () => setRemoving(sel.o) : undefined} />}
       {removing && <RemoveSheet o={removing} onClose={() => setRemoving(null)} onDone={(r) => remove(removing, r)} />}
     </div>
   );

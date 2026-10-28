@@ -11,7 +11,7 @@ const ME = 'demo-admin';
 export interface Store {
   /** Training mode: the real site's item list, company, site and person. */
   items?: Item[];
-  meta?: { company: string; site: string; user: { email: string; name: string; role: 'store' | 'assistant' | 'admin' } };
+  meta?: { company: string; site: string; user: { email: string; name: string; role: 'store' | 'assistant' | 'admin' | 'procurement' } };
   docs: Doc[];
   nextLine: number;
   submissions: Record<string, Submission>;
@@ -150,6 +150,12 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
     },
     admin: {
       async profiles() { return s.profiles; },
+      async createPerson(p) {
+        if (s.profiles.some((x) => x.full_name.toLowerCase() === p.full_name.trim().toLowerCase())) throw new Error(`Someone called ${p.full_name} already has an account.`);
+        s.profiles.unshift({ id: uid(), full_name: p.full_name.trim(), email: null, phone: p.phone, role: p.role, status: 'approved', site_id: p.site_id, created_at: new Date().toISOString(), decided_at: new Date().toISOString(), access: p.role === 'procurement' ? 'read' : p.access, pages: p.pages, training_waived: p.role !== 'store' && p.role !== 'assistant' });
+        save();
+      },
+      async setPersonPassword() { /* demo: nothing to store */ },
       async setProfile(id, patch) { s.profiles = s.profiles.map((p) => (p.id === id ? { ...p, ...patch, decided_at: new Date().toISOString() } : p)); save(); },
       async sites() { return s.sites; },
       async addSite(name, structure) { s.sites.push({ id: uid(), name, company: 'Comex Builders', ...(structure ?? {}) }); save(); },

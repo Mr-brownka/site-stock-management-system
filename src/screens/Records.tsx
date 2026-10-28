@@ -1,4 +1,5 @@
 import { openFixFor } from '../lib/fixLink';
+import { canEdit } from '../lib/access';
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import { api } from '../lib/api';
 import { addDays, niceDate } from '../lib/dates';
@@ -37,7 +38,7 @@ const PERIODS: [Period, string][] = [['all', 'All'], ['today', 'Today'], ['week'
 const Svg = ({ d, size = 20 }: { d: string; size?: number }) => <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true"><path d={d} fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 
 export function Records({ recKey: key }: { recKey: RecKey }) {
-  const { day, itemById, go, site, company } = useData();
+  const { day, itemById, go, site, company, user } = useData();
   const C = CFG[key];
   const [all, setAll] = useState<Doc[] | null>(null);
   // Every list opens on all time, newest first. "Choose a date" (next to the search) narrows it to a day or a range.
@@ -123,7 +124,7 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
         <label className="recSearch"><Icon name="search" size={16} /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Search ${C.title.toLowerCase()}`} aria-label={`Search ${C.title}`} /></label>
         {zohoOnly
           ? <ZohoRefresh />
-          : <button className="recNew" onClick={addNew}><span><Icon name="plus" size={16} /></span>{key === 'issued' ? 'Today’s register' : 'New'}</button>}
+          : !canEdit(user) ? null : <button className="recNew" onClick={addNew}><span><Icon name="plus" size={16} /></span>{key === 'issued' ? 'Today’s register' : 'New'}</button>}
         <div className="recMore">
           <button className="recDots" onClick={() => setMenu((v) => !v)} aria-label="More" aria-expanded={menu}>···</button>
           {menu && <div className="recMenu" onMouseLeave={() => setMenu(false)}><button onClick={download}><Icon name="download" size={16} />Download as Excel</button></div>}
@@ -165,8 +166,8 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
             ))}
           </aside>
           {key === 'issued'
-            ? <RegisterSheet row={open} all={all} onClose={() => setOpenId(null)} onFix={() => openFixFor(go, open.doc)} />
-            : <Detail row={open} cfg={C} onClose={() => setOpenId(null)} onFix={() => openFixFor(go, open.doc)} />}
+            ? <RegisterSheet row={open} all={all} onClose={() => setOpenId(null)} onFix={canEdit(user) ? () => openFixFor(go, open.doc) : undefined} />
+            : <Detail row={open} cfg={C} onClose={() => setOpenId(null)} onFix={canEdit(user) ? () => openFixFor(go, open.doc) : undefined} />}
         </div>
       )}
     </div>
@@ -209,7 +210,7 @@ function useCols(key: RecKey) {
   return { style, start, reset, headRef };
 }
 
-function Detail({ row, cfg, onClose, onFix }: { row: Row; cfg: (typeof CFG)[RecKey]; onClose: () => void; onFix: () => void }) {
+function Detail({ row, cfg, onClose, onFix }: { row: Row; cfg: (typeof CFG)[RecKey]; onClose: () => void; onFix?: () => void }) {
   const { itemById } = useData();
   const d = row.doc;
   const saved = new Date(d.created_at).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' });
@@ -229,7 +230,7 @@ function Detail({ row, cfg, onClose, onFix }: { row: Row; cfg: (typeof CFG)[RecK
       <header>
         <div><span className="recKicker">{d.source === 'zoho' && <ZohoTag />} {{ DLV: 'Delivery', ISS: 'Issuance register', RET: 'Return', TRF: 'Project transfer' }[cfg.prefix]} · {cfg.tag}</span><h2>{row.ref}</h2></div>
         {(d.zoho_receive_id || d.zoho_po || d.zoho_grn) && <ZohoOpen className="btn ghost sm" label="Open in Zoho Books ↗" zref={{ receive_id: d.zoho_receive_id, grn: d.zoho_grn, po: d.zoho_po }} />}
-        <button className="btn ghost sm" onClick={onFix}><Icon name="fix" size={16} />Fix an error</button>
+        {onFix && <button className="btn ghost sm" onClick={onFix}><Icon name="fix" size={16} />Fix an error</button>}
         <button className="btn ghost sm" onClick={() => window.print()}><Icon name="print" size={16} />Print</button>
         <button className="iconBtn" onClick={onClose} aria-label="Close"><Icon name="close" /></button>
       </header>

@@ -14,12 +14,12 @@ export function Login({ onIn, onCreate, notice }: { onIn: () => void; onCreate: 
     e.preventDefault();
     setBusy(true); setErr('');
     try { await api.signIn(email.trim(), password); onIn(); }
-    catch (x) { setErr((x as Error).message === 'Invalid login credentials' ? 'Email or password is wrong.' : (x as Error).message); }
+    catch (x) { setErr((x as Error).message === 'Invalid login credentials' ? 'Name or password is wrong.' : (x as Error).message); }
     finally { setBusy(false); }
   };
 
   const forgot = async () => {
-    if (!email.trim()) { setErr('Type your email first, then tap “Forgot password?”.'); return; }
+    if (!email.trim().includes('@')) { setErr('Ask the admin to set a new password for you. (If you signed up with an email, type it above, then tap “Forgot password?”.)'); return; }
     setBusy(true); setErr('');
     try { await api.sendPasswordReset(email.trim()); setSent(true); }
     catch (x) { setErr((x as Error).message); }
@@ -41,8 +41,9 @@ export function Login({ onIn, onCreate, notice }: { onIn: () => void; onCreate: 
           </div>
         ) : (
           <form className="card pad stack enter" onSubmit={submit}>
-            <label className="field"><span>Email</span>
-              <input className="input" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
+            <label className="field"><span>Your name</span>
+              <input className="input" type="text" autoComplete="username" autoCapitalize="words" placeholder="First and last name" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
+              <small className="muted">Or the email you signed up with.</small>
             </label>
             <label className="field"><span>Password</span>
               <input className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />

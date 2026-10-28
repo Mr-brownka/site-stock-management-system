@@ -6,16 +6,17 @@ import { createPortal } from 'react-dom';
 import { fmt } from '../components/ui';
 import { api } from '../lib/api';
 import { addDays, niceDate, today, weekday } from '../lib/dates';
-import type { AlertContact, Balance, ZohoConnection, ZohoItemMatch, ZohoLogRow, ZohoPending, ZohoRun, CorrectionRequest, Item, Profile, Role, SiteDoc, SiteInfo, Structure, User } from '../lib/types';
+import type { Access, AlertContact, Balance, ZohoConnection, ZohoItemMatch, ZohoLogRow, ZohoPending, ZohoRun, CorrectionRequest, Item, Profile, Role, SiteDoc, SiteInfo, Structure, User } from '../lib/types';
 import { ZohoOpen } from '../components/Zoho';
 import { ask, toast } from '../components/feedback';
 import { StartTraining } from '../components/Training';
 import { TRAINING_DAYS } from '../lib/trainingPlan';
+import { PAGES } from '../lib/access';
 import { describeStructure, subphasesFor } from '../lib/structure';
 
 type Sec = 'overview' | 'approvals' | 'sites' | 'people' | 'items' | 'zoho' | 'activity';
 type SiteTab = 'overview' | 'list' | 'reorder' | 'building' | 'manager' | 'zoho';
-const ROLE_LABEL: Record<Role, string> = { store: 'Store', assistant: 'Assistant', admin: 'Admin' };
+const ROLE_LABEL: Record<Role, string> = { store: 'Store', assistant: 'Assistant', admin: 'Admin', procurement: 'Procurement' };
 const KIND_LABEL: Record<string, string> = { opening: 'Opening count', delivery: 'Delivery', issue: 'Card', return: 'Return', transfer_in: 'Transfer in', transfer_out: 'Transfer out', correction: 'Correction' };
 const KIND_DOT: Record<string, string> = { opening: '#1B2120', delivery: '#1F7A4D', issue: '#B54708', return: '#2E5AAC', transfer_in: '#6B46C1', transfer_out: '#6B46C1', correction: '#8A5000' };
 const PREFIX: Record<string, string> = { delivery: 'DLV', issue: 'ISS', return: 'RET', transfer_in: 'TRF', transfer_out: 'TRF' };
@@ -364,7 +365,7 @@ function Approvals({ d, sel, setSel, busy, act }: { d: Data; sel: string | null;
                   <>
                     <div className="adGrid2">
                       <label className="field"><span>Site</span><select className="select input" value={c.site} onChange={(e) => setChoice({ ...c, site: e.target.value })}>{d.sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
-                      <label className="field"><span>Role</span><select className="select input" value={c.role} onChange={(e) => setChoice({ ...c, role: e.target.value as Role })}>{(['store', 'assistant', 'admin'] as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select></label>
+                      <label className="field"><span>Role</span><select className="select input" value={c.role} onChange={(e) => setChoice({ ...c, role: e.target.value as Role })}>{(ROLE_OPTS as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select></label>
                     </div>
                     <div className="adActs">
                       <button className="adBtn" disabled={!!busy} onClick={() => act(p.id, () => api.admin.setProfile(p.id, { status: 'declined' })).then(() => setSel(null))}>Decline</button>
@@ -684,7 +685,76 @@ function ChecklistEditor({ d, siteId, ids, onSaved }: { d: Data; siteId: string;
 
 /* ───────── People ───────── */
 
+/** An easy password to read out or type: two words and two digits (e.g. "Simba-Tiles-47"). */
+const WORDS = ['Simba', 'Tembo', 'Chui', 'Twiga', 'Nyati', 'Pundamilia', 'Cement', 'Ballast', 'Mawe', 'Mchanga', 'Bati', 'Tiles', 'Store', 'Tower', 'Jengo', 'Kazi'];
+const newPassword = () => `${WORDS[Math.floor(Math.random() * WORDS.length)]}-${WORDS[Math.floor(Math.random() * WORDS.length)]}-${10 + Math.floor(Math.random() * 90)}`;
+const ROLE_OPTS: Role[] = ['store', 'assistant', 'procurement', 'admin'];
+
+/** The details to send a new person (or a new password): name, password, link. */
+function ShareDetails({ name, password, phone, onDone }: { name: string; password: string; phone: string | null; onDone: () => void }) {
+  const link = location.origin;
+  const text = `Hello ${name.split(' ')[0]}, your Ostock account is ready.\n\nOpen: ${link}\nName: ${name}\nPassword: ${password}\n\nSign in with your first and last name. You can change the password any time from the menu (Change password).`;
+  return (
+    <section className="panel adPad adShare enter">
+      <b>Send {name.split(' ')[0]} the login details</b>
+      <pre className="adShareText">{text}</pre>
+      <span className="adActs">
+        {phone && <button className="adBtn ok" onClick={() => window.open(`https://wa.me/${waNumber(phone)}?text=${encodeURIComponent(text)}`, '_blank')}>Send on WhatsApp</button>}
+        <button className="adBtn" onClick={() => { navigator.clipboard?.writeText(text).then(() => toast('Copied')).catch(() => toast('Select the text and copy it', 'warn')); }}>Copy</button>
+        <button className="adBtn dark" onClick={onDone}>Done</button>
+      </span>
+      {!phone && <small className="muted">No phone number saved, so no WhatsApp button. Copy and send it any way you like.</small>}
+    </section>
+  );
+}
+
+/** Which pages a person sees. Unticked pages leave their menu. */
+function PagesPick({ value, onChange }: { value: string[] | null; onChange: (v: string[] | null) => void }) {
+  const on = (k: string) => value == null || value.includes(k);
+  const toggle = (k: string) => { const cur = value ?? PAGES.map((p) => p.key); onChange(cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]); };
+  return (
+    <div className="adPages">
+      {PAGES.map((p) => <label key={p.key} className={`adPage ${on(p.key) ? 'on' : ''}`}><input type="checkbox" checked={on(p.key)} onChange={() => toggle(p.key)} />{p.label}</label>)}
+      <span className="adPagesActs"><button type="button" className="btn link" onClick={() => onChange(null)}>All pages</button><button type="button" className="btn link" onClick={() => onChange(['home'])}>Dashboard only</button></span>
+    </div>
+  );
+}
+
+/** The admin adds a person: they sign in with first and last name and the password set here. */
+function AddPerson({ d, busy, act, onClose, onMade }: { d: Data; busy: string; act: Act; onClose: () => void; onMade: (x: { name: string; password: string; phone: string | null }) => void }) {
+  const [v, setV] = useState({ first: '', last: '', phone: '', role: 'store' as Role, site_id: d.sites[0]?.id ?? '', access: 'edit' as Access, pages: null as string[] | null, password: newPassword() });
+  const full = `${v.first.trim()} ${v.last.trim()}`.trim();
+  const readOnly = v.role === 'procurement' || v.access === 'read';
+  return (
+    <section className="panel adPad adAdd enter">
+      <b>Add a person</b>
+      <div className="adAddGrid">
+        <label className="field"><span>First name</span><input className="input" value={v.first} autoFocus onChange={(e) => setV({ ...v, first: e.target.value })} /></label>
+        <label className="field"><span>Last name</span><input className="input" value={v.last} onChange={(e) => setV({ ...v, last: e.target.value })} /></label>
+        <label className="field"><span>Phone (for WhatsApp)</span><input className="input" inputMode="tel" value={v.phone} placeholder="07…" onChange={(e) => setV({ ...v, phone: e.target.value })} /></label>
+        <label className="field"><span>Role</span><select className="select input" value={v.role} onChange={(e) => { const r = e.target.value as Role; setV({ ...v, role: r, access: r === 'procurement' ? 'read' : v.access }); }}>{ROLE_OPTS.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select></label>
+        <label className="field"><span>Site</span><select className="select input" value={v.site_id} onChange={(e) => setV({ ...v, site_id: e.target.value })}>{d.sites.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
+        <label className="field"><span>Can they change things?</span><select className="select input" value={v.role === 'procurement' ? 'read' : v.access} disabled={v.role === 'procurement' || v.role === 'admin'} onChange={(e) => setV({ ...v, access: e.target.value as Access })}><option value="edit">Yes, can edit</option><option value="read">No, view only</option></select></label>
+        <label className="field"><span>Password</span><span className="adInline"><input className="input mono" value={v.password} onChange={(e) => setV({ ...v, password: e.target.value })} /><button type="button" className="adBtn" onClick={() => setV({ ...v, password: newPassword() })} title="Make another">↻</button></span></label>
+      </div>
+      {readOnly && v.role !== 'admin' && <><span className="adSub">Pages they see</span><PagesPick value={v.pages} onChange={(pages) => setV({ ...v, pages })} /></>}
+      <span className="adActs">
+        <button className="adBtn" onClick={onClose}>Cancel</button>
+        <button className="adBtn dark" disabled={!!busy || !v.first.trim() || !v.last.trim() || v.password.length < 6}
+          onClick={() => act('addperson', async () => {
+            await api.admin.createPerson({ full_name: full, password: v.password, role: v.role, site_id: v.site_id || null, access: v.role === 'procurement' ? 'read' : v.access, pages: readOnly ? v.pages : null, phone: v.phone.trim() || null });
+            onMade({ name: full, password: v.password, phone: v.phone.trim() || null });
+          })}>Add {v.first.trim() || 'person'}</button>
+      </span>
+      <small className="muted">They sign in with “{full || 'First Last'}” and this password, and can change it any time.</small>
+    </section>
+  );
+}
+
 function People({ d, me, busy, act }: { d: Data; me: User; busy: string; act: Act }) {
+  const [adding, setAdding] = useState(false);
+  const [share, setShare] = useState<{ name: string; password: string; phone: string | null } | null>(null);
+  const [pagesFor, setPagesFor] = useState<{ id: string; pages: string[] | null } | null>(null);
   const [f, setF] = useState<'all' | 'store' | 'admin' | 'off'>('all');
   const [edit, setEdit] = useState<{ id: string; full_name: string; phone: string; site_id: string; role: Role } | null>(null);
   const name = (id: string | null | undefined) => d.sites.find((s) => s.id === id)?.name ?? '';
@@ -694,10 +764,12 @@ function People({ d, me, busy, act }: { d: Data; me: User; busy: string; act: Ac
   const lastSeen = (id: string) => d.docs.filter((x) => x.created_by === id).reduce<string | null>((m, x) => (!m || x.created_at > m ? x.created_at : m), null);
   return (
     <div className="adStack">
-      <Head title="People" lead="Everyone with access. ··· on a row: edit, skip training, remove access." right={<Seg opts={[['all', `All ${active.length}`], ['store', 'Store'], ['admin', 'Admin'], ['off', `Removed ${off.length}`]]} value={f} onPick={setF} />} />
+      <Head title="People" lead="Everyone with access. ··· on a row: edit, pages, new password, remove access." right={<><button className="adBtn acc" onClick={() => { setAdding((x) => !x); setShare(null); }}><Icon name="plus" size={16} />Add person</button><Seg opts={[['all', `All ${active.length}`], ['store', 'Store'], ['admin', 'Admin'], ['off', `Removed ${off.length}`]]} value={f} onPick={setF} /></>} />
+      {adding && <AddPerson d={d} busy={busy} act={act} onClose={() => setAdding(false)} onMade={(x) => { setAdding(false); setShare(x); toast(`${x.name} can sign in now`); }} />}
+      {share && <ShareDetails name={share.name} password={share.password} phone={share.phone} onDone={() => setShare(null)} />}
       <section className="panel adCard enter">
         <div className="adTable adPeople">
-          <div className="th"><span>Name</span><span>Site</span><span>Role</span><span>Training</span><span>Last entry</span><span /></div>
+          <div className="th"><span>Name</span><span>Site</span><span>Role</span><span>Access</span><span>Training</span><span>Last entry</span><span /></div>
           {rows.map((p) => {
             const done = p.training_days?.length ?? 0;
             return edit?.id === p.id ? (
@@ -705,7 +777,7 @@ function People({ d, me, busy, act }: { d: Data; me: User; busy: string; act: Ac
                 <label className="field"><span>Full name</span><input className="input" value={edit.full_name} autoFocus onChange={(e) => setEdit({ ...edit, full_name: e.target.value })} /></label>
                 <label className="field"><span>Phone</span><input className="input" inputMode="tel" value={edit.phone} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} /></label>
                 <label className="field"><span>Site</span><select className="select input" value={edit.site_id} onChange={(e) => setEdit({ ...edit, site_id: e.target.value })}>{d.sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
-                <label className="field"><span>Role</span><select className="select input" value={edit.role} disabled={p.email === me.email} onChange={(e) => setEdit({ ...edit, role: e.target.value as Role })}>{(['store', 'assistant', 'admin'] as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select></label>
+                <label className="field"><span>Role</span><select className="select input" value={edit.role} disabled={p.email === me.email} onChange={(e) => setEdit({ ...edit, role: e.target.value as Role })}>{(ROLE_OPTS).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select></label>
                 <span className="adActs">
                   <button className="adBtn" onClick={() => setEdit(null)}>Cancel</button>
                   <button className="adBtn dark" disabled={!!busy || !edit.full_name.trim()} onClick={() => act(p.id, () => api.admin.setProfile(p.id, { full_name: edit.full_name.trim(), phone: edit.phone.trim() || null, site_id: edit.site_id, ...(p.email === me.email ? {} : { role: edit.role }) })).then(() => setEdit(null))}>Save</button>
@@ -716,10 +788,17 @@ function People({ d, me, busy, act }: { d: Data; me: User; busy: string; act: Ac
                 <span className="adWhoS"><Av name={p.full_name} /><span><b>{p.full_name}</b><small>{p.email}{p.phone ? ` · ${p.phone}` : ''}</small></span></span>
                 <span>{p.role === 'admin' ? 'All sites' : name(p.site_id) || '—'}</span>
                 <span><span className={`adRole ${p.role}`}>{ROLE_LABEL[p.role]}</span></span>
+                <span>{p.role === 'admin' ? <span className="muted">Everything</span> : p.role === 'procurement'
+                  ? <span className="adAcc read" title="Procurement is view only">View only</span>
+                  : <button className={`adAcc ${p.access === 'read' ? 'read' : 'edit'}`} title="Tap to switch" disabled={!!busy || f === 'off'}
+                      onClick={() => act(p.id, () => api.admin.setProfile(p.id, { access: p.access === 'read' ? 'edit' : 'read' })).then(() => toast(`${p.full_name.split(' ')[0]} can ${p.access === 'read' ? 'edit now' : 'only view now'}`))}>{p.access === 'read' ? 'View only' : 'Can edit'}</button>}
+                  {p.pages && p.role !== 'admin' && <small className="adPgN">{p.pages.length} page{p.pages.length === 1 ? '' : 's'}</small>}</span>
                 <span>{f === 'off' ? <span className="stPill idle">{p.status === 'removed' ? 'Removed' : 'Declined'}</span> : p.role === 'admin' ? '—' : p.training_waived ? <span className="muted">Skipped</span> : done >= TRAINING_DAYS ? <span className="stPill ok">Trained</span>
                   : <span className="adTrain"><i><b style={{ width: `${(done / TRAINING_DAYS) * 100}%` }} /></i>{done}/{TRAINING_DAYS} days</span>}</span>
                 <span className="muted">{ago(lastSeen(p.id))}</span>
                 <Dots items={f === 'off' ? [{ label: 'Give access back', onClick: () => act(p.id, () => api.admin.setProfile(p.id, { status: 'approved' })) }] : [
+                  ...(p.role !== 'admin' ? [{ label: 'Pages they see…', onClick: () => setPagesFor({ id: p.id, pages: p.pages ?? null }) }] : []),
+                  { label: 'Set a new password', onClick: () => { const pw = newPassword(); act(p.id, () => api.admin.setPersonPassword(p.id, pw)).then(() => setShare({ name: p.full_name, password: pw, phone: p.phone })); } },
                   { label: 'Edit', onClick: () => setEdit({ id: p.id, full_name: p.full_name, phone: p.phone ?? '', site_id: p.site_id ?? d.sites[0]?.id ?? '', role: p.role }) },
                   ...(p.role !== 'admin' && done < TRAINING_DAYS ? [p.training_waived
                     ? { label: 'Undo skip training', onClick: () => act(p.id, () => api.admin.setProfile(p.id, { training_waived: false })) }
@@ -729,10 +808,17 @@ function People({ d, me, busy, act }: { d: Data; me: User; busy: string; act: Ac
               </div>
             );
           })}
+          {pagesFor && (() => { const p = d.profiles.find((x) => x.id === pagesFor.id); if (!p) return null; return (
+            <div className="adPagesRow enter">
+              <b>Pages {p.full_name.split(' ')[0]} sees</b>
+              <PagesPick value={pagesFor.pages} onChange={(pages) => setPagesFor({ ...pagesFor, pages })} />
+              <span className="adActs"><button className="adBtn" onClick={() => setPagesFor(null)}>Cancel</button>
+                <button className="adBtn dark" disabled={!!busy} onClick={() => act(p.id, () => api.admin.setProfile(p.id, { pages: pagesFor.pages })).then(() => { setPagesFor(null); toast('Saved'); })}>Save pages</button></span>
+            </div>); })()}
           {!rows.length && <div className="adEmpty">Nobody here.</div>}
         </div>
       </section>
-      <small className="muted">New people sign up themselves at sitestock.co.ke; they appear in Approvals.</small>
+      <small className="muted">Add people yourself with “Add person” (they sign in with their first and last name), or they sign up and appear in Approvals.</small>
     </div>
   );
 }

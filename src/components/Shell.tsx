@@ -7,6 +7,8 @@ import { signal, useSignal } from '../lib/signals';
 import { ComexLogo, SiteLogo } from './Brand';
 import { ZohoAutoSync, ZohoStatusLine } from './Zoho';
 import { markDeliveriesSeen, useNewZohoDeliveries } from '../lib/newDeliveries';
+import { canEdit, canSee, roleLabel } from '../lib/access';
+import { ChangePassword } from './ChangePassword';
 import { DatePick } from './DatePick';
 import { continueEvening, EveningFlow, stageFor } from './EveningFlow';
 import { Icon, PulseDot, Ring, useMinutesToClose } from './fx';
@@ -62,6 +64,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
   const { user, site, go, signOut, openAdmin, stepState, submission, lowItems, balances, day, projectWeek, syncing, catchUp, endCatchUp, unconfirmed, drafts } = useData();
   const toFinish = unconfirmed.length + drafts.length;
   const newDel = useNewZohoDeliveries();
+  const [pwOpen, setPwOpen] = useState(false);
   useEffect(() => { if (screen === 'rec-deliveries' && newDel) markDeliveriesSeen(); }, [screen, newDel]);
   const [mini, setMini] = useState(readRail);
   // The menu can be dragged wider or narrower by its right edge; each person's width is remembered.
@@ -110,6 +113,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
   return (
     <div className={`shell ${TABBAR.includes(screen) ? 'hasTab' : ''} ${mini ? 'mini' : ''}`} style={mini ? undefined : ({ '--railW': `${railW}px` } as React.CSSProperties)}>
       <ZohoAutoSync />
+      {pwOpen && <ChangePassword onClose={() => setPwOpen(false)} />}
       <aside className="rail r2" aria-label="Main menu">
         <div className="r2Top">
           <button type="button" className="railBrand comexBrand" title="Comex Builders Ltd · back to the dashboard" aria-label="Comex Builders · back to the dashboard" onClick={() => { if (catchUp) endCatchUp(); go('home'); }}>
@@ -128,7 +132,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
             { s: 'rec-returns', l: 'Returned items', i: 'undo', on: screen === 'rec-returns' || screen === 'returns' },
             { s: 'rec-transfers', l: 'Project transfers', i: 'swap', on: screen === 'rec-transfers' || screen === 'transfers' },
             { s: 'reports', l: 'Reports', i: 'bars', on: screen === 'reports' },
-          ] as { s: Screen; l: string; i: string; on: boolean }[]).map((n) => (
+          ] as { s: Screen; l: string; i: string; on: boolean }[]).filter((n) => canSee(user, n.s)).map((n) => (
             <button key={n.s} className="railLink" title={n.l} aria-current={n.on ? 'page' : undefined} onClick={() => go(n.s)}>
               <Icon name={n.i} size={19} /><span className="rlText">{n.l}</span>
               {n.s === 'home' && lowItems.length > 0 && <span className="r2Badge" title={`${lowItems.length} items running low`}>{lowItems.length}</span>}
@@ -136,9 +140,9 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
             </button>
           ))}
           <span className="r2Rule" aria-hidden="true" />
-          <button className="railLink" title="Fix an error" aria-current={screen === 'corrections' ? 'page' : undefined} onClick={() => go('corrections')}>
+{canEdit(user) && canSee(user, 'corrections') && (          <button className="railLink" title="Fix an error" aria-current={screen === 'corrections' ? 'page' : undefined} onClick={() => go('corrections')}>
             <Icon name="warn" size={19} /><span className="rlText">Fix an error</span>
-          </button>
+          </button>)}
           <span className="r2Rule" aria-hidden="true" />
           <button className={`railLink r2Today ${urgent ? 'urgent' : ''}`} title="Today’s summary" aria-current={screen === 'submitted' ? 'page' : undefined} onClick={() => go('submitted')}>
             <Icon name="calendar" size={19} /><span className="rlText">Today’s summary</span>
@@ -155,12 +159,13 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
               {user.role === 'admin' && <button className="railLink" role="menuitem" onClick={() => { setUserMenu(false); openAdmin(); }}><Icon name="user" /><span className="rlText">Admin</span></button>}
               <ZohoStatusLine compact />
               <StartTraining user={user} label="Training mode" />
+              <button className="railLink" role="menuitem" onClick={() => { setUserMenu(false); setPwOpen(true); }}><Icon name="lock" /><span className="rlText">Change password</span></button>
               <button className="railLink signOut" role="menuitem" onClick={signOut}><Icon name="out" /><span className="rlText">Sign out</span></button>
             </div>
           )}
           <button className="railUser r2User" onClick={() => setUserMenu((v) => !v)} aria-expanded={userMenu} aria-haspopup="menu" title="Your account">
             <span className="avatar">{initials}</span>
-            <div className="rlText"><b>{user.name}</b><span>{user.role === 'admin' ? 'Admin' : 'Store keeper'}{api.mode === 'demo' ? ' · demo' : ''}</span></div>
+            <div className="rlText"><b>{user.name}</b><span>{roleLabel(user)}{api.mode === 'demo' ? ' · demo' : ''}</span></div>
             <span className={`r2Chev rlText ${userMenu ? 'open' : ''}`} aria-hidden="true"><Icon name="chevR" size={15} /></span>
           </button>
         </div>
@@ -187,7 +192,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
                 <div className="spRow"><span>Site</span><b>{site || '–'}</b></div>
                 {projectWeek != null && <div className="spRow"><span>Project week</span><b>{projectWeek}</b></div>}
                 <div className="spRow"><span>Items in store</span><b>{balances.filter((b) => b.balance > 0).length}</b></div>
-                <div className="spRow"><span>You</span><b>{user.name} · {user.role === 'admin' ? 'Admin' : 'Store'}</b></div>
+                <div className="spRow"><span>You</span><b>{user.name} · {roleLabel(user)}</b></div>
                 {user.role === 'admin' && <button className="btn ghost sm" onClick={() => { setSiteOpen(false); openAdmin(); }}>Manage sites</button>}
               </div>
             )}
@@ -224,12 +229,12 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
           <button aria-current={RECORDS.some((r) => r.screen === screen) || screen === 'reports' || screen === 'records' ? 'page' : undefined} onClick={() => { setSheet(null); go('records'); }}>
             <span className="tbIcon"><Icon name="list" size={22} />{newDel > 0 && <span className="newDot tb" aria-label={`${newDel} new deliveries from Zoho`} />}</span>Records
           </button>
-          <button aria-current={screen === 'stocktake' ? 'page' : undefined} onClick={() => { setSheet(null); go('stocktake'); }}>
+{canSee(user, 'stocktake') && (          <button aria-current={screen === 'stocktake' ? 'page' : undefined} onClick={() => { setSheet(null); go('stocktake'); }}>
             <span className="tbIcon"><Icon name="box" size={22} /></span>Stock take
-          </button>
-          <button aria-current={screen === 'corrections' ? 'page' : undefined} onClick={() => { setSheet(null); go('corrections'); }}>
+          </button>)}
+          {canEdit(user) && canSee(user, 'corrections') && (<button aria-current={screen === 'corrections' ? 'page' : undefined} onClick={() => { setSheet(null); go('corrections'); }}>
             <span className="tbIcon"><Icon name="fix" size={22} /></span>Fix
-          </button>
+          </button>)}
           <button aria-current={screen === 'balances' || screen === 'consumption' || sheet === 'more' ? 'page' : undefined} onClick={() => setSheet(sheet === 'more' ? null : 'more')}>
             <span className="tbIcon"><span className="tbAv">{initials}</span>{toFinish > 0 && <span className="tbBadge" aria-label={`${toFinish} to finish`}>{toFinish}</span>}</span>More
           </button>
@@ -241,7 +246,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
             <span className="mGrab" aria-hidden="true" />
             {(
               <>
-                <div className="mWho"><span className="avatar">{initials}</span><div><b>{user.name}</b><small>{user.role === 'admin' ? 'Admin' : 'Store'}{site ? ` · ${site}` : ''}{api.mode === 'demo' ? ' · demo' : ''}</small></div></div>
+                <div className="mWho"><span className="avatar">{initials}</span><div><b>{user.name}</b><small>{roleLabel(user)}{site ? ` · ${site}` : ''}{api.mode === 'demo' ? ' · demo' : ''}</small></div></div>
                 <button className="mToday" onClick={() => { setSheet(null); go('submitted'); }}>
                   <Ring done={submission ? 3 : done} total={3} size={44} />
                   <span><b>{submission ? 'Today’s summary' : done === 3 ? 'Ready to submit' : 'Today’s summary'}</b><small>{submission ? 'All three steps done' : closeLabel(min)}</small></span>
@@ -257,6 +262,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
                   {user.role === 'admin' && <button className="railLink" onClick={() => { setSheet(null); openAdmin(); }}><Icon name="user" /><span className="rlText">Admin</span></button>}
                   <ZohoStatusLine compact />
                   <StartTraining user={user} label="Training mode" />
+                  <button className="railLink" onClick={() => { setSheet(null); setPwOpen(true); }}><Icon name="lock" /><span className="rlText">Change password</span></button>
                   <button className="railLink signOut" onClick={signOut}><Icon name="out" /><span className="rlText">Sign out</span></button>
                 </div>
               </>

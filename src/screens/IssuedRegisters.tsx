@@ -68,7 +68,7 @@ export function IssuedTable({ rows, all, onOpen }: { rows: RegRow[]; all: Doc[] 
 }
 
 /** One day's register as the sheet: what went out, what came back, what was used. */
-export function RegisterSheet({ row, all, onClose, onFix }: { row: RegRow; all: Doc[] | null; onClose: () => void; onFix: () => void }) {
+export function RegisterSheet({ row, all, onClose, onFix }: { row: RegRow; all: Doc[] | null; onClose: () => void; onFix?: () => void }) {
   const { itemById, realToday, startCatchUp, go } = useData();
   const returned = useReturned(all);
   const [submitted, setSubmitted] = useState<boolean | null>(null);
@@ -87,8 +87,8 @@ export function RegisterSheet({ row, all, onClose, onFix }: { row: RegRow; all: 
         <div><span className="recKicker">{d.ref_no ? `Withdrawal card ${d.ref_no}` : 'Material Issuance Register'} · Stock out</span><h2>{niceDate(d.doc_date)}</h2>
           <small className="muted">{row.ref} · store {d.authorised_by || '—'} · {d.lines.length} item{d.lines.length === 1 ? '' : 's'}</small></div>
         {submitted !== null && <span className={`regPill ${open ? (d.doc_date === realToday ? 'open' : 'no') : 'ok'}`}>{open ? (d.doc_date === realToday ? 'Today · open' : 'Not submitted') : 'Submitted'}</span>}
-        {!d.ref_no && <button className="btn ghost sm" onClick={addTo}><Icon name="plus" size={16} />Add to it</button>}
-        <button className="btn ghost sm" onClick={onFix}><Icon name="fix" size={16} />Fix an error</button>
+        {!d.ref_no && onFix && <button className="btn ghost sm" onClick={addTo}><Icon name="plus" size={16} />Add to it</button>}
+        {onFix && <button className="btn ghost sm" onClick={onFix}><Icon name="fix" size={16} />Fix an error</button>}
         <button className="btn ghost sm" onClick={() => window.print()}><Icon name="print" size={16} />Print</button>
         <button className="iconBtn" onClick={onClose} aria-label="Close"><Icon name="close" /></button>
       </header>

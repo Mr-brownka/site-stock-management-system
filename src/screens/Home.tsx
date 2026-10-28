@@ -21,6 +21,7 @@ import { openItems } from './Dashboard';
 import { continueEvening, startEvening, useFlow } from '../components/EveningFlow';
 import { IncomingPanel, useIncomingCounts } from '../components/Incoming';
 import { Ring } from '../components/Ring';
+import { canEdit } from '../lib/access';
 
 
 export function Home() {
@@ -30,6 +31,7 @@ export function Home() {
   const { add, modal: addModal } = useAddEntry();
   // With Zoho on, deliveries come in by themselves: that step never waits for an answer.
   const stateOf = (k: StepKey): StepState => { const v = stepState(k); return k === 'deliveries' && zohoOnly && v === 'todo' ? 'none' : v; };
+  const viewer = !canEdit(user);
   const locked = !catchUp && pendingDays.length > 0;
   const [runTotal, setRunTotal] = useState(0);
   const [askDay, setAskDay] = useState<{ day: string; holiday: string | null } | null>(null);
@@ -163,7 +165,7 @@ export function Home() {
     : flowStage
       ? { cls: 'cont', label: 'Continue', sub: `${done3}/3 · next: ${nextLabel}`, run: go3 }
       : { cls: '', label: 'Start', sub: `${done3}/3 · ${min <= 0 ? 'register closed' : closeLabel(min).replace('Register closes in ', 'closes in ')}`, run: () => setProcOpen(true) };
-  const startBtn = locked ? null : (
+  const startBtn = locked || viewer ? null : (
     <button className={`startBtn ${sb.cls} ${evening && !submission ? 'pulse' : ''}`} onClick={sb.run}>
       <Ring p={submission ? 1 : done3 / 3} size={30} stroke={4} label="" tone={submission ? 'green' : 'amber'} />
       <span className="sbT"><b>{sb.label}</b><small>{sb.sub}</small></span>
@@ -237,7 +239,7 @@ export function Home() {
     </button>
   );
   // Phone home (design A): today's papers first, in one dark card.
-  const phoneA = !locked && (
+  const phoneA = !locked && !viewer && (
     <section className="phA enter" aria-label="Tonight’s check-in">
       <div className="phATop">
         <StepRing done={submission ? 3 : done3} total={3} size={48} />
@@ -288,7 +290,7 @@ export function Home() {
 
 
       {/* Missed days: the question lives inside the day itself, no separate reminder box. */}
-      {(locked || catchUp) && (
+      {!viewer && (locked || catchUp) && (
         <DayStrip days={[
           ...pendingDays.map((p, i): DayCell => {
             const ask = locked && i === 0;
