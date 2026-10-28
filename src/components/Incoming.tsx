@@ -103,7 +103,7 @@ function OrderSheet({ o, onClose }: { o: IncomingOrder; onClose: () => void }) {
 }
 
 type Tab = 'this' | 'next' | 'part';
-const SHOW = 5; // rows shown before "Show all"
+const SHOW = 11; // rows shown before "Show all"
 
 /** Incoming deliveries: expected this week and next (by expected date), and part deliveries of the last 4 weeks still owed. */
 export function IncomingPanel() {

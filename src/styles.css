@@ -3643,7 +3643,8 @@ select.pfIn { appearance: auto; }
   .tbChip { background: transparent !important; font-size: 13px; padding: 0 8px; }
   /* zoom shrinks vh-based heights; give them back */
   .rail { height: calc(100vh / .95) !important; }
-  .shell, .shellMain { min-height: calc(100vh / .95) !important; }
+  .shell, .shellMain, .adm, .ad { min-height: calc(100vh / .95) !important; }
+  .admNav, .adRail { height: calc(100vh / .95) !important; }
   /* every page except the Dashboard: starts right under the top bar, no back pill, no outer margins */
   .screen:not(:has(> .home)) { padding: 14px 20px 40px; }
   .screen:not(:has(> .home)) > *, .screen:not(:has(> .home)) > * > .page { max-width: none !important; margin: 0 !important; padding: 0 !important; gap: 14px !important; width: auto !important; }
