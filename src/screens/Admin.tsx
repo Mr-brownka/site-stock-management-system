@@ -51,6 +51,7 @@ export function Admin({ user, onExit, onSignOut }: { user: User; onExit: () => v
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState('');
   const [menu, setMenu] = useState(false);
+  const [scope, setScope] = useState(false);
   /** Phones: the admin menu slides in from the left. */
   const [drawer, setDrawer] = useState(false);
   const day = today();
@@ -83,27 +84,25 @@ export function Admin({ user, onExit, onSignOut }: { user: User; onExit: () => v
     { sec: 'zoho', label: 'Zoho', icon: 'swap', group: 'Connections', badge: zohoCount },
     { sec: 'activity', label: 'Activity', icon: 'clock', group: 'Records' },
   ];
-  const TITLE: Record<Sec, string> = { overview: 'Overview', approvals: 'Approvals', sites: 'Sites', people: 'People', items: 'Items', zoho: 'Zoho', activity: 'Activity' };
   const siteName = (id: string | null | undefined) => d?.sites.find((s) => s.id === id)?.name ?? '';
-  const crumb = nav.sec === 'sites' && nav.site ? `Sites / ${siteName(nav.site)}` : TITLE[nav.sec];
 
   return (
     <div className="ad">
       {drawer && <div className="adScrim" onClick={() => setDrawer(false)} aria-hidden="true" />}
       <aside className={`adRail ${drawer ? 'open' : ''}`} aria-label="Admin menu">
-        <div className="adBrand"><ComexLogo dark width={150} /><span className="adTag">ADMIN</span></div>
+        <div className="adBrand"><ComexLogo dark width={128} /></div>
         <nav className="adNav">
           {LINKS.map((l) => (
             <div key={l.sec} className="adNavGroup">
-              {l.group && <span className="adSec">{l.group}</span>}
-              <button className="adLink" aria-current={nav.sec === l.sec ? 'page' : undefined} onClick={() => go({ sec: l.sec })}>
+              {l.group && l.sec !== 'approvals' && <span className="adRule" aria-hidden="true" />}
+              <button className="adLink" title={l.group ? `${l.group}: ${l.label}` : l.label} aria-current={nav.sec === l.sec ? 'page' : undefined} onClick={() => go({ sec: l.sec })}>
                 <Icon name={l.icon} size={18} /><span>{l.label}</span>{!!l.badge && <span className="adBadge">{l.badge}</span>}
               </button>
             </div>
           ))}
         </nav>
         <span className="adGrow" />
-        <button className="adStore" onClick={onExit}><Icon name="arrowL" size={16} />Open the store app</button>
+        <button className="adLink adStoreLink" onClick={onExit}><Icon name="home" size={18} /><span>Open the store app</span></button>
         <div className="adUserWrap">
           {menu && (
             <div className="adUserMenu" role="menu" onMouseLeave={() => setMenu(false)}>
@@ -121,9 +120,21 @@ export function Admin({ user, onExit, onSignOut }: { user: User; onExit: () => v
       <div className="adMain">
         <header className="adTop">
           <button className="adMenuBtn" onClick={() => setDrawer(true)} aria-label="Open the menu"><Icon name="list" size={20} />{!!(waitingCount + zohoCount) && <i />}</button>
-          <span className="adCrumb">{d?.sites[0]?.company || 'Comex Builders'} <span>/ {crumb}</span></span>
+          <div className="adScope">
+            <button className="adScopeBtn" onClick={() => setScope((v) => !v)} aria-expanded={scope}>
+              <b>{(d?.sites[0]?.company || 'Comex Builders').toUpperCase()}</b><span className="adDotSep">·</span><span>{nav.sec === 'sites' && nav.site ? siteName(nav.site) : 'All sites'}</span><Icon name="chevD" size={14} />
+            </button>
+            {scope && d && (
+              <div className="adScopeMenu" role="menu" onMouseLeave={() => setScope(false)}>
+                <button role="menuitem" onClick={() => { setScope(false); go({ sec: 'overview' }); }}>All sites</button>
+                {d.sites.map((x) => <button key={x.id} role="menuitem" onClick={() => { setScope(false); go({ sec: 'sites', site: x.id }); }}>{x.name}</button>)}
+              </div>
+            )}
+          </div>
+          <AdminSearch d={d} go={go} />
           <span className="adGrow" />
-          <button className="adRefresh" onClick={() => { load(); toast('Up to date'); }} title="Refresh"><Icon name="swap" size={14} />Refresh</button>
+          <button className="adRefresh" onClick={() => { load(); toast('Up to date'); }} title="Refresh"><Icon name="refresh" size={14} />Up to date</button>
+          <span className="adDateSep" aria-hidden="true" />
           <span className="adDate">{niceDate(day)}</span>
         </header>
         <main className="adBody">
@@ -213,6 +224,34 @@ function TodayPill({ d, site }: { d: Data; site: string }) {
 
 /* ───────── Overview: what needs you, then one row per site ───────── */
 
+const KIND_TONE: Record<string, string> = { 'Sign-up': 'blue', Fix: 'amber', Recount: 'amber', Delete: 'red', Zoho: 'blue', Day: 'grey' };
+
+/** Search in the admin top bar: sites, people and items; Enter or a tap opens it. */
+function AdminSearch({ d, go }: { d: Data | null; go: (n: Nav) => void }) {
+  const [q, setQ] = useState('');
+  const [open, setOpen] = useState(false);
+  const s = q.trim().toLowerCase();
+  const hits = !d || !s ? [] : [
+    ...d.sites.filter((x) => x.name.toLowerCase().includes(s)).map((x) => ({ k: `s${x.id}`, t: x.name, sub: 'Site', run: () => go({ sec: 'sites', site: x.id }) })),
+    ...d.profiles.filter((p) => p.full_name.toLowerCase().includes(s)).map((p) => ({ k: `p${p.id}`, t: p.full_name, sub: `${ROLE_LABEL[p.role]}${p.site_id ? ` · ${d.sites.find((x) => x.id === p.site_id)?.name ?? ''}` : ''}`, run: () => go({ sec: 'people' }) })),
+    ...d.items.filter((i) => i.name.toLowerCase().includes(s)).slice(0, 6).map((i) => ({ k: `i${i.id}`, t: i.name, sub: `Item · ${i.unit}`, run: () => go({ sec: 'items' }) })),
+  ].slice(0, 9);
+  const pick = (h: { run: () => void }) => { h.run(); setQ(''); setOpen(false); };
+  return (
+    <div className="adSearch">
+      <Icon name="search" size={15} />
+      <input value={q} placeholder="Search people, sites, items" aria-label="Search people, sites, items" onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onChange={(e) => { setQ(e.target.value); setOpen(true); }} onKeyDown={(e) => { if (e.key === 'Enter' && hits[0]) pick(hits[0]); if (e.key === 'Escape') { setQ(''); setOpen(false); } }} />
+      {open && s && (
+        <div className="adSearchMenu" role="listbox">
+          {!hits.length && <span className="adSearchNone">Nothing matches “{q}”.</span>}
+          {hits.map((h) => <button key={h.k} role="option" onMouseDown={(e) => e.preventDefault()} onClick={() => pick(h)}><b>{h.t}</b><small>{h.sub}</small></button>)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface Todo { key: string; title: string; detail: string; kind: string; dot: string; action: string; at: string; run: () => void; disabled?: boolean }
 function Overview({ d, day, user, go }: { d: Data; day: string; user: User; go: (n: Nav) => void }) {
   const name = (id: string | null | undefined) => d.sites.find((s) => s.id === id)?.name ?? '';
@@ -223,7 +262,7 @@ function Overview({ d, day, user, go }: { d: Data; day: string; user: User; go: 
   const todo: Todo[] = [];
   d.profiles.filter((p) => p.status === 'pending').forEach((p) => todo.push({ key: `p${p.id}`, title: `${p.full_name} wants to join${p.site_id ? ` ${name(p.site_id)}` : ''}`, detail: `${ROLE_LABEL[p.role]} · asked ${ago(p.created_at)}`, kind: 'Sign-up', dot: '#6B46C1', action: 'Review', at: p.created_at, run: () => go({ sec: 'approvals', sel: `p:${p.id}` }) }));
   d.corr.filter((c) => c.status === 'pending').forEach((c) => {
-    todo.push({ key: `c${c.id}`, title: requestTitle(c, (id) => d.items.find((x) => x.id === id), c.document_id ? d.docs.find((x) => x.id === c.document_id) : undefined), detail: `${name(c.site_id)} · ${c.reason}${person.get(c.created_by) ? ` · ${person.get(c.created_by)!.full_name}` : ''}`, kind: c.kind === 'recount' ? 'Recount' : 'Fix', dot: '#2E5AAC', action: 'Review', at: c.created_at, run: () => go({ sec: 'approvals', sel: `c:${c.id}` }) });
+    todo.push({ key: `c${c.id}`, title: requestTitle(c, (id) => d.items.find((x) => x.id === id), c.document_id ? d.docs.find((x) => x.id === c.document_id) : undefined), detail: `${name(c.site_id)} · ${c.reason}${person.get(c.created_by) ? ` · ${person.get(c.created_by)!.full_name}` : ''}`, kind: c.kind === 'recount' ? 'Recount' : c.kind === 'delete' ? 'Delete' : 'Fix', dot: '#2E5AAC', action: 'Review', at: c.created_at, run: () => go({ sec: 'approvals', sel: `c:${c.id}` }) });
   });
   const toMatch = d.zitems.filter((z) => !z.item_id);
   if (toMatch.length) todo.push({ key: 'zm', title: `${toMatch.length} Zoho item${toMatch.length === 1 ? '' : 's'} to match`, detail: toMatch.slice(0, 2).map((z) => z.zoho_name).join(' · ') + (toMatch.length > 2 ? ' …' : ''), kind: 'Zoho', dot: '#1F7A4D', action: 'Match', at: '9', run: () => go({ sec: 'zoho' }) });
@@ -240,27 +279,36 @@ function Overview({ d, day, user, go }: { d: Data; day: string; user: User; go: 
 
   const entriesToday = (site: string) => d.docs.filter((x) => x.site_id === site && x.doc_date === day && x.kind !== 'correction').length;
   const submitted = d.sites.filter((s) => isActive(d, s.id) && subOf(d, s.id)).length;
+  const pendC = d.corr.filter((c) => c.status === 'pending');
+  const signups = d.profiles.filter((p) => p.status === 'pending').length, dels = pendC.filter((c) => c.kind === 'delete').length, fixes = pendC.length - dels;
+  const pend = signups + pendC.length;
   const active = d.sites.filter((s) => isActive(d, s.id)).length;
 
   return (
     <div className="adStack">
-      <Head title={`${hello}, ${user.name.split(' ')[0]}`} lead={`${todo.length ? `${todo.length} thing${todo.length === 1 ? '' : 's'} need${todo.length === 1 ? 's' : ''} you` : 'Nothing needs you'} · ${submitted} of ${active} site${active === 1 ? '' : 's'} ha${active === 1 ? 's' : 've'} submitted today`} />
+      <Head title="Overview" lead={`${hello}, ${user.name.split(' ')[0]}. ` + `${todo.length ? `${todo.length} thing${todo.length === 1 ? '' : 's'} need${todo.length === 1 ? 's' : ''} you` : 'Nothing needs you'} · ${submitted} of ${active} site${active === 1 ? '' : 's'} ha${active === 1 ? 's' : 've'} submitted today`} />
+      <div className="adKpis enter">
+        <div><b>Submitted today</b><span className="mono">{submitted}<small>of {active} site{active === 1 ? '' : 's'}</small></span><small>{d.sites.filter((x) => isActive(d, x.id) && !subOf(d, x.id)).map((x) => x.name).join(', ') || 'Every site is in'}{d.sites.some((x) => isActive(d, x.id) && !subOf(d, x.id)) ? ' not yet' : ''}</small></div>
+        <div className="amber"><b>Waiting for you</b><span className="mono">{pend}<small>to decide</small></span><small>{[signups && `${signups} sign-up${signups === 1 ? '' : 's'}`, fixes && `${fixes} fix${fixes === 1 ? '' : 'es'}`, dels && `${dels} delete${dels === 1 ? '' : 's'}`].filter(Boolean).join(' · ') || 'Nothing waiting'}</small></div>
+        <div className="red"><b>Running low</b><span className="mono">{d.sites.reduce((a, x) => a + lowCount(d.balances, x.id, d.docs, day), 0)}<small>items</small></span><small>across all sites</small></div>
+        <div className="blue"><b>Zoho</b><span className="mono">{d.pending.filter((x) => !x.site_id).length + d.zitems.filter((z) => !z.item_id).length}<small>to place or match</small></span><small>{d.conns.some((c) => c.last_error) ? 'A connection stopped' : 'Connected'}</small></div>
+      </div>
+      <div className="adOvGrid">
       <section className="panel adCard enter">
         <div className="adCardHead"><b>Needs you</b><span>Oldest first</span></div>
         {!todo.length && <div className="adAllClear"><span className="adTick"><Icon name="check" size={18} /></span><div><b>All clear.</b><small>Sign-ups, corrections and Zoho matches show up here when they arrive.</small></div></div>}
         {todo.map((t, i) => (
-          <div key={t.key} className={`adTodo ${i === 0 ? 'first' : ''}`} style={{ animationDelay: `${Math.min(i, 10) * 30}ms` }}>
-            <span className="adNum">{i + 1}</span>
-            <span className="adTodoTxt"><b>{t.title}{i === 0 && <span className="adStart">START HERE</span>}</b><small>{t.detail}</small></span>
-            <span className="adKind"><i style={{ background: t.dot }} />{t.kind}</span>
-            <button className={`adBtn ${i === 0 ? 'dark' : ''}`} disabled={t.disabled} title={t.disabled ? 'No phone number for this site’s store keeper' : undefined} onClick={t.run}>{t.action}</button>
+          <div key={t.key} className="adTodo2" style={{ animationDelay: `${Math.min(i, 10) * 30}ms` }}>
+            <span className={`adPill ${KIND_TONE[t.kind] ?? ''}`}>{t.kind}</span>
+            <span className="adTodoTxt"><b>{t.title}</b><small>{t.detail}</small></span>
+            <button className={`adBtn sm ${i === 0 ? 'dark' : ''}`} disabled={t.disabled} title={t.disabled ? 'No phone number for this site’s store keeper' : undefined} onClick={t.run}>{t.action}</button>
           </div>
         ))}
       </section>
       <section className="panel adCard enter">
         <div className="adCardHead"><b>Sites today</b><button className="adLinkBtn" onClick={() => go({ sec: 'sites' })}>All sites →</button></div>
         <div className="adTable adSitesT">
-          <div className="th"><span>Site</span><span>Today</span><span className="r">Entries</span><span className="r">Low stock</span><span className="r">Items</span><span className="r">Team</span><span /></div>
+          <div className="th"><span>Site</span><span>Today</span><span className="r">Entries</span><span className="r">Low stock</span><span className="r">Team</span><span>Store</span><span /></div>
           {d.sites.map((s) => {
             const low = lowCount(d.balances, s.id, d.docs, day);
             return (
@@ -268,13 +316,14 @@ function Overview({ d, day, user, go }: { d: Data; day: string; user: User; go: 
                 <b>{s.name}</b><span><TodayPill d={d} site={s.id} /></span>
                 <span className="r mono">{isActive(d, s.id) ? entriesToday(s.id) : '—'}</span>
                 <span className={`r mono ${low ? 'red' : ''}`}>{low}</span>
-                <span className="r mono">{d.balances.filter((b) => b.site_id === s.id && b.balance > 0).length}</span>
-                <span className="r mono">{teamOf(d, s.id).length}</span><span className="adChev">›</span>
+                <span className="r mono">{teamOf(d, s.id).length}</span>
+                <span className="adKeeper">{teamOf(d, s.id).find((p) => p.role === 'store')?.full_name ?? '—'}</span><span className="adChev">›</span>
               </button>
             );
           })}
         </div>
       </section>
+      </div>
     </div>
   );
 }
