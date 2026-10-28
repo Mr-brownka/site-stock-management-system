@@ -19,6 +19,7 @@ import { exitTraining } from './lib/training';
 import { bootDone, bootGreet, forgetVisitor } from './lib/boot';
 import { recordScreen } from './lib/nav';
 import { canSee, firstAllowed } from './lib/access';
+import { toast } from './components/feedback';
 
 // Screens used less often load on demand, so the first download is smaller.
 const Admin = lazy(() => import('./screens/Admin').then((m) => ({ default: m.Admin })));
@@ -116,7 +117,7 @@ export function App() {
   const allowed = canSee(user, screen) ? screen : firstAllowed(user);
   const View = SCREENS[allowed];
   return (
-    <DataProvider user={user} go={go} signOut={signOut} openAdmin={openAdmin}>
+    <DataProvider user={user} go={(s: Screen) => { if (!canSee(user, s)) { toast('That page is turned off for you. Ask the admin to turn it on.', 'warn'); return; } go(s); }} signOut={signOut} openAdmin={openAdmin}>
       <AppShell screen={allowed}><Suspense fallback={<PageSkeleton />}><View /></Suspense></AppShell>
     </DataProvider>
   );
