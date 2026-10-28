@@ -12,7 +12,7 @@ const blank = () => Array.from({ length: ROWS }, () => newLine());
 
 /** Material Issuance Register: everything the store gave out in the day, on one sheet (item, quantity, unit). */
 function RegisterForm({ done, again }: { done: () => void; again: () => Promise<void> }) {
-  const { day: today_, user, balanceOf, projectWeek, company, itemById, refreshUnfinished, go } = useData();
+  const { day: today_, user, balanceOf, projectWeek, company, itemById, refreshUnfinished, go, recent } = useData();
   const draft = useDraft('issued');
   const day = draft?.doc_date ?? today_;
   const p = (draft?.payload ?? {}) as Record<string, string>;
@@ -23,6 +23,9 @@ function RegisterForm({ done, again }: { done: () => void; again: () => Promise<
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState('');
   const [stamped, setStamped] = useState(false);
+  const [addedTo, setAddedTo] = useState(false);
+  // One register a day: when the day already has one, this sheet adds to it.
+  const existing = recent.find((d) => d.kind === 'issue' && !d.ref_no && d.doc_date === day);
   useEffect(() => { api.siteTeam().then((t) => setTeam(t.length ? t : [user.name])).catch(() => undefined); }, [user.name]);
 
   const patch = (k: number, q: Partial<LineDraft>) => setLines((ls) => {
@@ -59,8 +62,8 @@ function RegisterForm({ done, again }: { done: () => void; again: () => Promise<
     if (hard || over) { setErr(hard || `Only ${fmt(balanceOf(over![0]))} ${itemById.get(over![0])?.unit ?? ''} of ${itemById.get(over![0])?.name} in store.`); focusMiss(); return; }
     setBusy('save'); setErr('');
     try {
-      await api.saveDocument({ kind: 'issue', doc_date: day, authorised_by: store.trim() || null },
-        [...merged().entries()].filter(([, q]) => q > 0).map(([item_id, qty]) => ({ item_id, qty, subphase: null })));
+      const r = await api.saveRegister(day, store.trim() || null, [...merged().entries()].filter(([, q]) => q > 0).map(([item_id, qty]) => ({ item_id, qty })));
+      setAddedTo(r === 'added');
       if (draft) { await api.deleteDraft(draft.id).catch(() => undefined); refreshUnfinished(); }
       setStamped(true);
       setTimeout(done, 1300);
@@ -80,9 +83,10 @@ function RegisterForm({ done, again }: { done: () => void; again: () => Promise<
 
   return (
     <div className="stack enter">
+      {existing && <div className="note mirAdd" role="status"><b>{dateText} already has a register</b> with {existing.lines.length} item{existing.lines.length === 1 ? '' : 's'}. What you type here is added to it: the same item adds up, a new item is a new line.</div>}
       <div ref={root} className={`mir ${stamped ? 'stamped' : ''}`} role="group" aria-label="Material Issuance Register"
         onFocusCapture={(e) => { const k = (e.target as HTMLElement).closest<HTMLElement>('[data-g]')?.dataset.g; if (k) setGuide(k); }}>
-        {stamped && <div className="stampMark big" aria-live="polite"><b>ENTERED</b><small>{dateText} · {store.split(' ')[0]}</small></div>}
+        {stamped && <div className="stampMark big" aria-live="polite"><b>{addedTo ? 'ADDED' : 'ENTERED'}</b><small>{dateText} · {store.split(' ')[0]}</small></div>}
         <div className="mirHead">
           <div className="mwcLogo"><span className="mwcArc" aria-hidden="true" /><b>{(company || 'Comex Builders').toUpperCase()}</b><small>LTD</small></div>
           <div className="mirTitle">MATERIAL ISSUANCE REGISTER</div>

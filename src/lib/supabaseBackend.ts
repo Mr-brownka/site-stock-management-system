@@ -340,6 +340,11 @@ export function supabaseBackend(url: string, key: string): Backend {
       if (error) fail(error);
       return data as 'deleted' | 'asked';
     },
+    async saveRegister(day, store, lines) {
+      const { data, error } = await sb.rpc('save_register', { on_date: day, store: store ?? '', items: lines });
+      if (error) fail(error);
+      return data as 'new' | 'added';
+    },
     async myCorrections() {
       const { data, error } = await sb.from('correction_requests').select('*').eq('site_id', await mySite()).order('created_at', { ascending: false }).limit(200);
       if (error) fail(error);

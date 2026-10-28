@@ -125,6 +125,17 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
       save();
     },
     async myCorrections() { return s.corrections; },
+    async saveRegister(day, store, ls) {
+      const reg = s.docs.filter((d) => d.kind === 'issue' && !d.ref_no && d.doc_date === day).sort((a, b) => a.created_at.localeCompare(b.created_at))[0];
+      if (!reg) { await this_.saveDocument({ kind: 'issue', doc_date: day, authorised_by: store }, ls.map((l) => ({ ...l, subphase: null }))); return 'new'; }
+      for (const l of ls) {
+        if (!(l.qty > 0)) continue;
+        const ex = reg.lines.find((x) => x.item_id === l.item_id);
+        if (ex) ex.qty += l.qty;
+        else reg.lines.push({ id: s.nextLine++, document_id: reg.id, kind: 'issue', move_date: day, item_id: l.item_id, qty: l.qty, subphase: null, return_of: null });
+      }
+      save(); return 'added';
+    },
     async deleteEntry(docId, why, note) {
       const d = s.docs.find((x) => x.id === docId);
       if (!d) throw new Error('The entry no longer exists');
