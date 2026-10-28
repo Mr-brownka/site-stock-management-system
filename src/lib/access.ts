@@ -24,6 +24,8 @@ export function canSee(u: User, s: Screen): boolean {
   if (u.role === 'admin') return true;
   if (!canEdit(u) && WRITE.includes(s)) return false;
   if (!u.pages) return true;
+  // The low stock list behind "Review all" opens for anyone who sees the dashboard.
+  if (s === 'dashboard' && u.pages.includes('home')) return true;
   const page = PAGES.find((p) => p.screens.includes(s));
   return !page || u.pages.includes(page.key);
 }

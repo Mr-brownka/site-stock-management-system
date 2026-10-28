@@ -116,7 +116,7 @@ export function Submitted() {
                   <span className="mono mute">{fmt(r.from)}</span>
                   <span className="mono in">{r.inn ? `+${fmt(r.inn)}` : ''}</span>
                   <span className="mono out">{r.out ? `−${fmt(r.out)}` : ''}</span>
-                  <span className="sumNow"><i><i style={{ width: `${Math.min(100, (Math.max(0, r.b.balance) / Math.max(r.from, r.b.balance, 1)) * 100)}%` }} /></i><b className="mono">{fmt(r.b.balance)}</b></span>
+                  <span className="sumNow"><b className="mono">{fmt(r.b.balance)}</b><i><i style={{ width: `${Math.min(100, (Math.max(0, r.b.balance) / Math.max(r.from, r.b.balance, 1)) * 100)}%` }} /></i></span>
                 </button>
               );
             })}

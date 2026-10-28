@@ -3143,19 +3143,19 @@ img, video, canvas { max-width: 100%; height: auto; }
 .sumTiles span { font-size: 12.5px; color: var(--muted); font-weight: 600; }
 .sumTiles b { font-size: 30px; font-weight: 800; line-height: 1.1; } .sumTiles b small { font-size: 13px; color: var(--muted); font-weight: 600; margin-left: 5px; }
 .sumTable { overflow: hidden; padding: 0; }
-.sumTh, .sumTr { display: grid; grid-template-columns: minmax(0, 1.7fr) 76px 76px 76px minmax(120px, 1fr); gap: 10px; align-items: center; padding: 10px 16px; }
+.sumTh, .sumTr { display: grid; grid-template-columns: minmax(0, 2.4fr) repeat(3, minmax(0, 1fr)) minmax(0, 1.8fr); column-gap: 24px; align-items: center; padding: 14px 24px; }
 .sumTh { font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-.sumTh span:not(:first-child) { text-align: right; }
+.sumTh { padding-top: 12px; padding-bottom: 12px; background: #FAFBF9; } .sumTh span { text-align: left; }
 .sumTr { width: 100%; border: 0; border-top: 1px solid var(--line); background: #fff; font: inherit; color: var(--ink); text-align: left; cursor: pointer; }
 .sumTr:hover { background: #FAFBF9; } .sumTr.low { background: #FFF8F7; }
-.sumTr > .mono { text-align: right; } .sumTr > .mono:empty::before { content: '·'; color: #C5CBC8; } .sumTr .mute { color: #9AA29F; } .sumTr .in { color: var(--ok); } .sumTr .out { color: #E0731A; }
+.sumTr > .mono { text-align: left; font-variant-numeric: tabular-nums; } .sumTr > .mono:empty::before { content: '·'; color: #C5CBC8; } .sumTr .mute { color: #9AA29F; } .sumTr .in { color: var(--ok); } .sumTr .out { color: #E0731A; }
 .sumItem { min-width: 0; } .sumItem b { font-weight: 600; } .sumItem small { color: var(--muted); }
 .sumItem em { font-style: normal; margin-left: 8px; font-size: 12px; font-weight: 700; color: #D92D20; background: #FBE3E1; padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
-.sumNow { display: flex; align-items: center; gap: 10px; }
+.sumNow { display: flex; align-items: center; gap: 14px; }
 .sumNow > i { flex: 1; height: 8px; border-radius: 9px; background: #EEF0EE; overflow: hidden; }
 .sumNow > i > i { display: block; height: 100%; border-radius: 9px; background: var(--ok); }
 .sumTr.low .sumNow > i > i { background: #D92D20; }
-.sumNow b { min-width: 46px; text-align: right; font-size: 15.5px; }
+.sumNow b { min-width: 64px; text-align: left; font-size: 15.5px; font-variant-numeric: tabular-nums; }
 @media (max-width: 1100px) { .sumGrid { grid-template-columns: 290px minmax(0, 1fr); } .sumTiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 860px) {
   .sumGrid { grid-template-columns: minmax(0, 1fr); }

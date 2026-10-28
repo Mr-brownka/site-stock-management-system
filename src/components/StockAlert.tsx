@@ -30,12 +30,13 @@ export const waNumber = (p: string | null | undefined) => {
 
 /** The "Last sent" line and the green button under Needs attention. */
 export function AlertButton() {
-  const { lowItems } = useData();
+  const { lowItems, user } = useData();
   const [info, setInfo] = useState<AlertInfo | null>(null);
   const [open, setOpen] = useState(false);
   const load = () => api.alertInfo().then(setInfo).catch(() => setInfo(null));
   useEffect(() => { load(); }, []);
-  if (!lowItems.length) return null;
+  // Procurement hears from the site manager, so they only review the list.
+  if (!lowItems.length || user.role === 'procurement') return null;
   const sent = info?.sent_at ? new Date(info.sent_at) : null;
   return (
     <>
