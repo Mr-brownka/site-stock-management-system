@@ -116,7 +116,7 @@ export interface ZohoRun { site_id: string | null; at: string; listed: number; r
 /** Incoming deliveries (Zoho purchase orders) for the dashboard. */
 export interface IncomingLine { name: string; unit: string | null; ordered: number; received: number }
 export interface ZohoRef { po?: string | null; po_id?: string | null; receive_id?: string | null; grn?: string | null; site_id?: string | null }
-export interface IncomingOrder { id: string; po: string; vendor: string | null; date: string; expected: string | null; status: string; lines: IncomingLine[]; lastIn?: string | null; /** First part in (part-delivered only). */ firstIn?: string | null; grns?: { id?: string; grn: string; date: string; lines: string }[] }
+export interface IncomingOrder { id: string; po: string; vendor: string | null; /** Zoho's Sub-phase on the order (where it is for). */ subphase?: string | null; date: string; expected: string | null; status: string; lines: IncomingLine[]; lastIn?: string | null; /** First part in (part-delivered only). */ firstIn?: string | null; grns?: { id?: string; grn: string; date: string; lines: string }[] }
 export interface IncomingDismissed { po_id: string; po: string | null; vendor: string | null; reason: string; dismissed_at: string }
 export interface Incoming { connected: boolean; error?: string; /** Zoho Books web address for this org, e.g. https://books.zoho.com/app/838… */ web?: string; checked_at?: string; today?: string; week?: { from: string; to: string }; next?: { from: string; to: string }; thisWeek?: IncomingOrder[]; nextWeek?: IncomingOrder[]; part?: IncomingOrder[] }
 export interface ZohoItemMatch { zoho_item_id: string; item_id: number | null; zoho_name: string | null; zoho_unit: string | null }

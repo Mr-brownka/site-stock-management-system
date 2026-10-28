@@ -218,7 +218,7 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
       // Sample orders so the demo shows the panel; dates follow the real calendar.
       const t = today(); const dow = (new Date(t + 'T00:00:00Z').getUTCDay() + 6) % 7; const wk = addDays(t, -dow);
       const o = (id: string, po: string, vendor: string, expected: string | null, lines: [string, string, number, number][], lastIn?: string) =>
-        ({ id, po, vendor, date: addDays(t, -9), expected, status: lastIn ? 'partially_received' : 'open', lines: lines.map(([name, unit, ordered, received]) => ({ name, unit, ordered, received })), lastIn: lastIn ?? null,
+        ({ id, po, vendor, subphase: lastIn ? (Number(id) % 2 ? '7th floor slab' : 'Ground floor walling') : null, date: addDays(t, -9), expected, status: lastIn ? 'partially_received' : 'open', lines: lines.map(([name, unit, ordered, received]) => ({ name, unit, ordered, received })), lastIn: lastIn ?? null,
            grns: lastIn ? [{ grn: 'GRN' + (103000 + Number(id)), date: lastIn, lines: lines.map(([n, , , r]) => `${n} ×${r}`).join(' · ') }] : [] });
       return { connected: true, checked_at: new Date().toISOString(), today: t, week: { from: wk, to: addDays(wk, 6) }, next: { from: addDays(wk, 7), to: addDays(wk, 13) },
         thisWeek: [o('1', 'PO-02496', 'Bamburi Cement', addDays(t, -1), [['Cement 42.5N', 'Bags', 300, 0]]), o('2', 'PO-02490', 'Five Star Hardware', t, [['Cement 42.5N', 'Bags', 400, 0], ['Binding Wire 16g', 'Rolls', 10, 0]]), o('3', 'PO-02493', 'ASL Limited', addDays(wk, 5), [['Green Net', 'Roll', 10, 0], ['Hose pipe 3/4"', 'Roll', 4, 0]])],

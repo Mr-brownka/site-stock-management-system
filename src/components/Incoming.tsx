@@ -11,7 +11,7 @@ import { useData } from '../lib/store';
 import { useIsPhone } from './Ring';
 import { BackPill } from './BackPill';
 
-const KEY = 'ostock-incoming';
+const KEY = 'ostock-incoming-2'; // bumped when the shape changes (subphase)
 const FRESH = 30 * 60_000; // checked at most every 30 minutes unless Refresh is pressed
 const short = (d: string) => niceDate(d).split(' ').slice(1).join(' ');
 const ago = (iso?: string) => { if (!iso) return ''; const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000); return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`; };
@@ -59,7 +59,7 @@ function RemoveSheet({ o, onClose, onDone }: { o: IncomingOrder; onClose: () => 
   return createPortal(
     <div className="sheetBack dayAskBack" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <section className="dayAsk incRm" role="dialog" aria-modal="true" aria-labelledby="rmTitle">
-        <span className="incRmKick">Not coming</span>
+        <span className="incRmKick">Remove</span>
         <h2 id="rmTitle">Remove {o.vendor ? `${o.vendor}’s ` : ''}{o.po} from incoming?</h2>
         <div className="incRmLines">{o.lines.map((l, i) => <div key={i}><span>{l.name}</span><b className="mono">{fmt(l.ordered - l.received)} of {fmt(l.ordered)} {l.unit ?? ''} owed</b></div>)}</div>
         <span className="incRmQ">Why? <small>(one tap)</small></span>
@@ -81,6 +81,7 @@ function OrderView({ o, onClose, onNot }: { o: IncomingOrder; onClose: () => voi
         <h2 id="incTitle">{o.vendor ?? 'Vendor'}</h2>
         <div className="incDates">
           {[['Ordered', o.date], ['Expected', o.expected], ['Last in', o.lastIn]].filter(([, v]) => v).map(([k, v]) => <span key={k}><small>{k}</small><b>{niceDate(v!)}</b></span>)}
+          {o.subphase && <span><small>Subphase</small><b>{o.subphase}</b></span>}
         </div>
       </header>
       <div className="incTbl">
@@ -92,7 +93,7 @@ function OrderView({ o, onClose, onNot }: { o: IncomingOrder; onClose: () => voi
       </div>
       {!!o.grns?.length && <div className="incGrns"><span className="incGrnsT">Delivered so far</span>
         {o.grns.map((g) => <div key={g.grn + g.date}><span><button type="button" className="incGrnLink" title="Open this receive in Zoho Books" onClick={() => openInZoho({ receive_id: g.id, grn: g.grn })}><PoTag po={g.grn} /></button> {short(g.date)}</span><small>{g.lines}</small></div>)}</div>}
-      <footer className="incSFoot"><ZohoOpen zref={{ po_id: o.id, po: o.po }} label={`Open ${o.po} in Zoho Books ↗`} />{onNot && <button className="btn ghost incNotBig" onClick={onNot}>Not coming</button>}</footer>
+      <footer className="incSFoot"><ZohoOpen zref={{ po_id: o.id, po: o.po }} label={`Open ${o.po} in Zoho Books ↗`} />{onNot && <button className="btn ghost incNotBig" onClick={onNot}><Icon name="trash" size={15} />Remove from part-delivered</button>}</footer>
     </>
   );
 }
@@ -176,9 +177,10 @@ export function IncomingPanel() {
                     <span className="irPo mono">{o.po}</span>
                     <span className="irIt">{first?.name}{more > 0 ? ` · +${more}` : ''}</span>
                     <b className="irQ mono">{first ? (c.part ? <>{fmt(first.ordered - first.received)}<small>/{fmt(first.ordered)}</small> {first.unit ?? ''}</> : `${fmt(first.ordered - first.received)} ${first.unit ?? ''}`) : ''}</b>
+                    {c.part && <span className="irSub">{o.subphase || '—'}</span>}
                     {c.part ? <span className="irWhen">{o.lastIn ? `Last in ${short(o.lastIn)}` : ''}</span> : <span className={`irDue ${dd.k}`}>{dd.k === 'late' && o.expected === addDay(today, -1) ? 'Yesterday' : dd.k === 'today' ? 'Today' : dd.t}</span>}
                   </button>
-                  {c.part && <button type="button" className="incNot" onClick={() => setRemoving(o)} title="This won’t be delivered"><Icon name="close" size={12} />Not coming</button>}
+                  {c.part && <button type="button" className="incBin" onClick={() => setRemoving(o)} title="Remove: the rest won’t be delivered" aria-label={`Remove ${o.po} from part-delivered`}><Icon name="trash" size={15} /></button>}
                 </div>
               );
             })}
@@ -285,20 +287,24 @@ export function ComingInPage() {
             <div className="cinTabs" role="tablist">{tabs.map((t) => <button key={t.k} role="tab" aria-selected={tab === t.k} onClick={() => setTab(t.k)}>{t.t}<span className="mono">{t.n}</span></button>)}</div>
             <label className="cinFind"><Icon name="search" size={15} /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Vendor, PO or item" aria-label="Find a vendor, PO or item" /></label>
           </div>
-          <div className="cinTh" aria-hidden="true"><span>Vendor</span><span>PO</span><span>Items still to come</span><span>Qty</span><span>Expected</span></div>
+          <div className={`cinTh ${tab === 'part' ? 'part' : ''}`} aria-hidden="true"><span>Vendor</span><span>PO</span><span>Items still to come</span>{tab === 'part' && <span>Subphase</span>}<span>Qty</span><span>{tab === 'part' ? 'Last in' : 'Expected'}</span>{tab === 'part' && <span />}</div>
           {!data && busy && <div className="incSkel" />}
           {data && !rows.length && <div className="incEmpty2">{q ? `Nothing matches “${q}”.` : tab === 'part' ? 'No part deliveries waiting.' : 'Nothing expected here.'}</div>}
           {rows.map(({ o, k }) => {
             const dd = due(o, today); const first = o.lines[0]; const more = o.lines.length - 1;
             const owed = first ? first.ordered - first.received : 0;
             return (
-              <button key={o.id + k} type="button" className={`cinRow ${selId === o.id ? 'on' : ''}`} onClick={() => setSelId(selId === o.id && !phone ? null : o.id)}>
+              <div key={o.id + k} className={`cinRowWrap ${tab === 'part' ? 'part' : ''}`}>
+              <button type="button" className={`cinRow ${tab === 'part' ? 'part' : ''} ${selId === o.id ? 'on' : ''}`} onClick={() => setSelId(selId === o.id && !phone ? null : o.id)}>
                 <b className="cinV">{o.vendor ?? 'Vendor'}</b>
                 <span className="cinPo"><PoTag po={o.po} /></span>
                 <span className="cinIt">{first?.name}{more > 0 && <em> · +{more} more</em>}</span>
+                {tab === 'part' && <span className="cinSub">{o.subphase || '—'}</span>}
                 <b className="cinQ mono">{first ? <>{fmt(owed)}{k === 'part' && <small>/{fmt(first.ordered)}</small>} <small>{first.unit ?? ''}</small></> : ''}</b>
                 <span className="cinDue">{k === 'part' ? <span className="incChip part">{o.lastIn ? `Last in ${short(o.lastIn)}` : 'Part in'}</span> : <span className={`incChip ${dd.k}`}>{dd.k === 'late' && o.expected === addDay(today, -1) ? 'Yesterday' : dd.k === 'today' ? 'Today' : dd.t.replace('Due ', '')}</span>}</span>
               </button>
+              {tab === 'part' && <button type="button" className="incBin" onClick={() => setRemoving(o)} title="Remove: the rest won’t be delivered" aria-label={`Remove ${o.po} from part-delivered`}><Icon name="trash" size={15} /></button>}
+              </div>
             );
           })}
         </section>

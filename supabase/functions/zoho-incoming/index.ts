@@ -22,7 +22,7 @@ function custom(r: Rec, re: RegExp): string | null {
 }
 
 type Line = { name: string; unit: string | null; ordered: number; received: number };
-type Order = { id: string; po: string; vendor: string | null; date: string; expected: string | null; status: string; lines: Line[]; lastIn?: string | null; firstIn?: string | null; grns?: { id?: string; grn: string; date: string; lines: string }[] };
+type Order = { id: string; po: string; vendor: string | null; subphase?: string | null; date: string; expected: string | null; status: string; lines: Line[]; lastIn?: string | null; firstIn?: string | null; grns?: { id?: string; grn: string; date: string; lines: string }[] };
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
@@ -120,7 +120,7 @@ Deno.serve(async (req) => {
         return { name: String(l.name ?? l.item_name ?? 'Item'), unit: str(l.unit), ordered, received: Math.min(received, ordered) };
       });
       const grns = (got?.grns ?? []).sort((a, b) => b.date.localeCompare(a.date));
-      return { id: String(p.purchaseorder_id), po: String(p.purchaseorder_number ?? ''), vendor: str(p.vendor_name), date: dayOf(p.date), expected: dayOf(p.delivery_date ?? p.expected_delivery_date) || null,
+      return { id: String(p.purchaseorder_id), po: String(p.purchaseorder_number ?? ''), vendor: str(p.vendor_name), subphase: custom(p, /sub.?phase/i), date: dayOf(p.date), expected: dayOf(p.delivery_date ?? p.expected_delivery_date) || null,
         status: String(p.received_status ?? p.order_status ?? p.status ?? ''), lines, lastIn: grns[0]?.date ?? null, firstIn: grns[grns.length - 1]?.date ?? null, grns };
     };
     const ours = (p: Rec | null) => !!p && norm(custom(p, /project/i)) === mine;
@@ -131,7 +131,6 @@ Deno.serve(async (req) => {
       if (!ours(p)) continue;
       const o = toOrder(p!);
       o.lines = o.lines.filter((l) => l.received < l.ordered);
-      console.log(JSON.stringify({ po: o.po, status: [row.status, row.received_status, p!.status, p!.received_status], lines: ((p!.line_items as Rec[] | undefined) ?? []).map((l) => [l.name, l.quantity, l.quantity_received ?? l.received_quantity ?? null]), kept: o.lines.length }));
       if (!o.lines.length) continue;
       (o.expected! <= wkEnd ? thisWeek : nextWeek).push(o);
     }
