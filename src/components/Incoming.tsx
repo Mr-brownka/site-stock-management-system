@@ -6,7 +6,7 @@ import type { Incoming, IncomingDismissed, IncomingOrder } from '../lib/types';
 import { Icon } from './fx';
 import { fmt } from './ui';
 import { toast } from './feedback';
-import { ZohoBooksMark } from './Zoho';
+import { ZohoBooksMark, ZohoOpen, openInZoho } from './Zoho';
 import { useData } from '../lib/store';
 
 const KEY = 'ostock-incoming';
@@ -96,8 +96,8 @@ function OrderSheet({ o, onClose }: { o: IncomingOrder; onClose: () => void }) {
           ))}
         </div>
         {!!o.grns?.length && <div className="incGrns"><span className="incGrnsT">Delivered so far</span>
-          {o.grns.map((g) => <div key={g.grn + g.date}><span><PoTag po={g.grn} /> {short(g.date)}</span><small>{g.lines}</small></div>)}</div>}
-        <footer className="incSFoot"><a className="btn ghost" href="https://books.zoho.com/app#/purchaseorders" target="_blank" rel="noreferrer">Open in Zoho Books ↗</a><button className="btn" onClick={onClose}>Close</button></footer>
+          {o.grns.map((g) => <div key={g.grn + g.date}><span><button type="button" className="incGrnLink" title="Open this receive in Zoho Books" onClick={() => openInZoho({ receive_id: g.id, grn: g.grn })}><PoTag po={g.grn} /></button> {short(g.date)}</span><small>{g.lines}</small></div>)}</div>}
+        <footer className="incSFoot"><ZohoOpen zref={{ po_id: o.id, po: o.po }} /><button className="btn" onClick={onClose}>Close</button></footer>
       </section>
     </div>, document.body);
 }

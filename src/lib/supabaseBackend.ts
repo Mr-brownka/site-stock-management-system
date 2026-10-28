@@ -295,6 +295,11 @@ export function supabaseBackend(url: string, key: string): Backend {
       if (error) return { connected: true, error: error.message };
       return data as Incoming;
     },
+    async zohoOpen(q) {
+      const { data, error } = await sb.functions.invoke('zoho-open', { body: q });
+      if (error) return { error: error.message };
+      return data as { url?: string; error?: string };
+    },
     async zohoSync() {
       const { data, error } = await sb.functions.invoke('zoho-sync', { body: {} });
       if (error) return { connected: true, error: error.message };
@@ -330,6 +335,11 @@ export function supabaseBackend(url: string, key: string): Backend {
       if (error) fail(error);
     },
 
+    async deleteEntry(docId, why, note) {
+      const { data, error } = await sb.rpc('delete_entry', { doc_id: docId, why, note: note ?? null });
+      if (error) fail(error);
+      return data as 'deleted' | 'asked';
+    },
     async myCorrections() {
       const { data, error } = await sb.from('correction_requests').select('*').eq('site_id', await mySite()).order('created_at', { ascending: false }).limit(200);
       if (error) fail(error);

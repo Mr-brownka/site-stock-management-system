@@ -1,9 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { useData } from '../lib/store';
-import type { ZohoStatus } from '../lib/types';
+import type { ZohoRef, ZohoStatus } from '../lib/types';
 import { toast } from './feedback';
 import { Icon } from './fx';
+
+/** Opens the exact record in Zoho Books. The tab opens straight away (so it isn't blocked), shows a short
+ *  "Opening…" note while the record is looked up, then lands on it. Falls back to the list if it can't be found. */
+export async function openInZoho(ref: ZohoRef) {
+  const w = window.open('', '_blank');
+  if (w) { try { w.document.title = 'Opening Zoho Books…'; w.document.body.innerHTML = '<p style="font:15px system-ui;color:#555;padding:40px;text-align:center">Opening ' + (ref.po || ref.grn || 'the record') + ' in Zoho Books…</p>'; } catch { /* cross-origin */ } }
+  const r = await api.zohoOpen(ref).catch(() => ({ url: undefined, error: 'offline' }));
+  const url = r.url ?? 'https://books.zoho.com/app#/purchaseorders';
+  if (w) w.location.href = url; else window.open(url, '_blank', 'noopener');
+  if (r.error && !r.url) toast('Couldn’t find it in Zoho. Opened the list instead.');
+}
+
+/** "Open in Zoho Books ↗" for one record. */
+export function ZohoOpen({ zref, className = 'btn ghost', label = 'Open in Zoho Books ↗' }: { zref: ZohoRef; className?: string; label?: string }) {
+  return <button type="button" className={className} onClick={(e) => { e.stopPropagation(); openInZoho(zref); }}>{label}</button>;
+}
 
 /** The small blue tag on anything that came from Zoho Books. */
 export const ZohoTag = ({ grn }: { grn?: string | null }) => (

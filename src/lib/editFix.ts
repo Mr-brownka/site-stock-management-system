@@ -1,5 +1,5 @@
 import { niceDate } from './dates';
-import type { CorrectionRequest, Doc, DocField, EditChanges } from './types';
+import type { CorrectionRequest, DeleteSnap, Doc, DocField, EditChanges, Kind } from './types';
 
 /** What each box is called on each kind of paper. */
 export function fieldLabel(f: DocField, kind?: Doc['kind']): string {
@@ -30,8 +30,29 @@ export function describeEdit(c: EditChanges | null | undefined, item: (id: numbe
   return out;
 }
 
+/** The paper's everyday name: "Issuance register", "Card 4180", "Delivery", "Return", "Transfer". */
+export function paperName(d: { kind: Kind; ref_no?: string | null }): string {
+  if (d.kind === 'issue') return d.ref_no ? `Card ${d.ref_no}` : 'Issuance register';
+  const base = d.kind === 'delivery' ? 'Delivery' : d.kind === 'return' ? 'Return' : d.kind === 'transfer_in' ? 'Transfer in' : d.kind === 'transfer_out' ? 'Transfer out' : 'Entry';
+  return d.ref_no ? `${base} ${d.ref_no}` : base;
+}
+
+/** What deleting an entry does to the balances: an issue or a transfer out puts stock back, the rest take it off. */
+export function deleteEffects(kind: Kind, lines: { item_id: number; qty: number }[], item: (id: number) => { name: string; unit: string } | undefined): { name: string; unit: string; change: number; item_id: number }[] {
+  const sign = kind === 'issue' || kind === 'transfer_out' ? 1 : -1;
+  const by = new Map<number, number>();
+  lines.forEach((l) => by.set(l.item_id, (by.get(l.item_id) ?? 0) + sign * l.qty));
+  return [...by].map(([id, change]) => ({ item_id: id, change, name: item(id)?.name ?? 'Item', unit: item(id)?.unit ?? '' }));
+}
+
+export const deleteSnap = (r: CorrectionRequest) => (r.kind === 'delete' ? (r.changes as unknown as DeleteSnap | null) : null);
+
 /** Short title for a request in a list. */
 export function requestTitle(r: CorrectionRequest, item: (id: number) => { name: string; unit: string } | undefined, doc?: Doc): string {
+  if (r.kind === 'delete') {
+    const snap = deleteSnap(r);
+    return `Delete · ${snap ? `${paperName(snap.doc)} of ${niceDate(snap.doc.doc_date)}` : 'an entry'}`;
+  }
   if (r.kind === 'edit') {
     const paper = doc ? `${doc.kind === 'issue' ? 'Card' : doc.kind === 'delivery' ? 'Delivery' : doc.kind === 'return' ? 'Return' : 'Transfer'}${doc.ref_no ? ` ${doc.ref_no}` : ''}` : 'Entry';
     const d = describeEdit(r.changes, item, doc?.kind);

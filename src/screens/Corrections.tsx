@@ -7,13 +7,51 @@ import { api } from '../lib/api';
 import { addDays, niceDate } from '../lib/dates';
 import { useData } from '../lib/store';
 import type { CorrectionRequest, Doc, DocField, EditChanges, Item } from '../lib/types';
-import { describeEdit, fieldLabel, requestTitle } from '../lib/editFix';
+import { deleteEffects, describeEdit, fieldLabel, paperName, requestTitle } from '../lib/editFix';
+import { toast } from '../components/feedback';
 import { ItemPicker, Suggest } from '../components/ui';
 import { DateRange } from '../components/DateRange';
 
 type View = 'find' | 'fix' | 'recount' | 'mine';
 type KindKey = 'all' | 'deliveries' | 'issued' | 'returns' | 'transfers';
 const FIX_REASONS = ['Typing mistake', 'Wrong date', 'Wrong item', 'Wrong card / note', 'Other'];
+const DEL_REASONS = ['Entered twice', 'Never happened', 'Wrong project', 'Test entry', 'Other'];
+
+/** Delete an entry entirely: shows what each balance goes back to, asks why, then deletes (admin) or asks the admin. */
+function DeleteSheet({ doc, admin, onClose, onDone }: { doc: Doc; admin: boolean; onClose: () => void; onDone: (r: 'deleted' | 'asked') => void }) {
+  const { itemById, balances } = useData();
+  const [why, setWhy] = useState('');
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; document.addEventListener('keydown', k); return () => document.removeEventListener('keydown', k); }, [onClose]);
+  const eff = deleteEffects(doc.kind, doc.lines, (id) => itemById.get(id));
+  const bal = (id: number) => balances.find((b) => b.item_id === id)?.balance;
+  const go = async () => {
+    setBusy(true); setErr('');
+    try { onDone(await api.deleteEntry(doc.id, why, note.trim() || null)); } catch (e) { setErr((e as Error).message); setBusy(false); }
+  };
+  return createPortal(
+    <div className="sheetBack dayAskBack" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <section className="dayAsk delSheet" role="dialog" aria-modal="true" aria-labelledby="delTitle">
+        <span className="delKick"><Icon name="trash" size={15} />Delete entry</span>
+        <h2 id="delTitle">Delete {paperName(doc)} of {niceDate(doc.doc_date)}?</h2>
+        <div className="delTbl">
+          <div className="th"><span>Item</span><span>Now</span><span>After</span></div>
+          {eff.map((e) => { const b = bal(e.item_id); return (
+            <div key={e.item_id}><span>{e.name}</span><span className="mono muted">{b != null ? fmt(b) : '—'}</span>
+              <b className={`mono ${e.change > 0 ? 'up' : 'down'}`}>{b != null ? fmt(b + e.change) : '—'} <small>{e.change > 0 ? '+' : '−'}{fmt(Math.abs(e.change))} {e.unit}</small></b></div>); })}
+        </div>
+        <span className="delQ">Why? <small>(one tap)</small></span>
+        <div className="incRmWhy">{DEL_REASONS.map((r) => <button key={r} type="button" aria-pressed={why === r} onClick={() => setWhy(r)}>{r}</button>)}</div>
+        <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" />
+        {err && <div className="note err" role="alert">{err}</div>}
+        <small className="muted">{admin ? 'The entry and its lines are removed and the balances go back. A copy stays in Your fixes.' : 'Nothing is removed until the admin approves. A copy stays on the request.'}</small>
+        <div className="incRmActs"><button className="btn ghost" onClick={onClose}>Keep it</button>
+          <button className="btn danger" disabled={!why || busy} onClick={go}>{busy ? 'Deleting…' : admin ? 'Delete entry' : 'Send to admin'}</button></div>
+      </section>
+    </div>, document.body);
+}
 const CAT_TITLE: Record<string, string> = { issued: 'Issuance registers', deliveries: 'Deliveries', returns: 'Returns', transfers: 'Project transfers' };
 const COUNT_REASONS = ['Damaged / spoilt', 'Lost / not found', 'Delivery not entered', 'Issue not entered', 'Counting error'];
 const KINDS: { key: KindKey; label: string; kinds: Doc['kind'][] }[] = [
@@ -38,7 +76,8 @@ function Chips({ options, value, onPick }: { options: string[]; value: string; o
 
 /** Fix an error: one search box finds the entry, then the app's numbers sit next to the paper's. The admin approves. */
 export function Corrections() {
-  const { day, go, itemById, balances, refresh } = useData();
+  const { day, go, itemById, balances, refresh, user } = useData();
+  const [delDoc, setDelDoc] = useState<Doc | null>(null);
   const [view, setView] = useState<View>('find');
   const [kind, setKind] = useState<KindKey>('all');
   const [docs, setDocs] = useState<Doc[] | null>(null);
@@ -116,7 +155,7 @@ export function Corrections() {
     ? { title: `${paperTitle(openDoc)} · ${niceDate(openDoc.doc_date)}`, lead: `${sysRef(openDoc)} · tap any box to change it, the date too` }
     : view === 'recount' ? { title: 'Recount an item', lead: 'When the shelf doesn’t match the app and no single entry is to blame.' }
       : view === 'mine' ? { title: 'My requests', lead: 'Everything you sent to the admin, and what they decided.' }
-        : { title: 'Fix an error', lead: 'Find the entry, say what the paper says. The admin approves; nothing is deleted.' };
+        : { title: 'Fix an error', lead: 'Find the entry, say what the paper says. Fix it, or delete it with the bin icon.' };
 
   return (
     <div className="page fxPage">
@@ -150,13 +189,16 @@ export function Corrections() {
                     {list.length > cap && <button className="btn link" onClick={() => setKind(k.key)}>Show all {list.length} →</button>}</header>
                   <div className="fxCards">
                     {list.slice(0, cap).map((d) => (
-                      <button key={d.id} className={`fxCard ${TONE[d.kind]}`} onClick={() => openFix(d)}>
+                      <div key={d.id} className="fxCardWrap">
+                      <button className={`fxCard ${TONE[d.kind]}`} onClick={() => openFix(d)}>
                         <span className="fxCTop"><span className="fxCK">{PAPER[d.kind]?.replace(' on card', '') ?? 'Entry'}</span><small className="mono">{sysRef(d)}</small></span>
                         <b className={`fxCNo ${d.kind === 'issue' ? 'red' : ''}`}>{d.ref_no || (d.kind === 'delivery' ? d.party : d.kind === 'issue' ? 'Register' : '–') || '–'}</b>
                         <span className="fxCL">{linesText(d)}</span>
                         <small className="fxCS">{niceDate(d.doc_date)}{who(d) ? ` · ${who(d)}` : ''}</small>
                         {waitingOn(d) && <span className="fxCW">Fix waiting</span>}
                       </button>
+                      <button type="button" className="fxDel" title="Delete this entry" aria-label={`Delete ${paperName(d)} of ${niceDate(d.doc_date)}`} onClick={() => setDelDoc(d)}><Icon name="trash" size={15} /></button>
+                      </div>
                     ))}
                   </div>
                 </section>
@@ -184,7 +226,7 @@ export function Corrections() {
 
       {view === 'fix' && openDoc && (
         <PaperFix key={openDoc.id} doc={openDoc} sysRef={sysRef(openDoc)} waiting={waitingOn(openDoc)}
-          onSent={async (msg) => { await loadMine(); setSent(msg); }} />
+          onSent={async (msg) => { await loadMine(); setSent(msg); }} onDelete={() => setDelDoc(openDoc)} />
       )}
 
       {view === 'recount' && (
@@ -238,6 +280,13 @@ export function Corrections() {
         </section>
       )}
 
+      {delDoc && <DeleteSheet doc={delDoc} admin={user.role === 'admin'} onClose={() => setDelDoc(null)} onDone={async (r) => {
+        const d = delDoc; setDelDoc(null);
+        if (r === 'deleted') { setDocs((ds) => ds && ds.filter((x) => x.id !== d.id)); await refresh(); toast(`${paperName(d)} deleted · balances are back`); if (view === 'fix') toFind(); }
+        else toast('Sent to the admin to delete');
+        await loadMine();
+      }} />}
+
       {sent && createPortal(
         <div className="sheetBack dayAskBack">
           <section className="dayAsk fixAgain" role="dialog" aria-modal="true" aria-labelledby="againTitle">
@@ -263,7 +312,7 @@ const FIELDS: Record<string, DocField[]> = {
 };
 const PAPER_NAME: Record<string, string> = { issue: 'Material Issuance Register', delivery: 'Delivery note', return: 'Return to store', transfer_in: 'Transfer note · received', transfer_out: 'Transfer note · sent' };
 
-function PaperFix({ doc, sysRef, waiting, onSent }: { doc: Doc; sysRef: string; waiting: boolean; onSent: (msg: string) => Promise<void> }) {
+function PaperFix({ doc, sysRef, waiting, onSent, onDelete }: { doc: Doc; sysRef: string; waiting: boolean; onSent: (msg: string) => Promise<void>; onDelete: () => void }) {
   const { itemById, subphases, realToday, company } = useData();
   const [team, setTeam] = useState<string[]>([]);
   useEffect(() => { api.siteTeam().then(setTeam).catch(() => undefined); }, []);
@@ -367,6 +416,7 @@ function PaperFix({ doc, sysRef, waiting, onSent }: { doc: Doc; sysRef: string; 
         {err && <div className="note err" role="alert">{err}</div>}
         <button className="btn accent" disabled={busy || !nChanges} onClick={send}>{busy ? 'Sending…' : `Send to admin${nChanges ? ` · ${nChanges} change${nChanges === 1 ? '' : 's'}` : ''}`}</button>
         <small className="muted">Nothing changes until the admin approves. The before and after of every box are kept on record.</small>
+        <button type="button" className="pfDelete" onClick={onDelete}><Icon name="trash" size={16} />Delete this entry instead</button>
       </aside>
     </div>
   );

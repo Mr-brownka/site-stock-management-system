@@ -119,6 +119,18 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
       save();
     },
     async myCorrections() { return s.corrections; },
+    async deleteEntry(docId, why, note) {
+      const d = s.docs.find((x) => x.id === docId);
+      if (!d) throw new Error('The entry no longer exists');
+      const admin = (s.meta?.user.role ?? 'admin') === 'admin';
+      const now = new Date().toISOString();
+      const snap = { doc: { ...d, lines: undefined }, lines: d.lines.map((l) => ({ item_id: l.item_id, qty: l.qty, subphase: l.subphase ?? null })) };
+      s.corrections.unshift({ kind: 'delete', document_id: d.id, changes: snap as never, movement_id: null, item_id: d.lines[0]?.item_id ?? 0, from_qty: 0, to_qty: 0, reason: why, note: note ?? null,
+        id: uid(), site_id: SITE, status: admin ? 'approved' : 'pending', decision_note: null, created_by: ME, created_at: now, decided_at: admin ? now : null });
+      if (admin) s.docs = s.docs.filter((x) => x.id !== d.id);
+      save();
+      return admin ? 'deleted' : 'asked';
+    },
     admin: {
       async profiles() { return s.profiles; },
       async setProfile(id, patch) { s.profiles = s.profiles.map((p) => (p.id === id ? { ...p, ...patch, decided_at: new Date().toISOString() } : p)); save(); },
@@ -141,7 +153,10 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
       async decide(id, approve, note) {
         const r = s.corrections.find((c) => c.id === id);
         if (!r || r.status !== 'pending') throw new Error('Already decided');
-        if (approve && r.kind === 'edit') {
+        if (approve && r.kind === 'delete') {
+          if (!s.docs.some((x) => x.id === r.document_id)) throw new Error('The entry was already removed');
+          s.docs = s.docs.filter((x) => x.id !== r.document_id);
+        } else if (approve && r.kind === 'edit') {
           const d = s.docs.find((x) => x.id === r.document_id);
           if (!d) throw new Error('The original entry no longer exists');
           const c = r.changes?.doc ?? {};
@@ -188,6 +203,7 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
     async dismissedIncoming() { return s.dismissed ?? []; },
     async dismissIncoming(o) { s.dismissed = [...(s.dismissed ?? []).filter((x) => x.po_id !== o.po_id), { ...o, dismissed_at: new Date().toISOString() }]; save(); },
     async restoreIncoming(poId) { s.dismissed = (s.dismissed ?? []).filter((x) => x.po_id !== poId); save(); },
+    async zohoOpen() { return { url: 'https://books.zoho.com/app#/purchaseorders' }; },
     async incoming() {
       // Sample orders so the demo shows the panel; dates follow the real calendar.
       const t = today(); const dow = (new Date(t + 'T00:00:00Z').getUTCDay() + 6) % 7; const wk = addDays(t, -dow);

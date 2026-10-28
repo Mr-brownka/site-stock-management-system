@@ -54,6 +54,7 @@ export interface Doc extends DocInput {
   source?: string | null;
   zoho_grn?: string | null;
   zoho_po?: string | null;
+  zoho_receive_id?: string | null;
   checked_at?: string | null;
   lines: Line[];
 }
@@ -114,9 +115,10 @@ export interface ZohoLogRow { zoho_receive_id: string; site_id: string | null; p
 export interface ZohoRun { site_id: string | null; at: string; listed: number; recent: number; imported: number; waiting: number; linked: number; other_site: number; note: string | null }
 /** Incoming deliveries (Zoho purchase orders) for the dashboard. */
 export interface IncomingLine { name: string; unit: string | null; ordered: number; received: number }
-export interface IncomingOrder { id: string; po: string; vendor: string | null; date: string; expected: string | null; status: string; lines: IncomingLine[]; lastIn?: string | null; /** First part in (part-delivered only). */ firstIn?: string | null; grns?: { grn: string; date: string; lines: string }[] }
+export interface ZohoRef { po?: string | null; po_id?: string | null; receive_id?: string | null; grn?: string | null; site_id?: string | null }
+export interface IncomingOrder { id: string; po: string; vendor: string | null; date: string; expected: string | null; status: string; lines: IncomingLine[]; lastIn?: string | null; /** First part in (part-delivered only). */ firstIn?: string | null; grns?: { id?: string; grn: string; date: string; lines: string }[] }
 export interface IncomingDismissed { po_id: string; po: string | null; vendor: string | null; reason: string; dismissed_at: string }
-export interface Incoming { connected: boolean; error?: string; checked_at?: string; today?: string; week?: { from: string; to: string }; next?: { from: string; to: string }; thisWeek?: IncomingOrder[]; nextWeek?: IncomingOrder[]; part?: IncomingOrder[] }
+export interface Incoming { connected: boolean; error?: string; /** Zoho Books web address for this org, e.g. https://books.zoho.com/app/838… */ web?: string; checked_at?: string; today?: string; week?: { from: string; to: string }; next?: { from: string; to: string }; thisWeek?: IncomingOrder[]; nextWeek?: IncomingOrder[]; part?: IncomingOrder[] }
 export interface ZohoItemMatch { zoho_item_id: string; item_id: number | null; zoho_name: string | null; zoho_unit: string | null }
 export interface ZohoConnection { user_id: string; full_name: string | null; site_id: string | null; zoho_email: string | null; last_sync_at: string | null; last_error: string | null; imported: number }
 
@@ -183,8 +185,10 @@ export interface EditChanges {
   doc?: Partial<Record<DocField, [string | null, string | null]>>;
   lines?: { movement_id: number; from_item: number; to_item?: number; from_qty: number; to_qty?: number }[];
 }
+/** delete: a copy of the deleted entry, kept on the request (the entry itself is gone). */
+export interface DeleteSnap { doc: Partial<Doc> & { kind: Kind; doc_date: string }; lines: { item_id: number; qty: number; subphase: string | null }[] }
 export interface CorrectionInput {
-  kind: 'fix' | 'recount' | 'edit';
+  kind: 'fix' | 'recount' | 'edit' | 'delete';
   /** edit: the entry being fixed. */ document_id?: string | null;
   /** edit: what changes. */ changes?: EditChanges | null;
   movement_id?: number | null;
@@ -260,6 +264,8 @@ export interface Backend {
   signupSites(): Promise<SiteInfo[]>;
   requestCorrection(input: CorrectionInput): Promise<void>;
   myCorrections(): Promise<CorrectionRequest[]>;
+  /** Delete an entry entirely (its lines go too, so balances go back). The admin deletes now; others ask. */
+  deleteEntry(docId: string, why: string, note?: string | null): Promise<'deleted' | 'asked'>;
   admin: AdminApi;
   /** The signed-in person's company and site, e.g. Comex Builders / Reveal. */
   siteName(): Promise<{ company: string; site: string; structure?: Structure | null }>;
@@ -276,6 +282,8 @@ export interface Backend {
   zohoSync(): Promise<ZohoSyncResult>;
   /** What is expected this week and next, and what is still owed on part deliveries (from Zoho). */
   incoming(): Promise<Incoming>;
+  /** The exact record's page in Zoho Books (falls back to the list). */
+  zohoOpen(q: ZohoRef): Promise<{ url?: string; error?: string }>;
   /** Part deliveries marked "Not coming" (hidden from Incoming). */
   dismissedIncoming(): Promise<IncomingDismissed[]>;
   dismissIncoming(o: { po_id: string; po: string; vendor: string | null; reason: string }): Promise<void>;

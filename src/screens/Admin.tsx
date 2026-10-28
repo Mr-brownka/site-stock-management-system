@@ -1,5 +1,5 @@
 import { ComexLogo, SiteLogo } from '../components/Brand';
-import { describeEdit, requestTitle } from '../lib/editFix';
+import { deleteEffects, deleteSnap, describeEdit, paperName, requestTitle } from '../lib/editFix';
 import { Icon } from '../components/fx';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -7,6 +7,7 @@ import { fmt } from '../components/ui';
 import { api } from '../lib/api';
 import { addDays, niceDate, today, weekday } from '../lib/dates';
 import type { AlertContact, Balance, ZohoConnection, ZohoItemMatch, ZohoLogRow, ZohoPending, ZohoRun, CorrectionRequest, Item, Profile, Role, SiteDoc, SiteInfo, Structure, User } from '../lib/types';
+import { ZohoOpen } from '../components/Zoho';
 import { ask, toast } from '../components/feedback';
 import { StartTraining } from '../components/Training';
 import { TRAINING_DAYS } from '../lib/trainingPlan';
@@ -292,7 +293,7 @@ function Approvals({ d, sel, setSel, busy, act }: { d: Data; sel: string | null;
     ...d.profiles.filter((p) => (view === 'wait' ? p.status === 'pending' : p.status !== 'pending' && p.decided_at)).map((p) => ({ id: `p:${p.id}`, title: `${p.full_name} wants to join`, sub: `${name(p.site_id) || 'No site'} · asked ${ago(p.created_at)}`, tag: 'Sign-up', tone: 'low', at: view === 'wait' ? p.created_at : p.decided_at ?? p.created_at, status: p.status })),
     ...d.corr.filter((c) => (view === 'wait' ? c.status === 'pending' : c.status !== 'pending')).map((c) => {
       const it = itemById.get(c.item_id);
-      return { id: `c:${c.id}`, title: c.kind === 'edit' ? requestTitle(c, (id) => itemById.get(id), d.docs.find((x) => x.id === c.document_id)) : `${c.kind === 'fix' ? 'Fix' : 'Recount'}: ${it?.name ?? 'Item'} ${fmt(c.from_qty)} → ${fmt(c.to_qty)} ${it?.unit ?? ''}`, sub: `${name(c.site_id)} · ${person.get(c.created_by)?.full_name ?? ''} · ${ago(c.created_at)}`, tag: c.kind === 'recount' ? 'Recount' : c.kind === 'edit' ? (c.changes?.doc?.doc_date ? 'Date' : 'Fix') : 'Fix', tone: 'blue', at: view === 'wait' ? c.created_at : c.decided_at ?? c.created_at, status: c.status };
+      return { id: `c:${c.id}`, title: c.kind === 'edit' || c.kind === 'delete' ? requestTitle(c, (id) => itemById.get(id), d.docs.find((x) => x.id === c.document_id)) : `${c.kind === 'fix' ? 'Fix' : 'Recount'}: ${it?.name ?? 'Item'} ${fmt(c.from_qty)} → ${fmt(c.to_qty)} ${it?.unit ?? ''}`, sub: `${name(c.site_id)} · ${person.get(c.created_by)?.full_name ?? ''} · ${ago(c.created_at)}`, tag: c.kind === 'recount' ? 'Recount' : c.kind === 'delete' ? 'Delete' : c.kind === 'edit' ? (c.changes?.doc?.doc_date ? 'Date' : 'Fix') : 'Fix', tone: 'blue', at: view === 'wait' ? c.created_at : c.decided_at ?? c.created_at, status: c.status };
     }),
   ].sort((a, b) => (view === 'wait' ? a.at.localeCompare(b.at) : b.at.localeCompare(a.at)));
   const waitN = d.profiles.filter((p) => p.status === 'pending').length + d.corr.filter((c) => c.status === 'pending').length;
@@ -338,6 +339,36 @@ function Approvals({ d, sel, setSel, busy, act }: { d: Data; sel: string | null;
             );
           })() : (() => {
             const c = d.corr.find((x) => `c:${x.id}` === cur.id)!;
+            if (c.kind === 'delete') {
+              const snap = deleteSnap(c);
+              const eff = snap ? deleteEffects(snap.doc.kind, snap.lines, (id) => itemById.get(id)) : [];
+              const bal = (id: number) => d.balances.find((b) => b.site_id === c.site_id && b.item_id === id)?.balance;
+              return (
+                <div className="adDIn" key={cur.id}>
+                  <button className="backPill adPhoneBack" onClick={() => setSel(null)}><Icon name="arrowL" size={16} />All requests</button>
+                  <span className="adKick">Delete an entry · {name(c.site_id)}</span>
+                  <h2>{snap ? `${paperName(snap.doc)} · ${niceDate(snap.doc.doc_date)}` : 'Entry'}</h2>
+                  <small className="muted">Asked by {person.get(c.created_by)?.full_name ?? 'the store'} · {ago(c.created_at)} · “{c.reason}”{c.note ? ` · ${c.note}` : ''}</small>
+                  <div className="adEdits">
+                    <div className="th"><span>Balance now → after deleting</span></div>
+                    {eff.map((e) => { const b = bal(e.item_id); return <div key={e.item_id}><span>{e.name}</span><s>{b != null ? fmt(b) : '—'}</s><span aria-hidden>→</span><b>{b != null ? fmt(b + (c.status === 'pending' ? e.change : 0)) : `${e.change > 0 ? '+' : ''}${fmt(e.change)}`} {e.unit}</b></div>; })}
+                  </div>
+                  <div className="adFacts">
+                    <div><span>Status</span><b>{c.status === 'pending' ? 'Waiting for you' : `${c.status === 'approved' ? 'Deleted' : 'Kept'} ${c.decided_at ? ago(c.decided_at) : ''}${c.decision_note ? ` · “${c.decision_note}”` : ''}`}</b></div>
+                  </div>
+                  {c.status === 'pending' && (
+                    <>
+                      <input className="input" placeholder="Note to the store (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
+                      <div className="adActs">
+                        <button className="adBtn" disabled={!!busy} onClick={() => act(c.id, () => api.admin.decide(c.id, false, note || 'Kept by the admin')).then(() => setSel(null))}>Keep it</button>
+                        <button className="adBtn danger" disabled={!!busy} onClick={() => act(c.id, () => api.admin.decide(c.id, true, note || undefined)).then(() => { toast('Deleted · balances are back'); setSel(null); })}>Delete the entry</button>
+                      </div>
+                    </>
+                  )}
+                  <small className="muted">A copy of the deleted entry stays on this request.</small>
+                </div>
+              );
+            }
             if (c.kind === 'edit') {
               const doc = d.docs.find((x) => x.id === c.document_id);
               const list = describeEdit(c.changes, (id) => itemById.get(id), doc?.kind);
@@ -822,6 +853,7 @@ function ZohoLog({ d }: { d: Data }) {
                   <div className="adZDetail">
                     {lines.map((l, i) => <div key={i} className="ln"><span>{l.name}</span><span className="mono">{fmt(l.qty)} {l.unit ?? ''}</span></div>)}
                     <small className="muted">{[r.project && `Zoho Project: ${r.project}`, r.detail].filter(Boolean).join(' · ')}</small>
+                    <div className="adActs"><ZohoOpen className="adBtn" label={`Open ${r.grn || 'receive'} in Zoho ↗`} zref={{ receive_id: r.zoho_receive_id, grn: r.grn, site_id: r.site_id }} />{r.po && <ZohoOpen className="adBtn" label={`Open ${r.po} ↗`} zref={{ po: r.po, site_id: r.site_id }} />}</div>
                   </div>
                 )}
               </div>
@@ -934,8 +966,8 @@ function events(d: Data): Event[] {
   d.subs.forEach((s) => ev.push({ at: s.submitted_at, site: siteName.get(s.site_id) ?? '', dot: '#145236', text: 'Submitted the day', who: '' }));
   d.corr.forEach((c) => {
     const it = itemById.get(c.item_id);
-    ev.push({ at: c.created_at, site: siteName.get(c.site_id) ?? '', dot: '#2E5AAC', text: c.kind === 'edit' ? `Asked: ${requestTitle(c, (id) => d.items.find((x) => x.id === id))} · ${c.reason}` : `Asked: ${c.kind === 'fix' ? 'fix' : 'recount'} ${it?.name} ${fmt(c.from_qty)} → ${fmt(c.to_qty)} · ${c.reason}`, who: person.get(c.created_by)?.full_name ?? '' });
-    if (c.decided_at) ev.push({ at: c.decided_at, site: siteName.get(c.site_id) ?? '', dot: c.status === 'approved' ? '#1F7A4D' : '#B42318', text: `${c.status === 'approved' ? 'Approved' : 'Rejected'}: ${c.kind === 'edit' ? requestTitle(c, (id) => d.items.find((x) => x.id === id)) : `${it?.name} ${fmt(c.from_qty)} → ${fmt(c.to_qty)}`}`, who: 'Admin' });
+    ev.push({ at: c.created_at, site: siteName.get(c.site_id) ?? '', dot: '#2E5AAC', text: c.kind === 'edit' || c.kind === 'delete' ? `Asked: ${requestTitle(c, (id) => d.items.find((x) => x.id === id))} · ${c.reason}` : `Asked: ${c.kind === 'fix' ? 'fix' : 'recount'} ${it?.name} ${fmt(c.from_qty)} → ${fmt(c.to_qty)} · ${c.reason}`, who: person.get(c.created_by)?.full_name ?? '' });
+    if (c.decided_at) ev.push({ at: c.decided_at, site: siteName.get(c.site_id) ?? '', dot: c.status === 'approved' ? '#1F7A4D' : '#B42318', text: `${c.status === 'approved' ? 'Approved' : 'Rejected'}: ${c.kind === 'edit' || c.kind === 'delete' ? requestTitle(c, (id) => d.items.find((x) => x.id === id)) : `${it?.name} ${fmt(c.from_qty)} → ${fmt(c.to_qty)}`}`, who: 'Admin' });
   });
   d.profiles.forEach((p) => ev.push({ at: p.created_at, site: siteName.get(p.site_id ?? '') ?? '', dot: '#8A5000', text: `${p.full_name} asked to join as ${ROLE_LABEL[p.role]}`, who: p.full_name }));
   const from = addDays(today(), -13);

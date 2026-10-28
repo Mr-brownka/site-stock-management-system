@@ -22,7 +22,7 @@ function custom(r: Rec, re: RegExp): string | null {
 }
 
 type Line = { name: string; unit: string | null; ordered: number; received: number };
-type Order = { id: string; po: string; vendor: string | null; date: string; expected: string | null; status: string; lines: Line[]; lastIn?: string | null; firstIn?: string | null; grns?: { grn: string; date: string; lines: string }[] };
+type Order = { id: string; po: string; vendor: string | null; date: string; expected: string | null; status: string; lines: Line[]; lastIn?: string | null; firstIn?: string | null; grns?: { id?: string; grn: string; date: string; lines: string }[] };
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
     }
     const recent = recRows.filter((r) => { const d = dayOf(r.date ?? r.receive_date); return d && d >= since && d <= today; });
     // What each recent receive brought in, per PO line (used when the PO itself doesn't say what was received).
-    const gotByPo = new Map<string, { grns: { grn: string; date: string; lines: string }[]; byItem: Map<string, number> }>();
+    const gotByPo = new Map<string, { grns: { id?: string; grn: string; date: string; lines: string }[]; byItem: Map<string, number>; byName: Map<string, number> }>();
     // Receives already known to belong to another site (from the delivery check) are skipped.
     const { data: seen } = await db.from('zoho_seen').select('zoho_receive_id, project');
     const elsewhere = new Set((seen ?? []).filter((x) => x.project && x.project !== 'before start date' && norm(x.project) !== mine).map((x) => String(x.zoho_receive_id)));
@@ -91,20 +91,32 @@ Deno.serve(async (req) => {
       const poId = str(rec.purchaseorder_id ?? row.purchaseorder_id);
       if (!poId) continue;
       const lines = ((rec.line_items as Rec[] | undefined) ?? []).map((l) => ({ id: String(l.item_id ?? ''), name: String(l.name ?? l.item_name ?? ''), q: num(l.quantity ?? l.quantity_received) }));
-      const g = gotByPo.get(poId) ?? { grns: [] as { grn: string; date: string; lines: string }[], byItem: new Map<string, number>() };
-      g.grns.push({ grn: String(rec.receive_number ?? rec.purchasereceive_number ?? ''), date: dayOf(rec.date ?? row.date), lines: lines.map((l) => `${l.name} ×${l.q}`).join(' · ') });
-      lines.forEach((l) => g.byItem.set(l.id, (g.byItem.get(l.id) ?? 0) + l.q));
+      const g = gotByPo.get(poId) ?? { grns: [] as { id?: string; grn: string; date: string; lines: string }[], byItem: new Map<string, number>(), byName: new Map<string, number>() };
+      g.grns.push({ id, grn: String(rec.receive_number ?? rec.purchasereceive_number ?? ''), date: dayOf(rec.date ?? row.date), lines: lines.map((l) => `${l.name} ×${l.q}`).join(' · ') });
+      lines.forEach((l) => { if (l.id) g.byItem.set(l.id, (g.byItem.get(l.id) ?? 0) + l.q); const n = norm(l.name); g.byName.set(n, (g.byName.get(n) ?? 0) + l.q); });
       gotByPo.set(poId, g);
     }
     debug.push(`receives in 4 weeks ${recent.length}, POs touched ${gotByPo.size}`);
 
+    // 3. What the store already has in the system against each PO (every Zoho receive synced here, any date).
+    const { data: inSys } = await db.from('documents').select('zoho_po, movements(qty, items(name))').eq('site_id', siteId).eq('kind', 'delivery').not('zoho_po', 'is', null);
+    const sysByPo = new Map<string, Map<string, number>>();
+    for (const d of (inSys ?? []) as Rec[]) {
+      const m = sysByPo.get(String(d.zoho_po)) ?? new Map<string, number>();
+      for (const mv of (d.movements as Rec[] | undefined) ?? []) { const n = norm((mv.items as Rec | undefined)?.name); m.set(n, (m.get(n) ?? 0) + num(mv.qty)); }
+      sysByPo.set(String(d.zoho_po), m);
+    }
+
     const toOrder = (p: Rec): Order => {
       const got = gotByPo.get(String(p.purchaseorder_id));
+      const sys = sysByPo.get(String(p.purchaseorder_number ?? ''));
       const lines: Line[] = ((p.line_items as Rec[] | undefined) ?? []).map((l) => {
         const ordered = num(l.quantity);
         // The PO's own received count when Zoho gives it; otherwise what the recent receives brought.
         const own = l.quantity_received ?? l.received_quantity ?? l.quantity_billed_received;
-        const received = own != null ? num(own) : got?.byItem.get(String(l.item_id ?? '')) ?? 0;
+        // Fully received means gone, so take the highest count any source gives: Zoho's own, the receives, or the system.
+        const nm = norm(l.name ?? l.item_name);
+        const received = Math.max(own != null ? num(own) : 0, got?.byItem.get(String(l.item_id ?? '')) ?? 0, got?.byName.get(nm) ?? 0, sys?.get(nm) ?? 0);
         return { name: String(l.name ?? l.item_name ?? 'Item'), unit: str(l.unit), ordered, received: Math.min(received, ordered) };
       });
       const grns = (got?.grns ?? []).sort((a, b) => b.date.localeCompare(a.date));
@@ -119,6 +131,7 @@ Deno.serve(async (req) => {
       if (!ours(p)) continue;
       const o = toOrder(p!);
       o.lines = o.lines.filter((l) => l.received < l.ordered);
+      console.log(JSON.stringify({ po: o.po, status: [row.status, row.received_status, p!.status, p!.received_status], lines: ((p!.line_items as Rec[] | undefined) ?? []).map((l) => [l.name, l.quantity, l.quantity_received ?? l.received_quantity ?? null]), kept: o.lines.length }));
       if (!o.lines.length) continue;
       (o.expected! <= wkEnd ? thisWeek : nextWeek).push(o);
     }
@@ -143,7 +156,8 @@ Deno.serve(async (req) => {
     const byDate = (a: Order, b: Order) => String(a.expected).localeCompare(String(b.expected));
     thisWeek.sort(byDate); nextWeek.sort(byDate); part.sort((a, b) => String(b.lastIn).localeCompare(String(a.lastIn)));
     console.log(JSON.stringify({ site: siteId, debug, thisWeek: thisWeek.length, nextWeek: nextWeek.length, part: part.length }));
-    return json({ connected: true, checked_at: new Date().toISOString(), today, week: { from: wk, to: wkEnd }, next: { from: nxt, to: nxtEnd }, thisWeek, nextWeek, part });
+    const web = `${api.replace(/^https:\/\/(www\.)?zohoapis/, c.api_kind === 'inventory' ? 'https://inventory.zoho' : 'https://books.zoho')}/app/${org}`;
+    return json({ connected: true, web, checked_at: new Date().toISOString(), today, week: { from: wk, to: wkEnd }, next: { from: nxt, to: nxtEnd }, thisWeek, nextWeek, part });
   } catch (e) {
     return json({ connected: true, error: (e as Error).message });
   }
