@@ -195,24 +195,12 @@ function Dots({ items }: { items: { label: string; onClick: () => void; danger?:
 }
 
 /** Same rule as the store dashboard: out, at/below the reorder level, or about 5 days left at the last 2 weeks' rate. */
-function lowCount(bs: Balance[], site: string, docs: SiteDoc[], day: string) {
-  const from = addDays(day, -13);
-  const used = new Map<number, number>();
-  for (const d of docs) {
-    if (d.site_id !== site || d.doc_date < from) continue;
-    for (const l of d.lines) {
-      const v = l.kind === 'issue' ? l.qty : l.kind === 'return' ? -l.qty : l.kind === 'correction' && (l.corrects_kind === 'issue' || l.corrects_kind === 'return') ? -l.qty : 0;
-      if (v) used.set(l.item_id, (used.get(l.item_id) ?? 0) + v);
-    }
-  }
-  let workdays = 0;
-  for (let i = 0; i < 14; i++) if (weekday(addDays(day, -i)) !== 'Sun') workdays++;
+/** Items finished or at/below their reorder level at a site. */
+function lowCount(bs: Balance[], site: string, _docs?: SiteDoc[], _day?: string) {
   return bs.filter((b) => {
     if (b.site_id !== site) return false;
     if (b.balance <= 0) return true;
-    if (b.reorder_level != null) return b.balance <= b.reorder_level;
-    const a = Math.max(0, used.get(b.item_id) ?? 0) / workdays;
-    return a > 0 && b.balance / a <= 5;
+    return b.reorder_level != null && b.balance <= b.reorder_level;
   }).length;
 }
 const teamOf = (d: Data, site: string) => d.profiles.filter((p) => p.site_id === site && p.status === 'approved' && p.role !== 'admin');

@@ -179,13 +179,10 @@ export function DataProvider({ user, go, signOut, openAdmin, children }: { user:
     return new Map([...used].map(([id, v]) => [id, Math.max(0, v) / (useDays.get(id)?.size || 1)]));
   }, [recent, realToday]);
   const isLow = useCallback((b: Balance) => {
+    // Finished, or at/below the reorder level set for it. Above the level (or no level set) it is healthy.
     if (b.balance <= 0) return true;
-    // A reorder level set for the item decides on its own: low only at or below it.
-    if (b.reorder_level != null) return b.balance <= b.reorder_level;
-    // No level set: low when it would run out within 5 days at the recent rate.
-    const a = avgUse.get(b.item_id) ?? 0;
-    return a > 0 && b.balance / a <= 5;
-  }, [avgUse]);
+    return b.reorder_level != null && b.balance <= b.reorder_level;
+  }, []);
   const daysLeft = useCallback((b: Balance) => {
     const a = avgUse.get(b.item_id) ?? 0;
     if (!(a > 0)) return null;

@@ -256,7 +256,7 @@ export const REPORTS: Def[] = [
   {
     key: 'reorder', group: 'Planning', icon: 'clock', needs: [],
     title: 'Low stock & reorder list',
-    desc: 'Items at or below the reorder level or running out soon, with a suggested order for two weeks.',
+    desc: 'Items finished or at or below their reorder level, with a suggested order for two weeks.',
     build(c) {
       const rows = c.balances.filter(c.isLow).map((b) => {
         const a = c.avgUse.get(b.item_id) ?? 0;
