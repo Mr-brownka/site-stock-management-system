@@ -37,9 +37,9 @@ export function Returns() {
   const saveCards = async () => {
     for (const c of cards) for (const l of c.lines) {
       const v = Number(back[l.id] || 0);
-      if (v > maxBack(l.id, l.qty)) { setErr(`Card ${c.ref_no}: you can't return more ${itemById.get(l.item_id)?.name} than was issued.`); return; }
+      if (v > maxBack(l.id, l.qty)) { setErr(`${c.ref_no ? `Card ${c.ref_no}` : 'Register'}: you can't return more ${itemById.get(l.item_id)?.name} than was issued.`); return; }
     }
-    if (!withBack) { setErr('Type what came back on at least one card. If nothing came back, mark returns as “None today” on the check-in.'); return; }
+    if (!withBack) { setErr('Type what came back on at least one line. If nothing came back, mark returns as “None today” on the check-in.'); return; }
     setBusy(true); setErr('');
     try {
       for (const c of cards) {
@@ -64,7 +64,7 @@ export function Returns() {
 
   return (
     <div className="entryPage">
-      <EntryHead step="returns" sub={stage === 'cards' ? 'Type only what came back. Lines left empty count as fully used.' : 'Only for stock that came back without a withdrawal card.'} />
+      <EntryHead step="returns" sub={stage === 'cards' ? 'Type only what came back. Lines left empty count as fully used.' : 'Only for stock that came back but is not on the register.'} />
       <main className="stack">
         {stage === 'cards' && (
           <div className="stack enter">
@@ -74,10 +74,10 @@ export function Returns() {
               return (
                 <div key={c.id} className="paperCard" style={some ? { borderColor: 'var(--accent)', boxShadow: '0 0 0 4px rgba(252,167,45,.15)' } : undefined}>
                   <div className="between">
-                    <b className="mono" style={{ color: 'var(--error)', fontSize: 18 }}>Card {c.ref_no}</b>
+                    <b className="mono" style={{ color: 'var(--error)', fontSize: c.ref_no ? 18 : 15 }}>{c.ref_no ? `Card ${c.ref_no}` : 'Material Issuance Register'}</b>
                     {some ? <span className="pill done">↩ Returned</span> : <span className="pill">Fully used</span>}
                   </div>
-                  <div className="small muted">{[c.activity, c.gemba, c.party].filter(Boolean).join(' · ') || 'Details to confirm'}</div>
+                  <div className="small muted">{c.ref_no ? ([c.activity, c.gemba, c.party].filter(Boolean).join(' · ') || 'Details to confirm') : [c.authorised_by && `Store: ${c.authorised_by}`, c.doc_time].filter(Boolean).join(' · ') || 'Today\u2019s sheet'}</div>
                   <div className="retLine small muted" style={{ borderBottomWidth: 2 }}><span>Item</span><span className="num">Issued</span><span className="num">Back</span><span className="num">Used</span></div>
                   {c.lines.map((l) => {
                     const it = itemById.get(l.item_id);
@@ -100,9 +100,9 @@ export function Returns() {
             {err && <div className="note err" role="alert">{err}</div>}
             <div className="actionBar">
               <button className="btn ghost sm" onClick={() => openRecords(go, 'returns')}>Cancel</button>
-              <button className="btn link" onClick={() => { setErr(''); setStage('loose'); }}>Return without a card</button>
+              <button className="btn link" onClick={() => { setErr(''); setStage('loose'); }}>Return not on the register</button>
               <span className="abGrow" />
-              <span className="small muted abHint">{withBack ? `${withBack} card${withBack === 1 ? '' : 's'} with returns` : 'Nothing typed yet'}{cards.length - withBack ? ` · ${cards.length - withBack} fully used` : ''}</span>
+              <span className="small muted abHint">{withBack ? `${withBack} sheet${withBack === 1 ? '' : 's'} with returns` : 'Nothing typed yet'}{cards.length - withBack ? ` · ${cards.length - withBack} fully used` : ''}</span>
               <button className="btn accent sm" disabled={busy} onClick={saveCards}>{busy ? 'Saving…' : 'Save returns'}</button>
             </div>
           </div>

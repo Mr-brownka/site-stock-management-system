@@ -62,8 +62,6 @@ export function buildAstanaTraining(allItems: Item[], user: { email: string; nam
   const openDoc = add({ kind: 'opening', doc_date: start, reason: 'First stock take', party: 'Mary Achieng' }, opening.map(([n, q]) => [n, q]), iso(start, '16:30'));
 
   // ── Who and what ──
-  const people = ['Enock Mutua', 'Peter Kamau', 'Musa Ali', 'John Otieno', 'Hassan Abdi', 'David Kiprono', 'Joseph Mwangi', 'Salim Omar'];
-  const sups = ['Juma Hassan', 'Otieno Okello', 'Grace Wanjiru'];
   const upper = ['7th floor', '8th floor', '9th floor'];
   const mid = ['4th floor', '5th floor', '6th floor'];
   const low = ['Ground floor', '1st floor', '2nd floor', '3rd floor'];
@@ -95,7 +93,7 @@ export function buildAstanaTraining(allItems: Item[], user: { email: string; nam
 
   const subs: Record<string, Submission> = {};
   let balAt30 = new Map<number, number>();
-  let card = 4180, dn = 1, tn = 31;
+  let dn = 1, tn = 31;
   const missed = new Set([addDays(today, -23), addDays(today, -9)]);
   const afterSix = new Set([addDays(today, -31), addDays(today, -15), addDays(today, -4)]);
   const lateDays = new Set([addDays(today, -12), addDays(today, -3)]);
@@ -122,26 +120,24 @@ export function buildAstanaTraining(allItems: Item[], user: { email: string; nam
       add({ kind: 'delivery', doc_date: day, source: 'zoho', zoho_grn: grn, zoho_po: `PO-${String(8800 + dn).padStart(5, '0')}`, ref_no: `${code}-${String(2200 + dn++).padStart(5, '0')}`, party: s, vehicle: `KC${String.fromCharCode(65 + between(0, 25))} ${between(100, 999)}${String.fromCharCode(65 + between(0, 25))}` }, ls.map(([n, q]) => [n, q]), iso(day, `0${between(7, 9)}:${between(10, 55)}`));
     }
 
-    // Withdrawal cards through the day.
-    const nCards = isToday ? 2 : sat ? between(2, 3) : between(4, 7);
-    const dayCards: Doc[] = [];
-    for (let c = 0; c < nCards; c++) {
-      const a = pick(acts), floor = pick(a.floors);
-      const hm = `${String(7 + c * 2 > 16 ? 16 : 7 + c * 2).padStart(2, '0')}:${String(between(0, 5) * 10).padStart(2, '0')}`;
-      const lines = a.mats.filter(() => R() > 0.15).map(([n, lo, hi]) => [n, between(lo, hi), floor] as [string, number, string]);
-      const doc = add({ kind: 'issue', doc_date: day, doc_time: hm, ref_no: String(card++), party: pick(people), activity: a.name, gemba: floor, supervisor: pick(a.sup.length ? a.sup : sups) }, lines, iso(day, hm));
-      if (doc) dayCards.push(doc);
+    // What went out through the day, written on the day's Material Issuance Register (one sheet, item and quantity).
+    const nJobs = isToday ? 2 : sat ? between(2, 3) : between(4, 7);
+    const issued = new Map<string, number>();
+    for (let c = 0; c < nJobs; c++) {
+      const a = pick(acts);
+      for (const [n, lo, hi] of a.mats) if (R() > 0.15) issued.set(n, (issued.get(n) ?? 0) + between(lo, hi));
     }
+    const reg = add({ kind: 'issue', doc_date: day, doc_time: isToday ? '11:30' : '16:40', authorised_by: user.name }, [...issued].map(([n, q]) => [n, q] as [string, number]), iso(day, isToday ? '11:30' : '16:40'));
+    const dayCards: Doc[] = reg ? [reg] : [];
     if (isToday) continue;
 
-    // Leftovers come back in the evening.
-    for (const doc of dayCards) {
-      if (R() > 0.35) continue;
-      const l = pick(doc.lines);
+    // Leftovers come back in the evening, against the day's register.
+    if (reg) for (const l of reg.lines) {
+      if (R() > 0.3) continue;
       const back = Math.max(1, Math.round(l.qty * (0.05 + R() * 0.12)));
       if (back >= l.qty) continue;
       const name = allItems.find((i) => i.id === l.item_id)!.name;
-      add({ kind: 'return', doc_date: day, ref_no: doc.ref_no }, [[name, back, l.subphase ?? undefined]], iso(day, '17:05'), new Map([[l.item_id, l.id]]));
+      add({ kind: 'return', doc_date: day }, [[name, back]], iso(day, '17:05'), new Map([[l.item_id, l.id]]));
     }
 
     // Project transfers now and then.
@@ -153,12 +149,12 @@ export function buildAstanaTraining(allItems: Item[], user: { email: string; nam
       const t = afterSix.has(day) ? `18:${String(between(5, 40)).padStart(2, '0')}` : `17:${String(between(15, 58)).padStart(2, '0')}`;
       subs[day] = { day, submitted_at: iso(day, t), steps: { deliveries: groups.size ? 'done' : 'none', issued: 'done', returns: 'done', transfers: docs.some((d) => d.doc_date === day && d.kind.startsWith('transfer')) ? 'done' : 'none' } };
       if (lateDays.has(day)) {
-        const late = add({ kind: 'issue', doc_date: day, doc_time: '18:20', ref_no: String(card++), party: pick(people), activity: 'Plaster', gemba: pick(low), supervisor: 'Grace Wanjiru' }, [['Cement', between(4, 8), pick(low)]], iso(day, '19:05'));
+        const late = add({ kind: 'issue', doc_date: day, doc_time: '18:20', authorised_by: user.name }, [['Cement', between(4, 8)]], iso(day, '19:05'));
         if (late && k === 3) lateFix = { line: late.lines[0], doc: late };
       }
     }
     if (k <= 20 && !picked.has('a') && dayCards[0]) { picked.add('a'); pendingFix.push({ line: dayCards[0].lines[0], doc: dayCards[0] }); }
-    if (k <= 6 && !picked.has('b') && dayCards[1]) { picked.add('b'); pendingFix.push({ line: dayCards[1].lines[0], doc: dayCards[1] }); }
+    if (k <= 6 && !picked.has('b') && dayCards[0]?.lines[1]) { picked.add('b'); pendingFix.push({ line: dayCards[0].lines[1], doc: dayCards[0] }); }
   }
 
   // ── Corrections: approved, rejected and two waiting for the admin ──
@@ -174,9 +170,9 @@ export function buildAstanaTraining(allItems: Item[], user: { email: string; nam
       bal.set(c.item_id, (bal.get(c.item_id) ?? 0) + change);
     }
   };
-  if (pendingFix[0]) { const { line } = pendingFix[0]; mk({ kind: 'fix', movement_id: line.id, item_id: line.item_id, from_qty: line.qty, to_qty: Math.max(0, line.qty - 2), reason: 'Typing mistake', note: 'Card says 2 less', status: 'approved', decision_note: 'Checked against the paper card' }, line.move_date); }
+  if (pendingFix[0]) { const { line } = pendingFix[0]; mk({ kind: 'fix', movement_id: line.id, item_id: line.item_id, from_qty: line.qty, to_qty: Math.max(0, line.qty - 2), reason: 'Typing mistake', note: 'Register says 2 less', status: 'approved', decision_note: 'Checked against the register' }, line.move_date); }
   mk({ kind: 'recount', item_id: cement.id, from_qty: bal.get(cement.id)!, to_qty: bal.get(cement.id)! - 3, reason: 'Damaged / spoilt', note: '3 bags hardened after rain', status: 'approved', decision_note: 'OK, cover the cement' }, addDays(today, -10));
-  if (pendingFix[1]) { const { line } = pendingFix[1]; mk({ kind: 'fix', movement_id: line.id, item_id: line.item_id, from_qty: line.qty, to_qty: line.qty + 5, reason: 'Wrong item or quantity', status: 'rejected', decision_note: 'Paper card matches the entry' }, line.move_date); }
+  if (pendingFix[1]) { const { line } = pendingFix[1]; mk({ kind: 'fix', movement_id: line.id, item_id: line.item_id, from_qty: line.qty, to_qty: line.qty + 5, reason: 'Wrong item or quantity', status: 'rejected', decision_note: 'The register matches the entry' }, line.move_date); }
   const t12 = it('T12 Bars')!;
   mk({ kind: 'recount', item_id: t12.id, from_qty: bal.get(t12.id)!, to_qty: bal.get(t12.id)! - 6, reason: 'Count difference', note: 'Weekly physical count', status: 'pending' }, addDays(today, -1));
   if (lateFix) pendingFix.push(lateFix);

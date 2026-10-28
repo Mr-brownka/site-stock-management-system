@@ -89,7 +89,7 @@ function RegisterForm({ done, again }: { done: () => void; again: () => Promise<
           <div className="mirMeta"><span>Week <b className="mono">{projectWeek ?? '–'}</b></span><span>Date <b>{dateText}</b></span></div>
         </div>
         <div className="mirGrid">
-          <div className="mirTh c">#</div><div className="mirTh">Item</div><div className="mirTh r">Qty</div><div className="mirTh">Unit</div><div className="mirTh r">In store after</div>
+          <div className="mirTh c">#</div><div className="mirTh">Item</div><div className="mirTh r">Qty</div><div className="mirTh">Unit</div><div className="mirTh r">Balance</div>
           {lines.map((l, i) => {
             const q = Number(l.qty) || 0;
             const have = l.item ? balanceOf(l.item.id) : 0;
