@@ -18,14 +18,17 @@ const FIX_REASONS = ['Typing mistake', 'Wrong date', 'Wrong item', 'Wrong card /
 const DEL_REASONS = ['Entered twice', 'Never happened', 'Wrong project', 'Test entry', 'Other'];
 
 /** Delete an entry entirely: shows what each balance goes back to, asks why, then deletes (admin) or asks the admin. */
-function DeleteSheet({ doc, admin, onClose, onDone }: { doc: Doc; admin: boolean; onClose: () => void; onDone: (r: 'deleted' | 'asked') => void }) {
+function DeleteSheet({ doc, all, admin, onClose, onDone }: { doc: Doc; all: Doc[]; admin: boolean; onClose: () => void; onDone: (r: 'deleted' | 'asked') => void }) {
   const { itemById, balances } = useData();
   const [why, setWhy] = useState('');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; document.addEventListener('keydown', k); return () => document.removeEventListener('keydown', k); }, [onClose]);
-  const eff = deleteEffects(doc.kind, doc.lines, (id) => itemById.get(id));
+  // Returns made against an issue's lines go with it, so they take stock back off.
+  const ids = new Set(doc.lines.map((l) => l.id));
+  const rets = all.flatMap((d) => d.lines.filter((l) => l.return_of != null && ids.has(l.return_of)));
+  const eff = deleteEffects(doc.kind, doc.lines, (id) => itemById.get(id)).map((e) => ({ ...e, change: e.change - rets.filter((r) => r.item_id === e.item_id).reduce((a, r) => a + r.qty, 0) }));
   const bal = (id: number) => balances.find((b) => b.item_id === id)?.balance;
   const go = async () => {
     setBusy(true); setErr('');
@@ -42,6 +45,7 @@ function DeleteSheet({ doc, admin, onClose, onDone }: { doc: Doc; admin: boolean
             <div key={e.item_id}><span>{e.name}</span><span className="mono muted">{b != null ? fmt(b) : '—'}</span>
               <b className={`mono ${e.change > 0 ? 'up' : 'down'}`}>{b != null ? fmt(b + e.change) : '—'} <small>{e.change > 0 ? '+' : '−'}{fmt(Math.abs(e.change))} {e.unit}</small></b></div>); })}
         </div>
+        {rets.length > 0 && <small className="muted">The returns made against it are deleted too ({rets.length} line{rets.length === 1 ? '' : 's'}).</small>}
         <span className="delQ">Why? <small>(one tap)</small></span>
         <div className="incRmWhy">{DEL_REASONS.map((r) => <button key={r} type="button" aria-pressed={why === r} onClick={() => setWhy(r)}>{r}</button>)}</div>
         <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" />
@@ -280,9 +284,9 @@ export function Corrections() {
         </section>
       )}
 
-      {delDoc && <DeleteSheet doc={delDoc} admin={user.role === 'admin'} onClose={() => setDelDoc(null)} onDone={async (r) => {
+      {delDoc && <DeleteSheet doc={delDoc} all={docs ?? []} admin={user.role === 'admin'} onClose={() => setDelDoc(null)} onDone={async (r) => {
         const d = delDoc; setDelDoc(null);
-        if (r === 'deleted') { setDocs((ds) => ds && ds.filter((x) => x.id !== d.id)); await refresh(); toast(`${paperName(d)} deleted · balances are back`); if (view === 'fix') toFind(); }
+        if (r === 'deleted') { const ids = new Set(d.lines.map((l) => l.id)); setDocs((ds) => ds && ds.filter((x) => x.id !== d.id).map((x) => ({ ...x, lines: x.lines.filter((l) => l.return_of == null || !ids.has(l.return_of)) })).filter((x) => x.lines.length)); await refresh(); toast(`${paperName(d)} deleted · balances are back`); if (view === 'fix') toFind(); }
         else toast('Sent to the admin to delete');
         await loadMine();
       }} />}

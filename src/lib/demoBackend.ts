@@ -104,6 +104,12 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
   const save = () => { try { localStorage.setItem(key, JSON.stringify(s)); } catch { /* ignore */ } };
   const allItems = () => [...(s.items ?? BASE_ITEMS), ...s.extraItems];
   const lines = () => s.docs.flatMap((d) => d.lines);
+  // Deleting an entry takes the returns made against its lines with it, and any return left empty.
+  const removeDoc = (id: string) => {
+    const d = s.docs.find((x) => x.id === id); if (!d) return;
+    const ids = new Set(d.lines.map((l) => l.id));
+    s.docs = s.docs.filter((x) => x.id !== id).map((x) => ({ ...x, lines: x.lines.filter((l) => l.return_of == null || !ids.has(l.return_of)) })).filter((x) => x.lines.length || x.kind === 'opening');
+  };
   const wait = <T,>(v: T) => new Promise<T>((r) => setTimeout(() => r(v), 60));
 
   const this_: Backend = {
@@ -127,7 +133,7 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
       const snap = { doc: { ...d, lines: undefined }, lines: d.lines.map((l) => ({ item_id: l.item_id, qty: l.qty, subphase: l.subphase ?? null })) };
       s.corrections.unshift({ kind: 'delete', document_id: d.id, changes: snap as never, movement_id: null, item_id: d.lines[0]?.item_id ?? 0, from_qty: 0, to_qty: 0, reason: why, note: note ?? null,
         id: uid(), site_id: SITE, status: admin ? 'approved' : 'pending', decision_note: null, created_by: ME, created_at: now, decided_at: admin ? now : null });
-      if (admin) s.docs = s.docs.filter((x) => x.id !== d.id);
+      if (admin) removeDoc(d.id);
       save();
       return admin ? 'deleted' : 'asked';
     },
@@ -155,7 +161,7 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
         if (!r || r.status !== 'pending') throw new Error('Already decided');
         if (approve && r.kind === 'delete') {
           if (!s.docs.some((x) => x.id === r.document_id)) throw new Error('The entry was already removed');
-          s.docs = s.docs.filter((x) => x.id !== r.document_id);
+          removeDoc(r.document_id!);
         } else if (approve && r.kind === 'edit') {
           const d = s.docs.find((x) => x.id === r.document_id);
           if (!d) throw new Error('The original entry no longer exists');
