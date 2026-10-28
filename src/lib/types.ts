@@ -183,7 +183,8 @@ export type DocField = 'doc_date' | 'doc_time' | 'ref_no' | 'card_no' | 'party' 
 /** A whole-paper fix: before and after of each changed box, and each changed line. */
 export interface EditChanges {
   doc?: Partial<Record<DocField, [string | null, string | null]>>;
-  lines?: { movement_id: number; from_item: number; to_item?: number; from_qty: number; to_qty?: number }[];
+  /** A changed line; or add: a line that was missed (movement_id 0); or remove: a line that wasn't issued. */
+  lines?: { movement_id: number; from_item: number; to_item?: number; from_qty: number; to_qty?: number; add?: boolean; remove?: boolean }[];
 }
 /** delete: a copy of the deleted entry, kept on the request (the entry itself is gone). */
 export interface DeleteSnap { doc: Partial<Doc> & { kind: Kind; doc_date: string }; lines: { item_id: number; qty: number; subphase: string | null }[] }

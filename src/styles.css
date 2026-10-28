@@ -3794,3 +3794,57 @@ select.pfIn { appearance: auto; }
 .cinSide .incTbl .tr .incBar { width: 100%; }
 .cinSide .incGrns { padding: 12px 16px 4px; } .cinSide .incSFoot { padding: 12px 16px 16px; flex-direction: column; }
 @media (max-width: 767px) { .incTbl .th { letter-spacing: .03em; font-size: 10.5px; } .incTbl .th span { white-space: nowrap; } }
+
+/* New deliveries from Zoho: a small orange dot */
+.newDot { width: 8px; height: 8px; border-radius: 50%; background: #F08A1C; margin-left: auto; flex: none; box-shadow: 0 0 0 3px rgba(240,138,28,.22); animation: newDotPulse 2.4s ease-in-out infinite; }
+.newDot.tb { position: absolute; top: -1px; right: -3px; margin: 0; box-shadow: 0 0 0 2px #fff; animation: none; }
+.newDot.inl { display: inline-block; margin: 0 0 0 7px; vertical-align: middle; animation: none; }
+.tbIcon { position: relative; }
+.rail.mini .newDot { position: absolute; top: 8px; right: 10px; margin: 0; }
+@keyframes newDotPulse { 50% { box-shadow: 0 0 0 5px rgba(240,138,28,.08); } }
+@media (prefers-reduced-motion: reduce) { .newDot { animation: none; } }
+
+/* ═════ Fix an error A: pick the day, then the paper ═════ */
+.fxHomeMain { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.fxDays { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.fxDays::-webkit-scrollbar { display: none; }
+.fxDay { flex: none; width: 66px; padding: 7px 4px; border-radius: 12px; border: 1px solid #E3E6E4; background: #fff; font: inherit; color: var(--ink); display: flex; flex-direction: column; align-items: center; gap: 1px; cursor: pointer; }
+.fxDay small { font-size: 11.5px; color: var(--muted); font-weight: 600; } .fxDay small:last-child { font-weight: 500; font-size: 11px; }
+.fxDay b { font-size: 21px; line-height: 1.1; }
+.fxDay.none { opacity: .55; }
+.fxDay[aria-selected="true"] { background: var(--ink); border-color: var(--ink); color: #fff; opacity: 1; } .fxDay[aria-selected="true"] small { color: rgba(255,255,255,.75); }
+.fxDayPick { position: relative; flex: none; width: 66px; border-radius: 12px; border: 1px dashed #CBD1CD; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11.5px; font-weight: 600; color: var(--muted); cursor: pointer; }
+.fxDayPick input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.fxDayHead { font-size: 11.5px; font-weight: 700; letter-spacing: .12em; color: var(--muted); margin-top: 4px; }
+.fxNone { padding: 18px; border-radius: 12px; border: 1px dashed #D6DBD8; color: var(--muted); text-align: center; font-size: 13.5px; }
+.fxPapers { display: flex; flex-direction: column; gap: 8px; }
+.fxPaper { position: relative; display: flex; }
+.fxPaperMain { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 12px 52px 12px 14px; border-radius: 12px; border: 1px solid #E3E6E4; background: #fff; font: inherit; color: var(--ink); text-align: left; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+.fxPaperMain:hover { border-color: #C9CFCB; box-shadow: 0 4px 14px -10px rgba(0,0,0,.3); }
+.fxPIc { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; flex: none; }
+.fxPaper.t-out .fxPIc { background: #FDEFE3; color: #E0731A; } .fxPaper.t-in .fxPIc { background: #E7F4EC; color: #1F7A4D; }
+.fxPaper.t-back .fxPIc { background: #E8EEFB; color: #2D5BD0; } .fxPaper.t-trf .fxPIc { background: #F1EAFB; color: #7A45C7; }
+.fxPTxt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.fxPTxt b { font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fxPTxt small { color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fxPRef { color: var(--muted); font-size: 11.5px; } .fxPGo { display: inline-flex; align-items: center; gap: 3px; color: #2D5BD0; font-weight: 700; font-size: 13px; }
+.fxPaper .fxCW { position: static; }
+.fxPaper .fxDel { top: 50%; bottom: auto; right: 10px; transform: translateY(-50%); }
+@media (hover: hover) { .fxPaper .fxDel { opacity: 0; } .fxPaper:hover .fxDel, .fxPaper .fxDel:focus-visible { opacity: 1; } }
+.fxOr { border: 1px dashed #CBD1CD !important; background: transparent !important; box-shadow: none !important; }
+.fxOr.on { border-style: solid !important; background: #fff !important; }
+/* the paper: remove a line, add a missed one */
+.pfLh, .pfLr { grid-template-columns: 38px minmax(0, 1fr) 96px 72px 34px !important; }
+.pfX { border: 0; background: transparent; color: #8C9590; font-size: 17px; cursor: pointer; }
+.pfX:hover { color: var(--error); background: #FDECEC; } .pfX.undo:hover { color: #2D5BD0; background: #EAF1FF; }
+.pfLr.gone { background: #FBF3F2; } .pfLr.gone s { color: #9A5A55; } .pfLr.gone small { display: block; font-size: 11px; color: var(--error); }
+.pfLr.add { background: #F3F9F5; }
+.pfAdd { display: block; width: 100%; padding: 9px 12px; border: 0; border-top: 1.5px solid #2A2F2E; background: #fff; color: #2D5BD0; font: inherit; font-weight: 700; font-size: 13.5px; text-align: left; cursor: pointer; }
+.pfAdd:hover { background: #F4F7FD; }
+.pfBal { display: flex; flex-direction: column; gap: 3px; font-size: 12.5px; color: var(--muted); }
+.pfBal b.up { color: #1F7A4D; } .pfBal b.down { color: var(--error); }
+@media (max-width: 767px) {
+  .pfLh, .pfLr { grid-template-columns: 28px minmax(0, 1fr) 64px 46px 30px !important; }
+  .fxPaperMain { padding: 11px 46px 11px 12px; gap: 10px; } .fxPRef { display: none; } .fxPGo { display: none; }
+  .fxDay { width: 58px; } .fxDayPick { width: 58px; }
+}

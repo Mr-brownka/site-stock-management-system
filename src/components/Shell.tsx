@@ -6,6 +6,7 @@ import { longDate, weekdayName } from '../lib/dates';
 import { signal, useSignal } from '../lib/signals';
 import { ComexLogo, SiteLogo } from './Brand';
 import { ZohoAutoSync, ZohoStatusLine } from './Zoho';
+import { markDeliveriesSeen, useNewZohoDeliveries } from '../lib/newDeliveries';
 import { DatePick } from './DatePick';
 import { continueEvening, EveningFlow, stageFor } from './EveningFlow';
 import { Icon, PulseDot, Ring, useMinutesToClose } from './fx';
@@ -60,6 +61,8 @@ const readRailW = () => { try { const v = Number(localStorage.getItem('ssms-rail
 export function AppShell({ screen, children }: { screen: Screen; children: ReactNode }) {
   const { user, site, go, signOut, openAdmin, stepState, submission, lowItems, balances, day, projectWeek, syncing, catchUp, endCatchUp, unconfirmed, drafts } = useData();
   const toFinish = unconfirmed.length + drafts.length;
+  const newDel = useNewZohoDeliveries();
+  useEffect(() => { if (screen === 'rec-deliveries' && newDel) markDeliveriesSeen(); }, [screen, newDel]);
   const [mini, setMini] = useState(readRail);
   // The menu can be dragged wider or narrower by its right edge; each person's width is remembered.
   const [railW] = useState(readRailW);
@@ -129,6 +132,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
             <button key={n.s} className="railLink" title={n.l} aria-current={n.on ? 'page' : undefined} onClick={() => go(n.s)}>
               <Icon name={n.i} size={19} /><span className="rlText">{n.l}</span>
               {n.s === 'home' && lowItems.length > 0 && <span className="r2Badge" title={`${lowItems.length} items running low`}>{lowItems.length}</span>}
+              {n.s === 'rec-deliveries' && newDel > 0 && !n.on && <span className="newDot" title={`${newDel} new deliver${newDel === 1 ? 'y' : 'ies'} from Zoho`} aria-label={`${newDel} new from Zoho`} />}
             </button>
           ))}
           <span className="r2Rule" aria-hidden="true" />
@@ -218,7 +222,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
             <span className="tbIcon"><Icon name="checkin" size={22} />{lowItems.length > 0 && <PulseDot />}</span>Dashboard
           </button>
           <button aria-current={RECORDS.some((r) => r.screen === screen) || screen === 'reports' || screen === 'records' ? 'page' : undefined} onClick={() => { setSheet(null); go('records'); }}>
-            <span className="tbIcon"><Icon name="list" size={22} /></span>Records
+            <span className="tbIcon"><Icon name="list" size={22} />{newDel > 0 && <span className="newDot tb" aria-label={`${newDel} new deliveries from Zoho`} />}</span>Records
           </button>
           <button aria-current={screen === 'stocktake' ? 'page' : undefined} onClick={() => { setSheet(null); go('stocktake'); }}>
             <span className="tbIcon"><Icon name="box" size={22} /></span>Stock take

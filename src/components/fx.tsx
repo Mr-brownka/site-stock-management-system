@@ -88,6 +88,8 @@ const ICONS: Record<string, ReactNode> = {
   arrowL: <><path d="M19 12H5M11 6l-6 6 6 6" {...P} /></>,
   chevL: <><path d="M15 6l-6 6 6 6" {...P} /></>,
   calendar: <><rect x="3" y="5" width="18" height="16" rx="2" {...P} /><path d="M3 10h18M8 3v4M16 3v4" {...P} /></>,
+  arrowD: <path d="M12 5v14M6 13l6 6 6-6" {...P} />,
+  arrowU: <path d="M12 19V5M6 11l6-6 6 6" {...P} />,
   user: <><circle cx="12" cy="8" r="4" {...P} /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" {...P} /></>,
 };
 export function Icon({ name, size = 20 }: { name: keyof typeof ICONS | string; size?: number }) {

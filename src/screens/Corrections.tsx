@@ -121,12 +121,31 @@ export function Corrections() {
   const who = (d: Doc) => [d.activity, d.party, d.gemba].filter(Boolean).join(' · ');
 
   const s = q.trim().toLowerCase();
+  // Day first: the last 8 days as a strip, today on the right; older days through the date box.
+  const byDay = useMemo(() => {
+    const m = new Map<string, Doc[]>();
+    for (const d of [...(docs ?? [])].sort((a, b) => (a.kind === 'issue' ? 0 : 1) - (b.kind === 'issue' ? 0 : 1) || a.created_at.localeCompare(b.created_at))) m.set(d.doc_date, [...(m.get(d.doc_date) ?? []), d]);
+    return m;
+  }, [docs]);
+  const [pickDay, setPickDay] = useState(day);
+  useEffect(() => { if (docs && !byDay.get(pickDay)?.length) { const last = [...byDay.keys()].sort().pop(); if (last) setPickDay(last); } }, [docs]); // eslint-disable-line react-hooks/exhaustive-deps
+  const dayList = useMemo(() => { const base = Array.from({ length: 8 }, (_, i) => addDays(day, i - 7)); return base.includes(pickDay) ? base : [pickDay, ...base.slice(1)]; }, [day, pickDay]);
+  const fixTitle = (d: Doc) => d.kind === 'issue' ? (d.ref_no ? `Card ${d.ref_no}` : 'Material Issuance Register')
+    : d.kind === 'delivery' ? ['Delivery', d.zoho_grn ? `${d.zoho_grn}` : d.ref_no ? (/^[a-z]/i.test(d.ref_no) ? d.ref_no : `DN ${d.ref_no}`) : '', [d.party, d.source === 'zoho' ? '(Zoho)' : ''].filter(Boolean).join(' ')].filter(Boolean).join(' · ')
+      : d.kind === 'return' ? `Return${d.ref_no && d.ref_no !== 'No card' ? ` · ${d.ref_no}` : ''}`
+        : d.kind === 'transfer_in' ? `Transfer in · from ${d.party ?? '—'}` : `Transfer out · to ${d.party ?? '—'}`;
+  const matchesAll = useMemo(() => (docs ?? []).filter((d) => {
+    if (!s) return false;
+    const hay = [d.ref_no, d.card_no, d.zoho_grn, d.zoho_po, sysRef(d), d.party, d.activity, d.gemba, d.supervisor, d.doc_date, niceDate(d.doc_date), PAPER[d.kind],
+      ...d.lines.map((l) => itemById.get(l.item_id)?.name)].filter(Boolean).join(' ').toLowerCase();
+    return s.split(/\s+/).every((w) => hay.includes(w));
+  }), [docs, s, itemById]); // eslint-disable-line react-hooks/exhaustive-deps
   const matches = useMemo(() => {
     const K = KINDS.find((k) => k.key === kind)!;
     return (docs ?? []).filter((d) => {
       if (K.kinds.length && !K.kinds.includes(d.kind)) return false;
       if (!s) return true;
-      const hay = [d.ref_no, d.card_no, sysRef(d), d.party, d.activity, d.gemba, d.supervisor, d.doc_date, niceDate(d.doc_date), PAPER[d.kind],
+      const hay = [d.ref_no, d.card_no, d.zoho_grn, d.zoho_po, sysRef(d), d.party, d.activity, d.gemba, d.supervisor, d.doc_date, niceDate(d.doc_date), PAPER[d.kind],
         ...d.lines.map((l) => itemById.get(l.item_id)?.name)].filter(Boolean).join(' ').toLowerCase();
       return s.split(/\s+/).every((w) => hay.includes(w));
     }).sort((a, b) => b.doc_date.localeCompare(a.doc_date) || b.created_at.localeCompare(a.created_at));
@@ -159,7 +178,7 @@ export function Corrections() {
     ? { title: `${paperTitle(openDoc)} · ${niceDate(openDoc.doc_date)}`, lead: `${sysRef(openDoc)} · tap any box to change it, the date too` }
     : view === 'recount' ? { title: 'Recount an item', lead: 'When the shelf doesn’t match the app and no single entry is to blame.' }
       : view === 'mine' ? { title: 'My requests', lead: 'Everything you sent to the admin, and what they decided.' }
-        : { title: 'Fix an error', lead: 'Find the entry, say what the paper says. Fix it, or delete it with the bin icon.' };
+        : { title: 'Fix an error', lead: 'Pick the day, then the paper that is wrong.' };
 
   return (
     <div className="page fxPage">
@@ -171,43 +190,76 @@ export function Corrections() {
       {view === 'find' && (
         <div className="fxHome enter">
           <div className="fxHomeMain">
-            <section className="fxFind2">
-              <label className="fxSearch big">
-                <Icon name="search" size={20} />
-                <input ref={findRef} autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Card no., delivery note, item or date" aria-label="Find the entry" />
-                {q && <button className="fxClear" onClick={() => { setQ(''); findRef.current?.focus(); }} aria-label="Clear">×</button>}
-              </label>
-              <div className="fxKinds">
-                {KINDS.map((k) => <button key={k.key} className={`fxKind ${k.key}`} aria-pressed={kind === k.key} onClick={() => setKind(k.key)}>{k.key === 'all' ? 'All' : k.label}{k.key !== 'all' && docs && <span className="mono">{docs.filter((d) => k.kinds.includes(d.kind)).length}</span>}</button>)}
-              </div>
-            </section>
-            {docs === null && <div className="panel pad muted">Loading…</div>}
-            {docs !== null && !matches.length && <div className="panel pad muted">{s ? `Nothing matches “${q}” in the last ${LOOKBACK} days.` : 'No entries yet.'}</div>}
-            {['issued', 'deliveries', 'returns', 'transfers'].map((key) => KINDS.find((k) => k.key === key)!).filter((k) => kind === 'all' || kind === k.key).map((k) => {
-              const list = matches.filter((d) => k.kinds.includes(d.kind));
-              if (!list.length) return null;
-              const cap = kind === 'all' && !s ? 8 : 60;
-              return (
-                <section key={k.key} className={`fxCat ${k.key}`} aria-label={k.label}>
-                  <header><span className="fxCatDot" aria-hidden="true" /><b>{CAT_TITLE[k.key]}</b><span className="mono">{list.length}</span>
-                    {list.length > cap && <button className="btn link" onClick={() => setKind(k.key)}>Show all {list.length} →</button>}</header>
-                  <div className="fxCards">
-                    {list.slice(0, cap).map((d) => (
-                      <div key={d.id} className="fxCardWrap">
-                      <button className={`fxCard ${TONE[d.kind]}`} onClick={() => openFix(d)}>
-                        <span className="fxCTop"><span className="fxCK">{PAPER[d.kind]?.replace(' on card', '') ?? 'Entry'}</span><small className="mono">{sysRef(d)}</small></span>
-                        <b className={`fxCNo ${d.kind === 'issue' ? 'red' : ''}`}>{d.ref_no || (d.kind === 'delivery' ? d.party : d.kind === 'issue' ? 'Register' : '–') || '–'}</b>
-                        <span className="fxCL">{linesText(d)}</span>
-                        <small className="fxCS">{niceDate(d.doc_date)}{who(d) ? ` · ${who(d)}` : ''}</small>
+            {!s && (
+              <>
+                <div className="fxDays" role="tablist" aria-label="Pick the day" ref={(el) => { if (el && !el.dataset.done) { el.dataset.done = '1'; el.scrollLeft = el.scrollWidth; } }}>
+                  {dayList.map((d) => (
+                    <button key={d} role="tab" aria-selected={pickDay === d} className={`fxDay ${byDay.get(d)?.length ? '' : 'none'}`} onClick={() => setPickDay(d)}>
+                      <small>{niceDate(d).split(' ')[0]}</small><b>{Number(d.slice(8))}</b><small>{byDay.get(d)?.length ? `${byDay.get(d)!.length} paper${byDay.get(d)!.length === 1 ? '' : 's'}` : 'none'}</small>
+                    </button>
+                  ))}
+                  <label className="fxDayPick" title="An older day">
+                    <Icon name="calendar" size={16} /><span>Older</span>
+                    <input type="date" max={day} min={addDays(day, -(LOOKBACK - 1))} value={pickDay} onChange={(e) => e.target.value && setPickDay(e.target.value)} aria-label="Pick an older day" />
+                  </label>
+                </div>
+                <div className="fxDayHead">{niceDate(pickDay).toUpperCase()} · {(byDay.get(pickDay) ?? []).length} PAPER{(byDay.get(pickDay) ?? []).length === 1 ? '' : 'S'}</div>
+                {docs === null && <div className="panel pad muted">Loading…</div>}
+                {docs !== null && !(byDay.get(pickDay) ?? []).length && <div className="fxNone">Nothing was entered on {niceDate(pickDay)}.</div>}
+                <div className="fxPapers">
+                  {(byDay.get(pickDay) ?? []).map((d) => (
+                    <div key={d.id} className={`fxPaper t-${TONE[d.kind]}`}>
+                      <button type="button" className="fxPaperMain" onClick={() => openFix(d)}>
+                        <span className="fxPIc" aria-hidden="true"><Icon name={d.kind === 'delivery' || d.kind === 'transfer_in' ? 'arrowD' : d.kind === 'return' ? 'undo' : d.kind === 'transfer_out' ? 'swap' : 'arrowU'} size={16} /></span>
+                        <span className="fxPTxt"><b>{fixTitle(d)}</b><small>{d.lines.length} item{d.lines.length === 1 ? '' : 's'} · {linesText(d)}</small></span>
                         {waitingOn(d) && <span className="fxCW">Fix waiting</span>}
+                        <small className="mono fxPRef">{sysRef(d)}</small>
+                        <span className="fxPGo">Fix <Icon name="arrow" size={14} /></span>
                       </button>
                       <button type="button" className="fxDel" title="Delete this entry" aria-label={`Delete ${paperName(d)} of ${niceDate(d.doc_date)}`} onClick={() => setDelDoc(d)}><Icon name="trash" size={15} /></button>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              );
-            })}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+            <label className={`fxSearch fxOr ${s ? 'on' : ''}`}>
+              <Icon name="search" size={18} />
+              <input ref={findRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Or search: card no., note, vendor, item…" aria-label="Search all entries" />
+              {q && <button className="fxClear" onClick={() => { setQ(''); findRef.current?.focus(); }} aria-label="Clear">×</button>}
+            </label>
+            {s && (
+              <>
+                <div className="fxKinds">
+                  {KINDS.map((k) => <button key={k.key} className={`fxKind ${k.key}`} aria-pressed={kind === k.key} onClick={() => setKind(k.key)}>{k.key === 'all' ? 'All' : k.label}{k.key !== 'all' && <span className="mono">{matchesAll.filter((d) => k.kinds.includes(d.kind)).length}</span>}</button>)}
+                </div>
+                {!matches.length && <div className="panel pad muted">Nothing matches “{q}” in the last {LOOKBACK} days.</div>}
+            {['issued', 'deliveries', 'returns', 'transfers'].map((key) => KINDS.find((k) => k.key === key)!).filter((k) => kind === 'all' || kind === k.key).map((k) => {
+                const list = matches.filter((d) => k.kinds.includes(d.kind));
+                if (!list.length) return null;
+                const cap = kind === 'all' && !s ? 8 : 60;
+                return (
+                  <section key={k.key} className={`fxCat ${k.key}`} aria-label={k.label}>
+                    <header><span className="fxCatDot" aria-hidden="true" /><b>{CAT_TITLE[k.key]}</b><span className="mono">{list.length}</span>
+                      {list.length > cap && <button className="btn link" onClick={() => setKind(k.key)}>Show all {list.length} →</button>}</header>
+                    <div className="fxCards">
+                      {list.slice(0, cap).map((d) => (
+                        <div key={d.id} className="fxCardWrap">
+                        <button className={`fxCard ${TONE[d.kind]}`} onClick={() => openFix(d)}>
+                          <span className="fxCTop"><span className="fxCK">{PAPER[d.kind]?.replace(' on card', '') ?? 'Entry'}</span><small className="mono">{sysRef(d)}</small></span>
+                          <b className={`fxCNo ${d.kind === 'issue' ? 'red' : ''}`}>{d.ref_no || (d.kind === 'delivery' ? d.party : d.kind === 'issue' ? 'Register' : '–') || '–'}</b>
+                          <span className="fxCL">{linesText(d)}</span>
+                          <small className="fxCS">{niceDate(d.doc_date)}{who(d) ? ` · ${who(d)}` : ''}</small>
+                          {waitingOn(d) && <span className="fxCW">Fix waiting</span>}
+                        </button>
+                        <button type="button" className="fxDel" title="Delete this entry" aria-label={`Delete ${paperName(d)} of ${niceDate(d.doc_date)}`} onClick={() => setDelDoc(d)}><Icon name="trash" size={15} /></button>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                );
+              })}
+                </>
+            )}
           </div>
           <aside className="fxSide">
             <section className="panel fxYours">
@@ -317,7 +369,7 @@ const FIELDS: Record<string, DocField[]> = {
 const PAPER_NAME: Record<string, string> = { issue: 'Material Issuance Register', delivery: 'Delivery note', return: 'Return to store', transfer_in: 'Transfer note · received', transfer_out: 'Transfer note · sent' };
 
 function PaperFix({ doc, sysRef, waiting, onSent, onDelete }: { doc: Doc; sysRef: string; waiting: boolean; onSent: (msg: string) => Promise<void>; onDelete: () => void }) {
-  const { itemById, subphases, realToday, company } = useData();
+  const { itemById, subphases, realToday, company, balances } = useData();
   const [team, setTeam] = useState<string[]>([]);
   useEffect(() => { api.siteTeam().then(setTeam).catch(() => undefined); }, []);
   // A Material Issuance Register (no card no.) has only the date and the store person to fix.
@@ -325,27 +377,50 @@ function PaperFix({ doc, sysRef, waiting, onSent, onDelete }: { doc: Doc; sysRef
   const F: DocField[] = reg ? ['doc_date', 'authorised_by'] : FIELDS[doc.kind] ?? ['ref_no', 'party', 'doc_date'];
   const orig = (f: DocField) => { const v = (doc[f as keyof Doc] as string | null | undefined) ?? ''; return f === 'doc_time' ? v.slice(0, 5) : v; };
   const [hdr, setHdr] = useState<Record<string, string>>(() => Object.fromEntries(F.map((f) => [f, orig(f)])));
-  const [ln, setLn] = useState<Record<number, { item: number; qty: string }>>(() => Object.fromEntries(doc.lines.map((l) => [l.id, { item: l.item_id, qty: String(l.qty) }])));
+  const [ln, setLn] = useState<Record<number, { item: number; qty: string; gone?: boolean }>>(() => Object.fromEntries(doc.lines.map((l) => [l.id, { item: l.item_id, qty: String(l.qty) }])));
+  // Lines that were missed on the paper, added here.
+  const [added, setAdded] = useState<{ key: number; item: Item | null; qty: string }[]>([]);
   const [reason, setReason] = useState('');
   const [note, setNote] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
 
   const docCh = F.filter((f) => hdr[f].trim() !== orig(f));
-  const lineCh = doc.lines.filter((l) => ln[l.id].item !== l.item_id || (ln[l.id].qty !== '' && Number(ln[l.id].qty) !== l.qty));
+  const gone = doc.lines.filter((l) => ln[l.id].gone);
+  const lineCh = doc.lines.filter((l) => !ln[l.id].gone && (ln[l.id].item !== l.item_id || (ln[l.id].qty !== '' && Number(ln[l.id].qty) !== l.qty)));
+  const adds = added.filter((a) => a.item && Number(a.qty) > 0);
   const changes: EditChanges = {
     doc: Object.fromEntries(docCh.map((f) => [f, [orig(f) || null, hdr[f].trim() || null]])),
-    lines: lineCh.map((l) => ({ movement_id: l.id, from_item: l.item_id, from_qty: l.qty,
-      ...(ln[l.id].item !== l.item_id ? { to_item: ln[l.id].item } : {}), ...(Number(ln[l.id].qty) !== l.qty ? { to_qty: Number(ln[l.id].qty) } : {}) })),
+    lines: [
+      ...lineCh.map((l) => ({ movement_id: l.id, from_item: l.item_id, from_qty: l.qty,
+        ...(ln[l.id].item !== l.item_id ? { to_item: ln[l.id].item } : {}), ...(Number(ln[l.id].qty) !== l.qty ? { to_qty: Number(ln[l.id].qty) } : {}) })),
+      ...gone.map((l) => ({ movement_id: l.id, from_item: l.item_id, from_qty: l.qty, remove: true })),
+      ...adds.map((a) => ({ movement_id: 0, from_item: 0, from_qty: 0, add: true, to_item: a.item!.id, to_qty: Number(a.qty) })),
+    ],
   };
-  const nChanges = docCh.length + lineCh.length;
+  const nChanges = docCh.length + lineCh.length + gone.length + adds.length;
+  // What each item's balance becomes once approved (an issue or transfer out takes stock off, the rest put it in).
+  const out = doc.kind === 'issue' || doc.kind === 'transfer_out';
+  const eff = (q: number) => (out ? -q : q);
+  const delta = new Map<number, number>();
+  const bump = (id: number, d: number) => delta.set(id, (delta.get(id) ?? 0) + d);
+  for (const l of doc.lines) {
+    const v = ln[l.id];
+    if (v.gone) { bump(l.item_id, -eff(l.qty)); continue; }
+    const nq = v.qty === '' ? l.qty : Number(v.qty);
+    if (v.item !== l.item_id) { bump(l.item_id, -eff(l.qty)); bump(v.item, eff(nq)); } else if (nq !== l.qty) bump(l.item_id, eff(nq) - eff(l.qty));
+  }
+  adds.forEach((a) => bump(a.item!.id, eff(Number(a.qty))));
+  const balAfter = [...delta].filter(([, d]) => d !== 0).map(([id, d]) => ({ id, d, now: balances.find((b) => b.item_id === id)?.balance ?? 0 }));
   const item = (id: number) => itemById.get(id);
   const list = describeEdit(changes, item, doc.kind);
   const autoReason = !reason && docCh.length === 1 && docCh[0] === 'doc_date' && !lineCh.length ? 'Wrong date' : reason;
 
   const send = async () => {
     if (!nChanges) { setErr('Change the box that is different from the paper.'); return; }
-    if (doc.lines.some((l) => !(Number(ln[l.id].qty) > 0))) { setErr('Every line needs a quantity above 0.'); return; }
+    if (doc.lines.some((l) => !ln[l.id].gone && !(Number(ln[l.id].qty) > 0))) { setErr('Every line needs a quantity above 0.'); return; }
+    if (added.some((a) => (a.item && !(Number(a.qty) > 0)) || (!a.item && a.qty))) { setErr('Each added line needs an item and a quantity.'); return; }
+    if (gone.length === doc.lines.length && !adds.length) { setErr('That removes every line. Use “Delete this entry instead”.'); return; }
     if (docCh.includes('doc_date') && !hdr.doc_date) { setErr('Pick the date from the paper.'); return; }
     if (!autoReason) { setErr('Tap why it was wrong.'); return; }
     setBusy(true); setErr('');
@@ -375,9 +450,15 @@ function PaperFix({ doc, sysRef, waiting, onSent, onDelete }: { doc: Doc; sysRef
   };
   const lines = (
     <div className="pfLines">
-      <div className="pfLh"><span>#</span><span>Item</span><span>Qty</span><span>Unit</span></div>
+      <div className="pfLh"><span>#</span><span>Item</span><span>Qty</span><span>Unit</span><span aria-hidden="true" /></div>
       {doc.lines.map((l, i) => {
         const v = ln[l.id]; const it = item(v.item); const chI = v.item !== l.item_id; const chQ = v.qty !== '' && Number(v.qty) !== l.qty;
+        if (v.gone) return (
+          <div key={l.id} className="pfLr gone">
+            <span className="pfN">{i + 1}</span><div className="pfCell"><s>{item(l.item_id)?.name}</s><small>Removed · wasn’t issued</small></div>
+            <div className="pfCell r"><s className="mono">{fmt(l.qty)}</s></div><span className="pfU">{item(l.item_id)?.unit}</span>
+            <button type="button" className="pfX undo" title="Keep this line" aria-label={`Keep line ${i + 1}`} onClick={() => setLn((s) => ({ ...s, [l.id]: { ...s[l.id], gone: false } }))}>↺</button>
+          </div>);
         return (
           <div key={l.id} className="pfLr">
             <span className="pfN">{i + 1}</span>
@@ -386,9 +467,20 @@ function PaperFix({ doc, sysRef, waiting, onSent, onDelete }: { doc: Doc; sysRef
             <div className={`pfCell r ${chQ ? 'ch' : ''}`}>{chQ && <s className="pfWas">{fmt(l.qty)}</s>}
               <input className="pfIn mono r" inputMode="decimal" value={v.qty} aria-label={`Quantity, line ${i + 1}`} onFocus={(e) => e.target.select()} onChange={(e) => setLn((s) => ({ ...s, [l.id]: { ...s[l.id], qty: e.target.value.replace(/[^0-9.]/g, '') } }))} /></div>
             <span className="pfU">{it?.unit}</span>
+            <button type="button" className="pfX" title="Remove this line (it wasn’t issued)" aria-label={`Remove line ${i + 1}`} onClick={() => setLn((s) => ({ ...s, [l.id]: { ...s[l.id], gone: true } }))}>×</button>
           </div>
         );
       })}
+      {added.map((r, j) => (
+        <div key={r.key} className="pfLr add">
+          <span className="pfN">+</span>
+          <div className="pfCell ch"><ItemPicker bare label="Item" item={r.item} inputClass="pfIn" onPick={(x) => setAdded((a) => a.map((y) => (y.key === r.key ? { ...y, item: x } : y)))} /></div>
+          <div className="pfCell r ch"><input className="pfIn mono r" inputMode="decimal" value={r.qty} placeholder="0" aria-label={`Quantity, added line ${j + 1}`} onChange={(e) => setAdded((a) => a.map((y) => (y.key === r.key ? { ...y, qty: e.target.value.replace(/[^0-9.]/g, '') } : y)))} /></div>
+          <span className="pfU">{r.item?.unit}</span>
+          <button type="button" className="pfX" aria-label="Drop this added line" onClick={() => setAdded((a) => a.filter((y) => y.key !== r.key))}>×</button>
+        </div>
+      ))}
+      <button type="button" className="pfAdd" onClick={() => setAdded((a) => [...a, { key: Date.now(), item: null, qty: '' }])}>+ Add a line that was missed</button>
     </div>
   );
 
@@ -414,6 +506,7 @@ function PaperFix({ doc, sysRef, waiting, onSent, onDelete }: { doc: Doc; sysRef
         <b>What changes {nChanges > 0 && <span className="pfCount">{nChanges}</span>}</b>
         {!nChanges && <span className="muted">Nothing yet. Tap the box that is different from the paper and type what the paper says.</span>}
         {list.map((t) => <div key={t} className="pfChange">{t}</div>)}
+        {balAfter.length > 0 && <div className="pfBal">{balAfter.map((b) => <span key={b.id}>{item(b.id)?.name}: balance {fmt(b.now)} → <b className={b.d > 0 ? 'up' : 'down'}>{fmt(b.now + b.d)}</b> once approved</span>)}</div>}
         {docCh.includes('doc_date') && hdr.doc_date && <div className="pfMove">Moves this entry to <b>{niceDate(hdr.doc_date)}</b>. Both days’ balances are worked out again once the admin approves.</div>}
         <div className="fxWhy"><span>Why? <small>(one tap)</small></span><Chips options={FIX_REASONS} value={autoReason} onPick={setReason} />
           <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional), e.g. issued on the 22nd, typed on the 24th" /></div>

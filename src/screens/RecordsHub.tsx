@@ -1,3 +1,4 @@
+import { useNewZohoDeliveries } from '../lib/newDeliveries';
 import { Icon } from '../components/fx';
 import { BackPill } from '../components/BackPill';
 import { niceDate } from '../lib/dates';
@@ -15,6 +16,7 @@ const PAPERS: { screen: Screen; label: string; tone: string; kinds: Doc['kind'][
 const t = (d: Doc) => d.doc_time?.slice(0, 5) ?? new Date(d.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' });
 
 export function RecordsHub() {
+  const newDel = useNewZohoDeliveries();
   const { go, recent, docsToday, day, balances, lowItems } = useData();
   const last = (kinds: Doc['kind'][]) => [...recent, ...docsToday].filter((d) => kinds.includes(d.kind))
     .sort((a, b) => b.doc_date.localeCompare(a.doc_date) || b.created_at.localeCompare(a.created_at))[0];
@@ -36,7 +38,7 @@ export function RecordsHub() {
             return (
               <button key={p.screen} className={`rhRow ${p.tone}`} onClick={() => go(p.screen)}>
                 <span className="rhIc" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18"><path d={p.icon} fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
-                <span className="rhT"><b>{p.label}</b><small>{l ? what(l) : 'Nothing yet'}</small></span>
+                <span className="rhT"><b>{p.label}{p.screen === 'rec-deliveries' && newDel > 0 && <span className="newDot inl" title={`${newDel} new from Zoho`} />}</b><small>{l ? what(l) : 'Nothing yet'}</small></span>
                 <span className={`rhN ${n ? '' : 'none'}`}>{n ? `${n} today` : 'None today'}</span>
                 <Icon name="arrow" size={16} />
               </button>

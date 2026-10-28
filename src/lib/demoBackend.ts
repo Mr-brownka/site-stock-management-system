@@ -169,7 +169,11 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
           for (const [k, v] of Object.entries(c)) (d as unknown as Record<string, unknown>)[k] = v?.[1] || null;
           if (c.gemba && d.kind === 'issue') d.lines.forEach((l) => { l.subphase = d.gemba ?? null; });
           d.lines.forEach((l) => { l.move_date = d.doc_date; });
-          for (const x of r.changes?.lines ?? []) { const l = d.lines.find((y) => y.id === x.movement_id); if (l) { if (x.to_item) l.item_id = x.to_item; if (x.to_qty != null) l.qty = x.to_qty; } }
+          for (const x of r.changes?.lines ?? []) {
+            if (x.remove) { d.lines = d.lines.filter((y) => y.id !== x.movement_id); continue; }
+            if (x.add && x.to_item) { d.lines.push({ id: s.nextLine++, document_id: d.id, kind: d.kind, move_date: d.doc_date, item_id: x.to_item, qty: x.to_qty ?? 0, subphase: null, return_of: null }); continue; }
+            const l = d.lines.find((y) => y.id === x.movement_id); if (l) { if (x.to_item) l.item_id = x.to_item; if (x.to_qty != null) l.qty = x.to_qty; }
+          }
         } else if (approve) {
           const line = r.movement_id ? s.docs.flatMap((d) => d.lines).find((l) => l.id === r.movement_id) : undefined;
           const change = r.kind === 'fix' && line ? (line.kind === 'issue' || line.kind === 'transfer_out' ? r.from_qty - r.to_qty : r.to_qty - r.from_qty) : r.to_qty - r.from_qty;
