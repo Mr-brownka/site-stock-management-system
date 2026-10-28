@@ -58,6 +58,11 @@ function adminApi(sb: SupabaseClient): AdminApi {
       if (error) return {};
       return Object.fromEntries((data ?? []).map((r) => [String(r.user_id), { password: String(r.password), set_at: String(r.set_at) }]));
     },
+    async deletePerson(userId) {
+      const { data, error } = await sb.functions.invoke('admin-users', { body: { action: 'delete', user_id: userId } });
+      if (error) throw new Error(error.message);
+      if ((data as { error?: string }).error) throw new Error((data as { error: string }).error);
+    },
     async setPersonPassword(userId, password) {
       const { data, error } = await sb.functions.invoke('admin-users', { body: { action: 'password', user_id: userId, password } });
       if (error) throw new Error(error.message);

@@ -23,6 +23,24 @@ Deno.serve(async (req) => {
     return json({ ok: true });
   }
 
+  if (b.action === 'delete') {
+    // Delete an account for good. Only for people with nothing on record; otherwise "Remove access" keeps their entries.
+    const id = String(b.user_id ?? '');
+    if (!id || id === user.id) return json({ error: 'You can’t delete your own account.' });
+    const used = await Promise.all([
+      db.from('documents').select('id', { count: 'exact', head: true }).eq('created_by', id),
+      db.from('correction_requests').select('id', { count: 'exact', head: true }).eq('created_by', id),
+      db.from('day_submissions').select('day', { count: 'exact', head: true }).eq('submitted_by', id),
+      db.from('stock_takes').select('id', { count: 'exact', head: true }).eq('created_by', id),
+      db.from('incoming_dismissed').select('po_id', { count: 'exact', head: true }).eq('dismissed_by', id),
+    ]);
+    if (used.some((r) => (r.count ?? 0) > 0)) return json({ error: 'This person has entries on record, so the account can’t be deleted. Use “Remove access” instead: they can’t sign in and their entries stay.' });
+    await db.from('drafts').delete().eq('created_by', id);
+    const { error } = await db.auth.admin.deleteUser(id);
+    if (error) return json({ error: error.message });
+    return json({ ok: true });
+  }
+
   if (b.action === 'create') {
     const full = String(b.full_name ?? '').replace(/\s+/g, ' ').trim();
     const pw = String(b.password ?? '');

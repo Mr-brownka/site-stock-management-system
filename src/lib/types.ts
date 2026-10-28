@@ -233,6 +233,8 @@ export interface AdminApi {
   createPerson(p: NewPerson): Promise<void>;
   /** Set a new password for someone (the admin shares it). */
   setPersonPassword(userId: string, password: string): Promise<void>;
+  /** Delete an account for good (only when they have nothing on record). */
+  deletePerson(userId: string): Promise<void>;
   /** Passwords the admin gave out and the person hasn't changed yet. */
   issuedPasswords(): Promise<Record<string, { password: string; set_at: string }>>;
   setProfile(id: string, patch: Partial<Pick<Profile, 'status' | 'role' | 'site_id' | 'full_name' | 'phone' | 'training_waived' | 'access' | 'pages' | 'head_office'>>): Promise<void>;

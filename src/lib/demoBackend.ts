@@ -160,6 +160,7 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
       },
       async setPersonPassword(id, pw) { s.issued = { ...(s.issued ?? {}), [id]: { password: pw, set_at: new Date().toISOString() } }; save(); },
       async issuedPasswords() { return s.issued ?? {}; },
+      async deletePerson(id) { s.profiles = s.profiles.filter((x) => x.id !== id); save(); },
       async setProfile(id, patch) { s.profiles = s.profiles.map((p) => (p.id === id ? { ...p, ...patch, decided_at: new Date().toISOString() } : p)); save(); },
       async sites() { return s.sites; },
       async addSite(name, structure) { s.sites.push({ id: uid(), name, company: 'Comex Builders', ...(structure ?? {}) }); save(); },

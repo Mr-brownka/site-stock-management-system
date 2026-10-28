@@ -808,6 +808,7 @@ function People({ d, me, busy, act }: { d: Data; me: User; busy: string; act: Ac
                   ...(p.role !== 'admin' && done < TRAINING_DAYS ? [p.training_waived
                     ? { label: 'Undo skip training', onClick: () => act(p.id, () => api.admin.setProfile(p.id, { training_waived: false })) }
                     : { label: 'Skip training', onClick: async () => { if (await ask({ title: `Let ${p.full_name} skip training?`, body: <p>Their store opens now (or the first stock take unlocks, if the store has no stock yet).</p>, yes: 'Skip training' })) act(p.id, () => api.admin.setProfile(p.id, { training_waived: true })); } }] : []),
+                  ...(p.email !== me.email ? [{ label: 'Delete account', danger: true, onClick: async () => { if (await ask({ title: `Delete ${p.full_name}’s account?`, body: <p>The account is gone for good and the name is free to use again. If they have entries on record, use “Remove access” instead so the entries keep their name.</p>, yes: 'Delete account', tone: 'danger' })) act(p.id, () => api.admin.deletePerson(p.id)).then(() => toast(`${p.full_name}’s account is deleted`)); } }] : []),
                   ...(p.email !== me.email ? [{ label: 'Remove access', danger: true, onClick: async () => { if (await ask({ title: `Remove ${p.full_name}’s access?`, body: <p>They will no longer be able to sign in. You can give access back later.</p>, yes: 'Remove access', tone: 'danger' })) act(p.id, () => api.admin.setProfile(p.id, { status: 'removed' })); } }] : []),
                 ]} />
               </div>
