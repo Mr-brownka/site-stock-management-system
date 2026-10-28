@@ -166,6 +166,9 @@ export function IncomingPanel() {
           <div className={`incTbl2 ${c.k}`} role="tabpanel">
             {!data && busy && <div className="incSkel" />}
             {data && !c.list.length && <div className="incEmpty2">{c.empty}</div>}
+            {!!c.list.length && (c.part
+              ? <div className="incTh2 part" aria-hidden="true"><span>PO</span><span>Vendor</span><span>Items</span><span>Qty</span><span>Subphase</span><span /></div>
+              : <div className="incTh2" aria-hidden="true"><span>Vendor</span><span>PO</span><span>Items</span><span>Qty</span><span>Expected</span></div>)}
             {list.map((o) => {
               const dd = due(o, today);
               const first = o.lines[0];
@@ -173,12 +176,23 @@ export function IncomingPanel() {
               return (
                 <div key={o.id + c.k} className="incRow2">
                   <button type="button" className="incRowBtn" onClick={() => setOpen(o)}>
-                    <b className="irV">{o.vendor ?? 'Vendor'}</b>
-                    <span className="irPo mono">{o.po}</span>
-                    <span className="irIt">{first?.name}{more > 0 ? ` · +${more}` : ''}</span>
-                    <b className="irQ mono">{first ? (c.part ? <>{fmt(first.ordered - first.received)}<small>/{fmt(first.ordered)}</small> {first.unit ?? ''}</> : `${fmt(first.ordered - first.received)} ${first.unit ?? ''}`) : ''}</b>
-                    {c.part && <span className="irSub">{o.subphase || '—'}</span>}
-                    {c.part ? <span className="irWhen">{o.lastIn ? `Last in ${short(o.lastIn)}` : ''}</span> : <span className={`irDue ${dd.k}`}>{dd.k === 'late' && o.expected === addDay(today, -1) ? 'Yesterday' : dd.k === 'today' ? 'Today' : dd.t}</span>}
+                    {c.part ? (
+                      <>
+                        <span className="irPo mono">{o.po}</span>
+                        <b className="irV">{o.vendor ?? 'Vendor'}</b>
+                        <span className="irIt">{first?.name}{more > 0 ? ` + ${more}` : ''}</span>
+                        <b className="irQ mono">{first ? <>{fmt(first.ordered - first.received)} <small>{first.unit ?? ''}</small></> : ''}</b>
+                        <span className="irSub">{o.subphase || '—'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <b className="irV">{o.vendor ?? 'Vendor'}</b>
+                        <span className="irPo mono">{o.po}</span>
+                        <span className="irIt">{first?.name}{more > 0 ? ` + ${more}` : ''}</span>
+                        <b className="irQ mono">{first ? <>{fmt(first.ordered - first.received)} <small>{first.unit ?? ''}</small></> : ''}</b>
+                        <span className="irDueW"><span className={`irDue ${dd.k}`}>{dd.k === 'late' && o.expected === addDay(today, -1) ? 'Yesterday' : dd.k === 'today' ? 'Today' : dd.t}</span></span>
+                      </>
+                    )}
                   </button>
                   {c.part && <button type="button" className="incBin" onClick={() => setRemoving(o)} title="Remove: the rest won’t be delivered" aria-label={`Remove ${o.po} from part-delivered`}><Icon name="trash" size={15} /></button>}
                 </div>
