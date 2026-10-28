@@ -19,6 +19,7 @@ Deno.serve(async (req) => {
     if (pw.length < 6) return json({ error: 'The password needs at least 6 characters.' });
     const { error } = await db.auth.admin.updateUserById(id, { password: pw });
     if (error) return json({ error: error.message });
+    await db.from('issued_passwords').upsert({ user_id: id, password: pw, set_at: new Date().toISOString(), set_by: user.id });
     return json({ ok: true });
   }
 
@@ -47,6 +48,7 @@ Deno.serve(async (req) => {
       training_waived: role !== 'store' && role !== 'assistant',
     });
     if (e2) return json({ error: e2.message });
+    await db.from('issued_passwords').upsert({ user_id: made.user.id, password: pw, set_at: new Date().toISOString(), set_by: user.id });
     return json({ ok: true, id: made.user.id });
   }
   return json({ error: 'Unknown action' }, 400);

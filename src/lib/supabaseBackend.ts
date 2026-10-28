@@ -53,6 +53,11 @@ function adminApi(sb: SupabaseClient): AdminApi {
       if (error) throw new Error(error.message);
       if ((data as { error?: string }).error) throw new Error((data as { error: string }).error);
     },
+    async issuedPasswords() {
+      const { data, error } = await sb.from('issued_passwords').select('user_id, password, set_at');
+      if (error) return {};
+      return Object.fromEntries((data ?? []).map((r) => [String(r.user_id), { password: String(r.password), set_at: String(r.set_at) }]));
+    },
     async setPersonPassword(userId, password) {
       const { data, error } = await sb.functions.invoke('admin-users', { body: { action: 'password', user_id: userId, password } });
       if (error) throw new Error(error.message);
@@ -272,6 +277,8 @@ export function supabaseBackend(url: string, key: string): Backend {
     async setPassword(password) {
       const { error } = await sb.auth.updateUser({ password });
       if (error) fail(error);
+      // Their own password now: the one the admin gave out is forgotten.
+      await sb.rpc('forget_issued_password').then(() => undefined, () => undefined);
       recovery = false;
       history.replaceState(null, '', location.pathname);
     },

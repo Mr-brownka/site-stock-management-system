@@ -756,6 +756,10 @@ function People({ d, me, busy, act }: { d: Data; me: User; busy: string; act: Ac
   const [adding, setAdding] = useState(false);
   const [share, setShare] = useState<{ name: string; password: string; phone: string | null } | null>(null);
   const [pagesFor, setPagesFor] = useState<{ id: string; pages: string[] | null } | null>(null);
+  const [pwFor, setPwFor] = useState<{ id: string; value: string; show: boolean } | null>(null);
+  const [issued, setIssued] = useState<Record<string, { password: string; set_at: string }>>({});
+  const loadIssued = useCallback(() => { api.admin.issuedPasswords().then(setIssued).catch(() => undefined); }, []);
+  useEffect(() => { loadIssued(); }, [loadIssued, d]);
   const [f, setF] = useState<'all' | 'store' | 'admin' | 'off'>('all');
   const [edit, setEdit] = useState<{ id: string; full_name: string; phone: string; site_id: string; role: Role } | null>(null);
   const name = (id: string | null | undefined) => d.sites.find((s) => s.id === id)?.name ?? '';
@@ -799,7 +803,7 @@ function People({ d, me, busy, act }: { d: Data; me: User; busy: string; act: Ac
                 <span className="muted">{ago(lastSeen(p.id))}</span>
                 <Dots items={f === 'off' ? [{ label: 'Give access back', onClick: () => act(p.id, () => api.admin.setProfile(p.id, { status: 'approved' })) }] : [
                   ...(p.role !== 'admin' ? [{ label: 'Pages they see…', onClick: () => setPagesFor({ id: p.id, pages: p.pages ?? null }) }] : []),
-                  { label: 'Set a new password', onClick: () => { const pw = newPassword(); act(p.id, () => api.admin.setPersonPassword(p.id, pw)).then(() => setShare({ name: p.full_name, password: pw, phone: p.phone })); } },
+                  { label: 'Password…', onClick: () => { setPagesFor(null); setPwFor({ id: p.id, value: issued[p.id]?.password ?? '', show: false }); } },
                   { label: 'Edit', onClick: () => setEdit({ id: p.id, full_name: p.full_name, phone: p.phone ?? '', site_id: p.head_office ? '__ho' : p.site_id ?? d.sites[0]?.id ?? '', role: p.role }) },
                   ...(p.role !== 'admin' && done < TRAINING_DAYS ? [p.training_waived
                     ? { label: 'Undo skip training', onClick: () => act(p.id, () => api.admin.setProfile(p.id, { training_waived: false })) }
@@ -809,6 +813,22 @@ function People({ d, me, busy, act }: { d: Data; me: User; busy: string; act: Ac
               </div>
             );
           })}
+          {pwFor && (() => { const p = d.profiles.find((x) => x.id === pwFor.id); if (!p) return null; const cur = issued[p.id]; const changed = pwFor.value !== (cur?.password ?? ''); return (
+            <div className="adPagesRow adPwRow enter">
+              <b>{p.full_name}’s password</b>
+              {cur
+                ? <span className="adPwNow">Given out {ago(cur.set_at)}: <code className="mono">{pwFor.show ? cur.password : '•'.repeat(Math.max(8, cur.password.length))}</code><button type="button" className="btn link" onClick={() => setPwFor({ ...pwFor, show: !pwFor.show })}>{pwFor.show ? 'Hide' : 'Show'}</button></span>
+                : <span className="muted">Not known: they set their own password, or it was given out before passwords were kept. Type a new one below.</span>}
+              <span className="adInline adPwEdit">
+                <input className="input mono" value={pwFor.value} placeholder="New password (at least 6 characters)" onChange={(e) => setPwFor({ ...pwFor, value: e.target.value, show: true })} />
+                <button type="button" className="adBtn" onClick={() => setPwFor({ ...pwFor, value: newPassword(), show: true })} title="Make one">↻</button>
+              </span>
+              <span className="adActs"><button className="adBtn" onClick={() => setPwFor(null)}>Close</button>
+                {cur && !changed && <button className="adBtn" onClick={() => { setShare({ name: p.full_name, password: cur.password, phone: p.phone }); setPwFor(null); }}>Send it again</button>}
+                <button className="adBtn dark" disabled={!!busy || !changed || pwFor.value.trim().length < 6}
+                  onClick={() => { const pw = pwFor.value.trim(); act(p.id, () => api.admin.setPersonPassword(p.id, pw)).then(() => { setPwFor(null); loadIssued(); setShare({ name: p.full_name, password: pw, phone: p.phone }); toast('Password changed'); }); }}>Save new password</button></span>
+              <small className="muted">You see the password you gave out until they change it to their own.</small>
+            </div>); })()}
           {pagesFor && (() => { const p = d.profiles.find((x) => x.id === pagesFor.id); if (!p) return null; return (
             <div className="adPagesRow enter">
               <b>Pages {p.full_name.split(' ')[0]} sees</b>
