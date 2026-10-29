@@ -278,7 +278,10 @@ async function syncOne(db: SupabaseClient, c: Conn) {
   console.log(JSON.stringify({ site: c.site_id, note, imported: out.imported, waiting: out.pending, linked: out.linked, other }));
   try { await db.from('zoho_runs').insert({ user_id: c.user_id, site_id: c.site_id, listed, recent: inWindow, imported: out.imported, waiting: out.pending, linked: out.linked, other_site: other, note }); } catch { /* log only */ }
   out.projects = [...projects];
-  try { out.newInZoho = await checkNewItems(db, c, token, out.kind); } catch { /* not important enough to fail the sync */ }
+  // Hand-added items looked up in Zoho once a day (first check of the morning), not every 5 minutes.
+  const todayN = new Date(Date.now() + 3 * 3600_000).toISOString().slice(0, 10);
+  const lastN = c.last_sync_at ? new Date(new Date(c.last_sync_at).getTime() + 3 * 3600_000).toISOString().slice(0, 10) : '';
+  if (lastN !== todayN) { try { out.newInZoho = await checkNewItems(db, c, token, out.kind); } catch { /* not important enough to fail the sync */ } }
   await db.from('zoho_connections').update({ last_sync_at: new Date().toISOString(), last_error: null, imported: c.imported + out.imported }).eq('user_id', c.user_id);
   return out;
 }
@@ -290,6 +293,10 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch { /* no body */ }
   const key = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
   const all = body.all === true && key === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  // Zoho is checked 07:00–19:00 Nairobi time. Anything received after 19:00 comes in with the first check at 7:00
+  // (each check looks back 3 days), so nothing is missed and Zoho isn't asked all night.
+  const hour = new Date(Date.now() + 3 * 3600_000).getUTCHours();
+  if (hour < 7 || hour >= 19) return json({ connected: true, offHours: true, error: 'Zoho is checked from 7:00 to 19:00. Deliveries received after 19:00 come in at 7:00.' });
   let conns: Conn[] = [];
   if (all) {
     const { data } = await db.from('zoho_connections').select('*');

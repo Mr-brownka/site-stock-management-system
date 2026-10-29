@@ -38,7 +38,7 @@ const STORE_STEPS: Step[] = [
 /** Procurement and site managers: two moves, from 30 Oct 2026 (earlier sign-ins don't count). */
 const viewerSteps = (site: string): Step[] => [
   { screen: 'home', sel: ['.kpi3.green'], kicker: 'Stock balances', title: 'View stock balances here', text: 'What is in the store right now. Tap it to see every item and its balance.' },
-  { screen: 'stocktake', sel: ['.stLiveBtn'], kicker: 'Stock take', title: `Import ${site || 'the site'}’s live stock take`, text: 'Press Print live balances to download today’s stock take as Excel or PDF.' },
+  { screen: 'stocktake', sel: ['.stLiveBtn'], kicker: 'Stock take', title: `Import ${site || 'the site'}’s stock take here`, text: 'Press Print live balances to download today’s stock take as Excel or PDF.' },
 ];
 const VIEWER_FROM = '2026-10-30';
 

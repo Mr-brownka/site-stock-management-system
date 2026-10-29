@@ -46,6 +46,9 @@ Deno.serve(async (req) => {
   const { data: cached } = await db.from('zoho_incoming_cache').select('body, checked_at').eq('site_id', siteId).maybeSingle();
   const age = cached ? Date.now() - new Date(String(cached.checked_at)).getTime() : Infinity;
   if (cached && (age < 20 * 60_000) && !(body.force === true && age > 3 * 60_000)) return json(cached.body);
+  // Zoho is checked 07:00–19:00 Nairobi time only; outside those hours the last check stands.
+  const hour = new Date(Date.now() + 3 * 3600_000).getUTCHours();
+  if (hour < 7 || hour >= 19) return json(cached ? { ...(cached.body as Rec), offHours: true } : { connected: true, error: 'Zoho is checked from 7:00 to 19:00. The first check is at 7:00.' });
 
   try {
     const token = await refreshAccess(String(c.refresh_token), String(c.accounts_domain));
@@ -56,15 +59,44 @@ Deno.serve(async (req) => {
     const wk = addDays(today, -dow), wkEnd = addDays(wk, 6), nxt = addDays(wk, 7), nxtEnd = addDays(wk, 13);
     const since = addDays(today, -28);
     const debug: string[] = [];
+    let calls = 0;
+    const LIMIT = 'Zoho’s daily limit is used up · showing the last check';
+    // Shared with every site and every check: lists and orders for 20 minutes, receives for good (they never change).
+    const fresh = new Date(Date.now() - 20 * 60_000).toISOString();
+    const cacheGet = async (keys: string[], maxAge: boolean) => {
+      const out = new Map<string, Rec>();
+      for (let k = 0; k < keys.length; k += 200) {
+        let q = db.from('zoho_cache').select('key, body').in('key', keys.slice(k, k + 200));
+        if (maxAge) q = q.gte('at', fresh);
+        const { data } = await q;
+        (data ?? []).forEach((x) => out.set(String(x.key), x.body as Rec));
+      }
+      return out;
+    };
+    const cachePut = (rows: { key: string; body: unknown }[]) => rows.length ? db.from('zoho_cache').upsert(rows.map((x) => ({ ...x, at: new Date().toISOString() }))) : Promise.resolve();
+    const zcall = async (path: string, params: Record<string, string>) => {
+      calls++;
+      const r = await zget(api, token, path, { organization_id: org, ...params });
+      if (r.status === 429) throw new Error(LIMIT);
+      return r;
+    };
+    const listAll = async (what: 'purchaseorders' | 'purchasereceives') => {
+      const k = `${what}:${org}`;
+      const hit = (await cacheGet([k], true)).get(k);
+      if (hit) return (hit.rows as Rec[]) ?? [];
+      const rows: Rec[] = [];
+      for (let page = 1; page <= 10; page++) {
+        const r = await zcall(`${base}/${what}`, { page: String(page), per_page: '200' });
+        if (!r.ok) { if (what === 'purchaseorders') throw new Error(`Zoho answered ${r.status}: ${String(r.body.message ?? '')}`); break; }
+        rows.push(...((r.body[what] as Rec[]) ?? []));
+        if (!(r.body.page_context as Rec | undefined)?.has_more_page) break;
+      }
+      await cachePut([{ key: k, body: { rows } }]);
+      return rows;
+    };
 
     // 1. Purchase orders: every page (Zoho's order is not dependable), kept if open-ish and due in the two weeks.
-    const poRows: Rec[] = [];
-    for (let page = 1; page <= 10; page++) {
-      const r = await zget(api, token, `${base}/purchaseorders`, { organization_id: org, page: String(page), per_page: '200' });
-      if (!r.ok) throw new Error(`Zoho answered ${r.status}: ${String(r.body.message ?? '')}`);
-      poRows.push(...((r.body.purchaseorders as Rec[]) ?? []));
-      if (!(r.body.page_context as Rec | undefined)?.has_more_page) break;
-    }
+    const poRows = await listAll('purchaseorders');
     const closed = (s: unknown) => /cancel|closed|draft|^received$|fully/i.test(String(s ?? ''));
     // Late orders carry over: due in the last 4 weeks and still not delivered stay on this week's list (marked late)
     // until they come in, are closed in Zoho, or the store removes them.
@@ -75,21 +107,21 @@ Deno.serve(async (req) => {
     const poCache = new Map<string, Rec | null>();
     const getPo = async (id: string) => {
       if (!poCache.has(id)) {
-        const r = await zget(api, token, `${base}/purchaseorders/${id}`, { organization_id: org });
-        if (r.status === 429) throw new Error('Zoho’s daily limit is used up · showing the last check');
-        poCache.set(id, (r.body.purchaseorder as Rec) ?? null);
+        const k = `po:${id}`;
+        const hit = (await cacheGet([k], true)).get(k);
+        if (hit) poCache.set(id, hit);
+        else {
+          const r = await zcall(`${base}/purchaseorders/${id}`, {});
+          const po = (r.body.purchaseorder as Rec) ?? null;
+          poCache.set(id, po);
+          if (po) await cachePut([{ key: k, body: po }]);
+        }
       }
       return poCache.get(id) ?? null;
     };
 
     // 2. Goods received in the last 4 weeks (all pages; filtered by date here).
-    const recRows: Rec[] = [];
-    for (let page = 1; page <= 10; page++) {
-      const r = await zget(api, token, `${base}/purchasereceives`, { organization_id: org, page: String(page), per_page: '200' });
-      if (!r.ok) break;
-      recRows.push(...((r.body.purchasereceives as Rec[]) ?? []));
-      if (!(r.body.page_context as Rec | undefined)?.has_more_page) break;
-    }
+    const recRows = await listAll('purchasereceives');
     const recent = recRows.filter((r) => { const d = dayOf(r.date ?? r.receive_date); return d && d >= since && d <= today; });
     // What each recent receive brought in, per PO line (used when the PO itself doesn't say what was received).
     const gotByPo = new Map<string, { grns: { id?: string; grn: string; date: string; lines: string }[]; byItem: Map<string, number>; byName: Map<string, number> }>();
@@ -97,13 +129,21 @@ Deno.serve(async (req) => {
     const { data: seen } = await db.from('zoho_seen').select('zoho_receive_id, project');
     const elsewhere = new Set((seen ?? []).filter((x) => x.project && x.project !== 'before start date' && norm(x.project) !== mine).map((x) => String(x.zoho_receive_id)));
     let looked = 0;
+    const recIds = recent.map((row) => String(row.receive_id ?? row.purchasereceive_id ?? '')).filter((id) => id && !elsewhere.has(id));
+    const recHit = await cacheGet(recIds.map((id) => `rec:${id}`), false);
     for (const row of recent) {
       const id = String(row.receive_id ?? row.purchasereceive_id ?? '');
-      if (elsewhere.has(id)) continue;
-      if (++looked > 80) break;
-      const d = await zget(api, token, `${base}/purchasereceives/${id}`, { organization_id: org });
-      if (d.status === 429) throw new Error('Zoho’s daily limit is used up · showing the last check');
-      const rec = (d.body.purchasereceive ?? row) as Rec;
+      if (!id || elsewhere.has(id)) continue;
+      const rp = custom(row, /project/i);
+      if (rp && norm(rp) !== mine) continue;
+      let rec = recHit.get(`rec:${id}`);
+      if (!rec) {
+        if (++looked > 80) break;
+        const d = await zcall(`${base}/purchasereceives/${id}`, {});
+        rec = (d.body.purchasereceive as Rec | undefined) ?? undefined;
+        if (rec) await cachePut([{ key: `rec:${id}`, body: rec }]);
+        else rec = row;
+      }
       const poId = str(rec.purchaseorder_id ?? row.purchaseorder_id);
       if (!poId) continue;
       const lines = ((rec.line_items as Rec[] | undefined) ?? []).map((l) => ({ id: String(l.item_id ?? ''), name: String(l.name ?? l.item_name ?? ''), q: num(l.quantity ?? l.quantity_received) }));
@@ -146,6 +186,8 @@ Deno.serve(async (req) => {
     const dismissed = new Set((gone ?? []).map((x) => String(x.po_id)));
     for (const row of dueRows) {
       if (dismissed.has(String(row.purchaseorder_id))) continue;
+      const rp = custom(row, /project/i); // when the list already says the project, other sites' orders are never opened
+      if (rp && norm(rp) !== mine) continue;
       const p = await getPo(String(row.purchaseorder_id));
       if (!ours(p)) continue;
       const o = toOrder(p!);
@@ -174,7 +216,7 @@ Deno.serve(async (req) => {
     }
     const byDate = (a: Order, b: Order) => String(a.expected).localeCompare(String(b.expected));
     thisWeek.sort(byDate); nextWeek.sort(byDate); part.sort((a, b) => String(a.expected ?? a.firstIn).localeCompare(String(b.expected ?? b.firstIn)));
-    console.log(JSON.stringify({ site: siteId, debug, thisWeek: thisWeek.length, nextWeek: nextWeek.length, part: part.length }));
+    console.log(JSON.stringify({ site: siteId, calls, debug, thisWeek: thisWeek.length, nextWeek: nextWeek.length, part: part.length }));
     const web = `${api.replace(/^https:\/\/(www\.)?zohoapis/, c.api_kind === 'inventory' ? 'https://inventory.zoho' : 'https://books.zoho')}/app/${org}`;
     const out = { connected: true, web, checked_at: new Date().toISOString(), today, week: { from: wk, to: wkEnd }, next: { from: nxt, to: nxtEnd }, thisWeek, nextWeek, part };
     await db.from('zoho_incoming_cache').upsert({ site_id: siteId, body: out, checked_at: out.checked_at });

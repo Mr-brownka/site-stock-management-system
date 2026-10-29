@@ -174,6 +174,7 @@ export function IncomingPanel() {
           <ZohoBooksMark size={20} />
         </button>
       </header>
+      {data?.offHours && !data.error && <div className="incErr" role="status">Zoho is checked from 7:00 to 19:00. This is the last check{data.checked_at ? ` (${new Date(data.checked_at).toLocaleString('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' })})` : ''}.</div>}
       {data?.error && <div className="incErr" role="status">{/limit/i.test(data.error) ? 'Zoho’s daily limit is used up, so this is the last check. It refreshes on its own once Zoho allows it again.' : 'Zoho didn’t answer just now. Showing the last check.'}</div>}
       {(() => {
         const c = cols.find((x) => x.k === tab)!;
