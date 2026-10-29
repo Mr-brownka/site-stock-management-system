@@ -1046,7 +1046,7 @@ function ZohoLog({ d }: { d: Data }) {
                   <div className="adZDetail">
                     {lines.map((l, i) => <div key={i} className="ln"><span>{l.name}</span><span className="mono">{fmt(l.qty)} {l.unit ?? ''}</span></div>)}
                     <small className="muted">{[r.project && `Zoho Project: ${r.project}`, r.detail].filter(Boolean).join(' · ')}</small>
-                    <div className="adActs"><ZohoOpen className="adBtn" label={`Open ${r.grn || 'receive'} in Zoho ↗`} zref={{ receive_id: r.zoho_receive_id, grn: r.grn, site_id: r.site_id }} />{r.po && <ZohoOpen className="adBtn" label={`Open ${r.po} ↗`} zref={{ po: r.po, site_id: r.site_id }} />}</div>
+                    <div className="adActs"><ZohoOpen className="adBtn" label="Open in Zoho" zref={{ receive_id: r.zoho_receive_id, grn: r.grn, site_id: r.site_id }} />{r.po && <ZohoOpen className="adBtn" label={`Open ${r.po} ↗`} zref={{ po: r.po, site_id: r.site_id }} />}</div>
                   </div>
                 )}
               </div>

@@ -229,7 +229,7 @@ function Detail({ row, cfg, onClose, onFix }: { row: Row; cfg: (typeof CFG)[RecK
     <section className="recDetail">
       <header>
         <div><span className="recKicker">{d.source === 'zoho' && <ZohoTag />} {{ DLV: 'Delivery', ISS: 'Issuance register', RET: 'Return', TRF: 'Project transfer' }[cfg.prefix]} · {cfg.tag}</span><h2>{row.ref}</h2></div>
-        {(d.zoho_receive_id || d.zoho_po || d.zoho_grn) && <ZohoOpen className="btn ghost sm" label="Open in Zoho Books ↗" zref={{ receive_id: d.zoho_receive_id, grn: d.zoho_grn, po: d.zoho_po }} />}
+        {(d.zoho_receive_id || d.zoho_po || d.zoho_grn) && <ZohoOpen className="btn ghost sm" label="Open in Zoho" zref={{ receive_id: d.zoho_receive_id, grn: d.zoho_grn, po: d.zoho_po }} />}
         {onFix && <button className="btn ghost sm" onClick={onFix}><Icon name="fix" size={16} />Fix an error</button>}
         <button className="btn ghost sm" onClick={() => window.print()}><Icon name="print" size={16} />Print</button>
         <button className="iconBtn" onClick={onClose} aria-label="Close"><Icon name="close" /></button>

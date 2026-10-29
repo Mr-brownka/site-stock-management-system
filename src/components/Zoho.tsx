@@ -15,9 +15,9 @@ export async function openInZoho(ref: ZohoRef) {
   if (r.error && !r.url) toast('Couldn’t find it in Zoho. Opened the list instead.');
 }
 
-/** "Open in Zoho Books ↗" for one record. */
-export function ZohoOpen({ zref, className = 'btn ghost', label = 'Open in Zoho Books ↗' }: { zref: ZohoRef; className?: string; label?: string }) {
-  return <button type="button" className={className} onClick={(e) => { e.stopPropagation(); openInZoho(zref); }}>{label}</button>;
+/** "Open in Zoho" (with the Zoho Books icon) for one record. */
+export function ZohoOpen({ zref, className = 'btn ghost', label = 'Open in Zoho' }: { zref: ZohoRef; className?: string; label?: string }) {
+  return <button type="button" className={`${className} zohoOpenBtn`} onClick={(e) => { e.stopPropagation(); openInZoho(zref); }}><ZohoBooksMark size={16} />{label}</button>;
 }
 
 /** The small blue tag on anything that came from Zoho Books. */

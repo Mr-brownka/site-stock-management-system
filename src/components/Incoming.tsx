@@ -99,8 +99,8 @@ function OrderView({ o, onClose, onNot }: { o: IncomingOrder; onClose: () => voi
         ))}
       </div>
       {!!o.grns?.length && <div className="incGrns"><span className="incGrnsT">Delivered so far</span>
-        {o.grns.map((g) => <div key={g.grn + g.date}><span><button type="button" className="incGrnLink" title="Open this receive in Zoho Books" onClick={() => openInZoho({ receive_id: g.id, grn: g.grn })}><PoTag po={g.grn} /></button> {short(g.date)}</span><small>{g.lines}</small></div>)}</div>}
-      <footer className="incSFoot"><ZohoOpen zref={{ po_id: o.id, po: o.po }} label={`Open ${o.po} in Zoho Books ↗`} />{onNot && <button className="btn ghost incNotBig" onClick={onNot}><Icon name="trash" size={15} />Remove from part-delivered</button>}</footer>
+        {o.grns.map((g) => <div key={g.grn + g.date}><span><button type="button" className="incGrnLink" title="Open in Zoho" onClick={() => openInZoho({ receive_id: g.id, grn: g.grn })}><PoTag po={g.grn} /></button> {short(g.date)}</span><small>{g.lines}</small></div>)}</div>}
+      <footer className="incSFoot"><ZohoOpen zref={{ po_id: o.id, po: o.po }} label="Open in Zoho" />{onNot && <button className="btn ghost incNotBig" onClick={onNot}><Icon name="trash" size={15} />Remove from part-delivered</button>}</footer>
     </>
   );
 }

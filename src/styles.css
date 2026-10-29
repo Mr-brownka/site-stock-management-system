@@ -4170,3 +4170,5 @@ button.adAcc:hover { border-color: currentColor; }
 .irFrom { color: var(--muted); } .irFrom.late { color: #C8322A; font-weight: 600; }
 .zohoTag .zbMark { flex: none; display: block; }
 .zohoWord { height: 18px; padding: 0 5px; border-radius: 5px; background: #E8F0FE; color: #1A56C4; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; }
+.zohoOpenBtn { display: inline-flex; align-items: center; gap: 7px; }
+.zohoOpenBtn .zbMark { flex: none; }
