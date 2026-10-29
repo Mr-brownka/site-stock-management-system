@@ -68,11 +68,17 @@ function RegisterForm({ done, again }: { done: () => void; again: () => Promise<
   };
   const root = useRef<HTMLDivElement>(null);
   const [guide, setGuide] = useState('item0');
-  const goTo = (key: string) => {
+  // Move to a box; far jumps (to a repeated item, back to the next empty row) also bring it to the middle of the screen.
+  const goTo = (key: string, center = false) => {
     setGuide(key);
     const find = () => root.current?.querySelector<HTMLElement>(`[data-g="${key}"]`);
+    const go = (el: HTMLElement | null | undefined) => {
+      if (!el) return;
+      el.focus({ preventScroll: center });
+      if (center) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    };
     const el = find();
-    if (el) el.focus(); else requestAnimationFrame(() => find()?.focus());
+    if (el) go(el); else requestAnimationFrame(() => go(find()));
   };
   const g = (key: string) => guide === key;
   const dateText = new Date(day + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
@@ -134,13 +140,13 @@ function RegisterForm({ done, again }: { done: () => void; again: () => Promise<
               <div key={`n${l.key}`} className="mirTd c mono">{i + 1}</div>,
               <div key={`i${l.key}`} className="mirTd mirItem">
                 <ItemPicker bare nav={`item${i}`} label={`Item ${i + 1}`} item={l.item} onPick={(it) => pick(l.key, i, it)} inputClass={`mirIn ${ms.item ? 'miss' : ''}`} placeholder={i === firstEmpty ? 'Item…' : ''} glow={g(`item${i}`)}
-                  onNext={() => { const k = jump.current; jump.current = null; goTo(k ?? `qty${i}`); if (k) setTimeout(() => root.current?.querySelector<HTMLInputElement>(`[data-g="${k}"]`)?.select(), 30); }} onEmptyEnter={() => save()} />
+                  onNext={() => { const k = jump.current; jump.current = null; goTo(k ?? `qty${i}`, !!k); if (k) setTimeout(() => root.current?.querySelector<HTMLInputElement>(`[data-g="${k}"]`)?.select(), 30); }} onEmptyEnter={() => save()} />
                 {dup && <span className="mirDup">adds to row {lines.findIndex((x) => x.item?.id === l.item!.id) + 1}</span>}
               </div>,
               <div key={`q${l.key}`} className="mirTd">
                 <label className="field bare"><span className="sr">Qty for item {i + 1}</span>
                   <input data-nav data-g={`qty${i}`} className={`input mirIn num ${over ? 'bad' : g(`qty${i}`) ? 'next' : ''} ${ms.qty ? 'miss' : ''} ${editHere === l.key ? 'editHere' : ''}`} inputMode="decimal" value={l.qty}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (editHere === l.key) { setEditHere(null); const n = lines.findIndex((x) => !x.item); goTo(`item${n < 0 ? i + 1 : n}`); } else goTo(`item${i + 1}`); } }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (editHere === l.key) { setEditHere(null); const n = lines.findIndex((x) => !x.item); goTo(`item${n < 0 ? i + 1 : n}`, true); } else goTo(`item${i + 1}`); } }}
                     onChange={(e) => patch(l.key, { qty: e.target.value.replace(/[^0-9.]/g, '') })} aria-invalid={over} />
                 </label>
                 {editHere === l.key && <span className="mirEditHere" role="status">Edit here</span>}
