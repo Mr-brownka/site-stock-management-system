@@ -1,8 +1,9 @@
 import type React from 'react';
-import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useData } from '../lib/store';
 import type { User } from '../lib/types';
+import type { Screen } from '../lib/store';
 import { Icon } from './fx';
 
 // The guide for a new store keeper (instead of training days): a short spotlight tour on the real screens,
@@ -23,8 +24,8 @@ export function noteVisit(u: User, screen: string) {
   if (!seen.has(screen)) { seen.add(screen); write(k, [...seen].join(',')); window.dispatchEvent(new Event('ssms-guide')); }
 }
 
-type Step = { sel: string[]; kicker: string; title: string; text: string };
-const STEPS: Step[] = [
+type Step = { sel: string[]; kicker: string; title: string; text: string; screen?: Screen };
+const STORE_STEPS: Step[] = [
   { sel: [], kicker: 'Welcome', title: 'SiteStock keeps the store’s balance true', text: 'Deliveries come in from Zoho on their own. You record what goes out and what comes back. Each evening you submit the day, and every balance is up to date. This takes 2 minutes.' },
   { sel: ['.kStrip'], kicker: 'The store at a glance', title: 'Balances, consumption, orders on the way', text: 'What is in the store now, what was used this week, what Zoho says is coming and when the store was last counted. Tap any of them to open it.' },
   { sel: ['.incPanel'], kicker: 'Incoming this week', title: 'Orders on their way from Zoho', text: 'What Zoho says arrives this week, late ones included. When goods are received in Zoho Books they come into the store by themselves. You don’t type deliveries in.' },
@@ -33,6 +34,13 @@ const STEPS: Step[] = [
   { sel: ['.r2Today', '.phASum', '.phA'], kicker: 'Every evening', title: 'Check in and submit the day', text: 'Open Today’s summary, go through the register, returns and transfers, then submit. Submitting locks the day and makes the balances final.' },
   { sel: ['.railLink[title="Fix an error"]', '.tabbar'], kicker: 'Made a mistake?', title: 'Fix an error', text: 'Open the entry and change it, or delete it. The balances follow. Your checklist on the dashboard shows what to try first.' },
 ];
+
+/** Procurement and site managers: two moves, from 30 Oct 2026 (earlier sign-ins don't count). */
+const viewerSteps = (site: string): Step[] => [
+  { screen: 'home', sel: ['.kpi3.green'], kicker: 'Stock balances', title: 'View stock balances here', text: 'What is in the store right now. Tap it to see every item and its balance.' },
+  { screen: 'stocktake', sel: ['.stLiveBtn'], kicker: 'Stock take', title: `Import ${site || 'the site'}’s live stock take`, text: 'Press Print live balances to download today’s stock take as Excel or PDF.' },
+];
+const VIEWER_FROM = '2026-10-30';
 
 function target(s: Step): HTMLElement | null {
   for (const q of s.sel) {
@@ -43,7 +51,10 @@ function target(s: Step): HTMLElement | null {
 }
 
 export function Tour() {
-  const { user, go } = useData();
+  const { user, go, site, realToday } = useData();
+  const viewer = user.role === 'procurement' || user.role === 'site_manager';
+  const STEPS = useMemo(() => (viewer ? viewerSteps(site) : STORE_STEPS), [viewer, site]);
+  const doneKey = viewer ? 'tourViewer' : 'tour';
   const [i, setI] = useState<number | null>(null);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const isStore = user.role === 'store';
@@ -51,22 +62,32 @@ export function Tour() {
   useEffect(() => { openTour = start; return () => { openTour = () => undefined; }; }, [start]);
   // First time a store keeper opens the app: start on its own.
   useEffect(() => {
-    if (!isStore || user.trainingWaived || read(key(user, 'tour'))) return;
+    const due = viewer ? realToday >= VIEWER_FROM && !read(key(user, doneKey)) : isStore && !user.trainingWaived && !read(key(user, doneKey));
+    if (!due) return;
     const t = setTimeout(() => setI(0), 900);
     return () => clearTimeout(t);
-  }, [isStore, user]);
+  }, [isStore, viewer, user, realToday, doneKey]);
 
-  const end = (how: 'done' | 'skipped') => { write(key(user, 'tour'), how); setI(null); setRect(null); window.dispatchEvent(new Event('ssms-guide')); };
+  const end = (how: 'done' | 'skipped') => { write(key(user, doneKey), how); setI(null); setRect(null); window.dispatchEvent(new Event('ssms-guide')); };
   const step = i == null ? null : STEPS[i];
+  const goRef = useRef(go); goRef.current = go;
   useLayoutEffect(() => {
     if (!step) return;
-    const el = target(step);
-    if (!el) { setRect(null); return; }
-    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    const put = () => setRect(el.getBoundingClientRect());
-    const t = setTimeout(put, 280); put();
+    if (step.screen) goRef.current(step.screen);
+    let el: HTMLElement | null = null, tries = 0, alive = true;
+    const put = () => { if (el) setRect(el.getBoundingClientRect()); };
+    // The page may still be opening: look for the part to light for up to 3 seconds.
+    const find = () => {
+      if (!alive) return;
+      el = target(step);
+      if (!el) { setRect(null); if (++tries < 30) setTimeout(find, 100); return; }
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      put(); setTimeout(put, 300);
+    };
+    find();
     window.addEventListener('resize', put); window.addEventListener('scroll', put, true);
-    return () => { clearTimeout(t); window.removeEventListener('resize', put); window.removeEventListener('scroll', put, true); };
+    return () => { alive = false; window.removeEventListener('resize', put); window.removeEventListener('scroll', put, true); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
   useEffect(() => {
     if (i == null) return;
@@ -95,7 +116,7 @@ export function Tour() {
       {hole ? <div className="tourHole" style={hole} /> : <div className="tourDim" />}
       <div className={`tourCard ${hole ? '' : 'center'}`} style={card}>
         <span className="tourKick">Step {i + 1} of {STEPS.length} · {step.kicker}</span>
-        <b id="tourT">{i === 0 ? `Welcome, ${user.name.split(' ')[0]}. ` : ''}{step.title}</b>
+        <b id="tourT">{i === 0 && !viewer ? `Welcome, ${user.name.split(' ')[0]}. ` : ''}{step.title}</b>
         <p>{step.text}</p>
         <span className="tourDots" aria-hidden="true">{STEPS.map((_, k) => <i key={k} className={k === i ? 'on' : k < i ? 'done' : ''} />)}</span>
         <span className="tourActs">
