@@ -3,7 +3,6 @@ import { api } from '../lib/api';
 import { useData } from '../lib/store';
 import type { ZohoRef, ZohoStatus } from '../lib/types';
 import { toast } from './feedback';
-import { Icon } from './fx';
 
 /** Opens the exact record in Zoho Books. The tab opens straight away (so it isn't blocked), shows a short
  *  "Opening…" note while the record is looked up, then lands on it. Falls back to the list if it can't be found. */
@@ -115,15 +114,13 @@ export function ZohoAutoSync() {
 let zohoSyncNow: () => void = () => undefined;
 export const checkZohoNow = () => zohoSyncNow();
 
-/** The Refresh button on Deliveries: Zoho Books logo, and it spins while Zoho is being checked. */
-export function ZohoRefresh({ className = 'recNew zohoRefresh', label = 'Refresh' }: { className?: string; label?: string }) {
+/** The Zoho refresh button: just the Zoho Books logo. Clicking it brings in new goods received; a ring turns round it while Zoho is being checked. */
+export function ZohoRefresh({ className = 'zohoLogoBtn' }: { className?: string; label?: string }) {
   const busy = useZohoSyncing();
   return (
-    <button className={`${className} ${busy ? 'busy' : ''}`} onClick={checkZohoNow} disabled={busy} aria-busy={busy}
-      title="Bring in goods received in Zoho Books" aria-label={busy ? "Refreshing from Zoho Books" : "Refresh from Zoho Books"}>
-      <span className="zrLogo"><ZohoBooksMark size={20} /></span>
-      {busy ? 'Refreshing…' : label}
-      <span className="zrSpin" aria-hidden="true"><Icon name="refresh" size={16} /></span>
+    <button className={`zohoLogoBtn ${className === 'zohoLogoBtn' ? '' : 'inCard'} ${busy ? 'busy' : ''}`} onClick={checkZohoNow} disabled={busy} aria-busy={busy}
+      title={busy ? 'Checking Zoho Books…' : 'Refresh from Zoho Books'} aria-label={busy ? 'Refreshing from Zoho Books' : 'Refresh from Zoho Books'}>
+      <ZohoBooksMark size={22} />
     </button>
   );
 }

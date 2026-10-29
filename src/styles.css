@@ -4062,3 +4062,14 @@ button.adAcc:hover { border-color: currentColor; }
   50% { border-color: #F28C28; box-shadow: 0 0 0 3px rgba(242, 140, 40, .22); }
 }
 @media (prefers-reduced-motion: reduce) { .consFind { animation: none; } }
+
+/* The Zoho refresh button: the Zoho Books logo alone. */
+.zohoLogoBtn { position: relative; width: 40px; height: 40px; flex: none; display: inline-grid; place-items: center; border-radius: 12px; border: 1.5px solid #D6DCE6; background: #fff; cursor: pointer; box-shadow: 0 1px 2px rgba(18,23,22,.06); transition: border-color .15s, box-shadow .15s, transform .15s; }
+.zohoLogoBtn:hover { border-color: #3E7CC4; box-shadow: 0 6px 16px rgba(62,124,196,.18); }
+.zohoLogoBtn:active { transform: scale(.94); }
+.zohoLogoBtn:disabled { opacity: 1; cursor: progress; }
+.zohoLogoBtn img { display: block; }
+.zohoLogoBtn.busy { border-color: transparent; background: #F3F8FD; }
+.zohoLogoBtn.busy::after { content: ''; position: absolute; inset: -2px; border-radius: 13px; border: 2px solid transparent; border-top-color: #3E7CC4; border-right-color: #3E7CC4; animation: zrSpin .8s linear infinite; }
+.zohoLogoBtn.inCard { width: 36px; height: 36px; border-radius: 10px; }
+@media (prefers-reduced-motion: reduce) { .zohoLogoBtn.busy::after { animation-duration: 2.4s; } }
