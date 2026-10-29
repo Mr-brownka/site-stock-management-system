@@ -169,7 +169,7 @@ export function IncomingPanel() {
             {data && !c.list.length && <div className="incEmpty2">{c.empty}</div>}
             {!!c.list.length && (c.part
               ? <div className="incTh2 part" aria-hidden="true"><span>PO</span><span>Vendor</span><span>Items</span><span>Qty</span><span>Subphase</span><span /></div>
-              : <div className="incTh2" aria-hidden="true"><span>Vendor</span><span>PO</span><span>Items</span><span>Qty</span><span>Expected</span></div>)}
+              : <div className={`incTh2 ${editable && c.list.some((x) => due(x, today).k === 'late') ? 'withBin' : ''}`} aria-hidden="true"><span>Vendor</span><span>PO</span><span>Items</span><span>Qty</span><span>Expected</span></div>)}
             {list.map((o) => {
               const dd = due(o, today);
               const first = o.lines[0];

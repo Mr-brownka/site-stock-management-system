@@ -4143,3 +4143,4 @@ button.adAcc:hover { border-color: currentColor; }
 .pkStock.none { color: #9AA29F; font-weight: 600; }
 
 .incBin.incBinGap { visibility: hidden; pointer-events: none; }
+.incTh2.withBin { padding-right: 58px !important; }
