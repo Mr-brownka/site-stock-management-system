@@ -4164,3 +4164,7 @@ button.adAcc:hover { border-color: currentColor; }
 }
 .incErr { margin: 0 16px 8px; padding: 8px 12px; border-radius: 10px; background: #FFF4E5; color: #8A5000; font-size: 13px; }
 .incHead2 .zohoLogoBtn.incZoho { margin-left: 8px; }
+
+/* Pending deliveries: + "From" (the week and day it was due). */
+.incTbl2.part .incTh2, .incTbl2.part .incRowBtn { grid-template-columns: 96px minmax(0, 1.1fr) minmax(0, 1.2fr) 96px 150px minmax(0, .9fr) !important; }
+.irFrom { color: var(--muted); } .irFrom.late { color: #C8322A; font-weight: 600; }

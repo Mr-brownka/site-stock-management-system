@@ -125,6 +125,14 @@ export function IncomingPanel() {
   const editable = canEdit(user);
   // Named by the project's week number (Week 121, Week 122) when the site has one.
   const wkName = (k: 0 | 1) => (projectWeek != null ? `Week ${projectWeek + k}` : k ? 'Next week' : 'This week');
+  // Which week and day an order was due: "Wk 122 · Thu 22 Oct".
+  const fromOf = (o: IncomingOrder) => {
+    const d = o.expected ?? o.firstIn; if (!d) return '—';
+    const mon = (x: string) => { const t = new Date(x + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() - ((t.getUTCDay() + 6) % 7)); return t.getTime(); };
+    const back = data?.week ? Math.round((mon(data.week.from) - mon(d)) / (7 * 864e5)) : null;
+    const wk = projectWeek != null && back != null ? `Wk ${projectWeek - back} · ` : '';
+    return `${wk}${niceDate(d).split(' ').slice(0, 3).join(' ')}`;
+  };
   const [tab, setTab] = useState<Tab>('this');
   const [open, setOpen] = useState<IncomingOrder | null>(null);
   const [removing, setRemoving] = useState<IncomingOrder | null>(null);
@@ -137,16 +145,16 @@ export function IncomingPanel() {
   const today = data?.today ?? new Date().toISOString().slice(0, 10);
   const goneIds = new Set(gone.map((g) => g.po_id));
   const keepFrom = addDay(today, -13);
-  const partList = (data?.part ?? []).filter((o) => !goneIds.has(o.id) && (!o.firstIn || o.firstIn >= keepFrom));
+  const partList = (data?.part ?? []).filter((o) => !goneIds.has(o.id) && (o.late || !o.firstIn || o.firstIn >= keepFrom));
   const remove = async (o: IncomingOrder, reason: string) => {
     await api.dismissIncoming({ po_id: o.id, po: o.po, vendor: o.vendor, reason });
     setRemoving(null); await loadGone();
     toast(`${o.po} removed from incoming`, 'ok', { label: 'Undo', run: () => { api.restoreIncoming(o.id).then(loadGone).catch(() => undefined); } });
   };
-  const bringBack = async (g: IncomingDismissed) => { await api.restoreIncoming(g.po_id); await loadGone(); toast(`${g.po ?? 'Order'} is back in part-delivered`); };
+  const bringBack = async (g: IncomingDismissed) => { await api.restoreIncoming(g.po_id); await loadGone(); toast(`${g.po ?? 'Order'} is back in pending deliveries`); };
   const cols: { k: Tab; title: string; sub: string; list: IncomingOrder[]; part?: boolean; empty: string }[] = [
     { k: 'this', title: wkName(0), sub: data?.week ? `${short(data.week.from)} – ${short(data.week.to)}` : 'By expected date', list: data?.thisWeek ?? [], empty: `Nothing expected in ${wkName(0)}` },
-    { k: 'part', title: 'Part-delivered', sub: 'Part came in, the rest still owed · kept 2 weeks', list: partList, part: true, empty: 'No part deliveries waiting' },
+    { k: 'part', title: 'Pending deliveries', sub: 'Not delivered in the week it was due, or part still owed', list: partList, part: true, empty: 'Nothing pending' },
   ];
   return (
     <section className="panel incPanel enter" aria-label="Incoming deliveries this week">
@@ -169,7 +177,7 @@ export function IncomingPanel() {
             {!data && busy && <div className="incSkel" />}
             {data && !c.list.length && <div className="incEmpty2">{c.empty}</div>}
             {!!c.list.length && (c.part
-              ? <div className="incTh2 part" aria-hidden="true"><span>PO</span><span>Vendor</span><span>Items</span><span>Qty</span><span>Subphase</span><span /></div>
+              ? <div className="incTh2 part" aria-hidden="true"><span>PO</span><span>Vendor</span><span>Items</span><span>Qty</span><span>From</span><span>Subphase</span><span /></div>
               : <div className={`incTh2 ${editable && c.list.some((x) => due(x, today).k === 'late') ? 'withBin' : ''}`} aria-hidden="true"><span>Vendor</span><span>PO</span><span>Items</span><span>Qty</span><span>Expected</span></div>)}
             {list.map((o) => {
               const dd = due(o, today);
@@ -184,6 +192,7 @@ export function IncomingPanel() {
                         <b className="irV">{o.vendor ?? 'Vendor'}</b>
                         <span className="irIt">{first?.name}{more > 0 ? ` + ${more}` : ''}</span>
                         <b className="irQ mono">{first ? <>{fmt(first.ordered - first.received)} <small>{first.unit ?? ''}</small></> : ''}</b>
+                        <span className={`irFrom ${o.late ? 'late' : ''}`}>{fromOf(o)}</span>
                         <span className="irSub">{o.subphase || '—'}</span>
                       </>
                     ) : (
@@ -262,7 +271,7 @@ export function ComingInPage() {
   const keepFrom = addDay(today, -13);
   const lists: Record<Exclude<PTab, 'all'>, IncomingOrder[]> = {
     this: data?.thisWeek ?? [], next: data?.nextWeek ?? [],
-    part: (data?.part ?? []).filter((o) => !goneIds.has(o.id) && (!o.firstIn || o.firstIn >= keepFrom)),
+    part: (data?.part ?? []).filter((o) => !goneIds.has(o.id) && (o.late || !o.firstIn || o.firstIn >= keepFrom)),
   };
   const all: { o: IncomingOrder; k: Exclude<PTab, 'all'> }[] = [];
   const seen = new Set<string>();
@@ -282,12 +291,12 @@ export function ComingInPage() {
   const kp = [
     { l: 'Due this week', n: lists.this.length, s: `${late.length ? `${late.length} late` : 'None late'}${dueToday ? ` · ${dueToday} today` : ''}`, t: '' },
     { l: wkName(1), n: lists.next.length, s: data?.next ? `${short(data.next.from)} – ${short(data.next.to)}` : 'Next week', t: '' },
-    { l: 'Part-delivered', n: lists.part.length, s: 'rest still owed', t: 'blue' },
+    { l: 'Pending deliveries', n: lists.part.length, s: 'late or rest still owed', t: 'blue' },
     { l: 'Late', n: late.length, s: late.slice(0, 2).map((o) => (o.vendor ?? '').split(' ')[0]).join(' · ') || 'Nothing late', t: late.length ? 'red' : '' },
   ];
   const tabs: { k: PTab; t: string; n: number }[] = [
     { k: 'this', t: wkName(0), n: lists.this.length }, { k: 'next', t: wkName(1), n: lists.next.length },
-    { k: 'part', t: 'Part-delivered', n: lists.part.length }, { k: 'all', t: 'All', n: all.length },
+    { k: 'part', t: 'Pending deliveries', n: lists.part.length }, { k: 'all', t: 'All', n: all.length },
   ];
   if (data && !data.connected) return <div className="page cinPage"><BackPill /><h1>Coming in</h1><div className="panel pad muted">Zoho Books isn’t connected for this site yet.</div></div>;
   return (
@@ -319,7 +328,7 @@ export function ComingInPage() {
                 <span className="cinIt">{first?.name}{more > 0 && <em> · +{more} more</em>}</span>
                 {tab === 'part' && <span className="cinSub">{o.subphase || '—'}</span>}
                 <b className="cinQ mono">{first ? <>{fmt(owed)}{k === 'part' && <small>/{fmt(first.ordered)}</small>} <small>{first.unit ?? ''}</small></> : ''}</b>
-                <span className="cinDue">{k === 'part' ? <span className="incChip part">{o.lastIn ? `Last in ${short(o.lastIn)}` : 'Part in'}</span> : <span className={`incChip ${dd.k}`}>{dd.k === 'late' && o.expected === addDay(today, -1) ? 'Yesterday' : dd.k === 'today' ? 'Today' : dd.t.replace('Due ', '')}</span>}</span>
+                <span className="cinDue">{k === 'part' ? <span className={`incChip ${o.late ? 'late' : 'part'}`}>{o.late && o.expected ? `Late · due ${short(o.expected)}` : o.lastIn ? `Last in ${short(o.lastIn)}` : 'Part in'}</span> : <span className={`incChip ${dd.k}`}>{dd.k === 'late' && o.expected === addDay(today, -1) ? 'Yesterday' : dd.k === 'today' ? 'Today' : dd.t.replace('Due ', '')}</span>}</span>
               </button>
               {tab === 'part' && editable && <button type="button" className="incBin" onClick={() => setRemoving(o)} title="Remove: the rest won’t be delivered" aria-label={`Remove ${o.po} from part-delivered`}><Icon name="trash" size={15} /></button>}
               </div>

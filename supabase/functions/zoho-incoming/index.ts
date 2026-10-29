@@ -1,7 +1,7 @@
 // Incoming deliveries for the dashboard: read-only from Zoho, for the caller's site.
 //  · This week / next week: purchase orders whose expected delivery date falls in that week and that are not fully received.
 //    Late ones (due in the last 4 weeks, still not delivered) stay on this week's list until they arrive or are removed.
-//  · Part-delivered: purchase-order lines with part received and part still owed. Each order shows for 2 weeks from the
+//  · Pending deliveries: orders not delivered in the week they were due (late), and purchase-order lines with part received and part still owed. Each order shows for 2 weeks from the
 //    day its first part came in (this week and the next), then drops off. Orders the store marked "Not coming" are left out.
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.45.4';
 import { admin, caller, cors, json, refreshAccess, zget } from '../_shared/zoho.ts';
@@ -23,7 +23,7 @@ function custom(r: Rec, re: RegExp): string | null {
 }
 
 type Line = { name: string; unit: string | null; ordered: number; received: number };
-type Order = { id: string; po: string; vendor: string | null; subphase?: string | null; date: string; expected: string | null; status: string; lines: Line[]; lastIn?: string | null; firstIn?: string | null; grns?: { id?: string; grn: string; date: string; lines: string }[] };
+type Order = { late?: boolean; id: string; po: string; vendor: string | null; subphase?: string | null; date: string; expected: string | null; status: string; lines: Line[]; lastIn?: string | null; firstIn?: string | null; grns?: { id?: string; grn: string; date: string; lines: string }[] };
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
@@ -151,12 +151,15 @@ Deno.serve(async (req) => {
       const o = toOrder(p!);
       o.lines = o.lines.filter((l) => l.received < l.ordered);
       if (!o.lines.length) continue;
-      (o.expected! <= wkEnd ? thisWeek : nextWeek).push(o);
+      // Not delivered in the week it was due: it moves to Pending deliveries, marked late.
+      if (o.expected! < wk) { o.late = true; part.push(o); }
+      else (o.expected! <= wkEnd ? thisWeek : nextWeek).push(o);
     }
+    const inPending = new Set(part.map((o) => o.id));
     // Part deliveries stay 2 weeks from the first part in; "Not coming" ones are left out.
     const keepFrom = addDays(today, -13);
     for (const poId of gotByPo.keys()) {
-      if (dismissed.has(poId)) continue;
+      if (dismissed.has(poId) || inPending.has(poId)) continue;
       const first = gotByPo.get(poId)!.grns.reduce((m, g) => (g.date && g.date < m ? g.date : m), '9999');
       if (first < keepFrom) continue;
       const p = await getPo(poId);
@@ -170,7 +173,7 @@ Deno.serve(async (req) => {
       if (o.lines.length) part.push(o);
     }
     const byDate = (a: Order, b: Order) => String(a.expected).localeCompare(String(b.expected));
-    thisWeek.sort(byDate); nextWeek.sort(byDate); part.sort((a, b) => String(b.lastIn).localeCompare(String(a.lastIn)));
+    thisWeek.sort(byDate); nextWeek.sort(byDate); part.sort((a, b) => String(a.expected ?? a.firstIn).localeCompare(String(b.expected ?? b.firstIn)));
     console.log(JSON.stringify({ site: siteId, debug, thisWeek: thisWeek.length, nextWeek: nextWeek.length, part: part.length }));
     const web = `${api.replace(/^https:\/\/(www\.)?zohoapis/, c.api_kind === 'inventory' ? 'https://inventory.zoho' : 'https://books.zoho')}/app/${org}`;
     const out = { connected: true, web, checked_at: new Date().toISOString(), today, week: { from: wk, to: wkEnd }, next: { from: nxt, to: nxtEnd }, thisWeek, nextWeek, part };
