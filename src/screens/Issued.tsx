@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { StepShell } from '../components/StepShell';
-import { checkLines, fmt, ItemPicker, lineMiss, newLine, Suggest, type LineDraft } from '../components/ui';
+import { checkLines, fmt, newLine, Suggest, type LineDraft } from '../components/ui';
+import { SheetGrid } from '../components/SheetGrid';
 import { api } from '../lib/api';
 import { useData } from '../lib/store';
-import type { Item } from '../lib/types';
 import { focusMiss, linesFromPayload, linesToPayload, useDraft } from '../components/Unfinished';
 import { ask, toast } from '../components/feedback';
 import { openRecords } from '../components/AddEntry';
@@ -39,48 +39,13 @@ function RegisterForm({ done, again }: { done: () => void; again: () => Promise<
   }, [existing, draft, itemById]);
   useEffect(() => { api.siteTeam().then((t) => setTeam(t.length ? t : [user.name])).catch(() => undefined); }, [user.name]);
 
-  const patch = (k: number, q: Partial<LineDraft>) => setLines((ls) => {
-    const next = ls.map((l) => (l.key === k ? { ...l, ...q } : l));
-    // Always keep two empty rows at the bottom, so the sheet never runs out.
-    const empty = next.filter((l) => !l.item && !l.qty).length;
-    return empty < 2 ? [...next, newLine(), newLine()] : next;
-  });
   const used = lines.filter((l) => l.item || l.qty);
-  const firstEmpty = lines.findIndex((l) => !l.item);
   // The same item twice adds up (Cement 20 + 18 = 38).
   const merged = () => {
     const m = new Map<number, number>();
     for (const l of used) if (l.item) m.set(l.item.id, (m.get(l.item.id) ?? 0) + (Number(l.qty) || 0));
     return m;
   };
-  const totalFor = (id: number) => merged().get(id) ?? 0;
-
-  // Picking an item that is already on the sheet: that row's quantity is where to change it.
-  const [editHere, setEditHere] = useState<number | null>(null);
-  const jump = useRef<string | null>(null);
-  const pick = (k: number, i: number, it: Item | null) => {
-    const j = it ? lines.findIndex((x, n) => n !== i && x.item?.id === it.id) : -1;
-    if (j < 0) { patch(k, { item: it }); return; }
-    setLines((ls) => ls.map((x) => (x.key === k ? newLine() : x))); // the repeated row empties
-    setEditHere(lines[j].key);
-    jump.current = `qty${j}`;
-    toast(`${it!.name} is already on row ${j + 1}. Change its quantity there.`);
-  };
-  const root = useRef<HTMLDivElement>(null);
-  const [guide, setGuide] = useState('item0');
-  // Move to a box; far jumps (to a repeated item, back to the next empty row) also bring it to the middle of the screen.
-  const goTo = (key: string, center = false) => {
-    setGuide(key);
-    const find = () => root.current?.querySelector<HTMLElement>(`[data-g="${key}"]`);
-    const go = (el: HTMLElement | null | undefined) => {
-      if (!el) return;
-      el.focus({ preventScroll: center });
-      if (center) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    };
-    const el = find();
-    if (el) go(el); else requestAnimationFrame(() => go(find()));
-  };
-  const g = (key: string) => guide === key;
   const dateText = new Date(day + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 
   const save = async () => {
@@ -119,43 +84,14 @@ function RegisterForm({ done, again }: { done: () => void; again: () => Promise<
   return (
     <div className="stack enter">
       {existing && <div className="note mirAdd" role="status"><b>{dateText}’s register, not submitted yet.</b> Change any row, take one off (clear it), or add the next items below.</div>}
-      <div ref={root} className={`mir ${stamped ? 'stamped' : ''}`} role="group" aria-label="Material Issuance Register"
-        onFocusCapture={(e) => { const k = (e.target as HTMLElement).closest<HTMLElement>('[data-g]')?.dataset.g; if (k) setGuide(k); }}>
+      <div className={`mir ${stamped ? 'stamped' : ''}`} role="group" aria-label="Material Issuance Register">
         {stamped && <div className="stampMark big" aria-live="polite"><b>{addedTo ? 'SAVED' : 'ENTERED'}</b><small>{dateText} · {store.split(' ')[0]}</small></div>}
         <div className="mirHead">
           <div className="mwcLogo"><span className="mwcArc" aria-hidden="true" /><b>{(company || 'Comex Builders').toUpperCase()}</b><small>LTD</small></div>
           <div className="mirTitle">MATERIAL ISSUANCE REGISTER</div>
           <div className="mirMeta"><span>Week <b className="mono">{projectWeek ?? '–'}</b></span><span>Date <b>{dateText}</b></span></div>
         </div>
-        <div className="mirGrid">
-          <div className="mirTh c">#</div><div className="mirTh">Item</div><div className="mirTh r">Qty</div><div className="mirTh">Unit</div><div className="mirTh r">Balance</div>
-          {lines.map((l, i) => {
-            const q = Number(l.qty) || 0;
-            const have = l.item ? stockFor(l.item.id) : 0;
-            const after = l.item ? have - totalFor(l.item.id) : 0;
-            const over = !!l.item && after < 0;
-            const dup = !!l.item && lines.findIndex((x) => x.item?.id === l.item!.id) !== i;
-            const ms = lineMiss(lines, i, flag);
-            return [
-              <div key={`n${l.key}`} className="mirTd c mono">{i + 1}</div>,
-              <div key={`i${l.key}`} className="mirTd mirItem">
-                <ItemPicker bare nav={`item${i}`} label={`Item ${i + 1}`} item={l.item} onPick={(it) => pick(l.key, i, it)} inputClass={`mirIn ${ms.item ? 'miss' : ''}`} placeholder={i === firstEmpty ? 'Item…' : ''} glow={g(`item${i}`)}
-                  onNext={() => { const k = jump.current; jump.current = null; goTo(k ?? `qty${i}`, !!k); if (k) setTimeout(() => root.current?.querySelector<HTMLInputElement>(`[data-g="${k}"]`)?.select(), 30); }} onEmptyEnter={() => save()} />
-                {dup && <span className="mirDup">adds to row {lines.findIndex((x) => x.item?.id === l.item!.id) + 1}</span>}
-              </div>,
-              <div key={`q${l.key}`} className="mirTd">
-                <label className="field bare"><span className="sr">Qty for item {i + 1}</span>
-                  <input data-nav data-g={`qty${i}`} className={`input mirIn num ${over ? 'bad' : g(`qty${i}`) ? 'next' : ''} ${ms.qty ? 'miss' : ''} ${editHere === l.key ? 'editHere' : ''}`} inputMode="decimal" value={l.qty}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (editHere === l.key) { setEditHere(null); const n = lines.findIndex((x) => !x.item); goTo(`item${n < 0 ? i + 1 : n}`, true); } else goTo(`item${i + 1}`); } }}
-                    onChange={(e) => patch(l.key, { qty: e.target.value.replace(/[^0-9.]/g, '') })} aria-invalid={over} />
-                </label>
-                {editHere === l.key && <span className="mirEditHere" role="status">Edit here</span>}
-              </div>,
-              <div key={`u${l.key}`} className="mirTd mirUnit">{l.item?.unit ?? ''}</div>,
-              <div key={`a${l.key}`} className={`mirTd r mono mirAfter ${over ? 'bad' : ''}`}>{l.item && q ? (over ? `Only ${fmt(have)}` : fmt(after)) : l.item ? fmt(have) : ''}</div>,
-            ];
-          })}
-        </div>
+        <SheetGrid lines={lines} setLines={setLines} stock={stockFor} effect="out" flag={flag} onEmptyEnter={() => save()} />
         <div className="mirFoot"><span>Store</span><Suggest bare showAll nav="store" label="Store" value={store} onChange={setStore} options={team} placeholder="Who issued from the store" inputClass="mirIn" onNext={() => save()} /></div>
       </div>
 

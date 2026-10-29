@@ -4144,3 +4144,21 @@ button.adAcc:hover { border-color: currentColor; }
 
 .incBin.incBinGap { visibility: hidden; pointer-events: none; }
 .incTh2.withBin { padding-right: 58px !important; }
+
+/* Project transfer note: the head of the paper (way, project, note no., who authorised, vehicle). */
+.trfHead { display: grid; grid-template-columns: 250px minmax(0, 1.3fr) minmax(0, .8fr) minmax(0, 1fr) minmax(0, .8fr); border: 1.5px solid #2A2F2E; background: #fff; }
+.trfHead > * + * { border-left: 1.5px solid #2A2F2E; }
+.trfDir { display: flex; align-items: center; gap: 3px; padding: 8px 10px; }
+.trfDir button { flex: 1; height: 34px; border-radius: 9px; border: 0; background: #EEF0EE; color: var(--muted); font: inherit; font-size: 13px; font-weight: 800; white-space: nowrap; cursor: pointer; }
+.trfDir button.out.on { background: #FDEFE3; color: #E0731A; box-shadow: inset 0 0 0 1.5px #F2B07A; }
+.trfDir button.in.on { background: #E7F4EC; color: #1F7A4D; box-shadow: inset 0 0 0 1.5px #9FD3B4; }
+.trfBox { display: flex; flex-direction: column; justify-content: center; min-width: 0; position: relative; }
+.trfBox > small { font-size: 10.5px; font-weight: 700; color: #6A7470; padding: 6px 12px 0; }
+.trfBox .mirIn { height: 36px !important; padding: 2px 12px 6px !important; font-weight: 600; }
+.trfBox .field { margin: 0; }
+@media (max-width: 860px) {
+  .trfHead { grid-template-columns: 1fr 1fr; }
+  .trfHead > * + * { border-left: 0; }
+  .trfHead > * { border-top: 1.5px solid #2A2F2E; } .trfHead > :first-child { grid-column: 1 / -1; border-top: 0; }
+  .trfHead > :nth-child(odd):not(:first-child) { border-left: 1.5px solid #2A2F2E; }
+}

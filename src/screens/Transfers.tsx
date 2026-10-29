@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { StepShell } from '../components/StepShell';
-import { checkLines, enterNext, Suggest, type LineDraft } from '../components/ui';
-import { LineTable } from '../components/LineTable';
+import { checkLines, newLine, Suggest, type LineDraft } from '../components/ui';
+import { SheetGrid } from '../components/SheetGrid';
 import { api } from '../lib/api';
 import { useData } from '../lib/store';
 import { focusMiss, LaterBar, linesFromPayload, linesToPayload, useDraft } from '../components/Unfinished';
@@ -12,7 +12,7 @@ import { useSignal } from '../lib/signals';
 type Dir = 'out' | 'in';
 
 function TransferForm({ done }: { done: () => void }) {
-  const { day: today_, balanceOf, itemById, refreshUnfinished, go } = useData();
+  const { day: today_, balanceOf, itemById, refreshUnfinished, go, projectWeek, company } = useData();
   const draft = useDraft('transfers');
   const day = draft?.doc_date ?? today_;
   const p = (draft?.payload ?? {}) as Record<string, string>;
@@ -27,7 +27,7 @@ function TransferForm({ done }: { done: () => void }) {
   const [note, setNote] = useState(p.note ?? '');
   const [by, setBy] = useState(p.by ?? '');
   const [vehicle, setVehicle] = useState(p.vehicle ?? '');
-  const [lines, setLines] = useState<LineDraft[]>(() => linesFromPayload(draft?.payload.lines, itemById));
+  const [lines, setLines] = useState<LineDraft[]>(() => { const l = linesFromPayload(draft?.payload.lines, itemById); const filled = l.filter((x) => x.item || x.qty); return [...filled, ...Array.from({ length: Math.max(2, 8 - filled.length) }, () => newLine())]; });
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   useEffect(() => { api.remembered('site').then(setSites); api.remembered('authorised_by').then(setPeople); }, []);
@@ -35,7 +35,8 @@ function TransferForm({ done }: { done: () => void }) {
   if (!dir) return <DirectionPick onPick={setDir} onClose={() => openRecords(go, 'transfers')} />;
 
   const save = async (confirmLater = false) => {
-    const hard = checkLines(lines, { stock: dir === 'out' ? balanceOf : undefined });
+    const used = lines.filter((l) => l.item || l.qty);
+    const hard = !used.length ? 'Add at least one item with its quantity.' : checkLines(lines, { stock: dir === 'out' ? balanceOf : undefined });
     setFlag(true);
     if (hard) { setErr(hard); setLater(null); focusMiss(); return; }
     const missing = [!site.trim() && 'party', !note.trim() && 'ref_no', !by.trim() && 'authorised_by'].filter(Boolean) as string[];
@@ -58,39 +59,38 @@ function TransferForm({ done }: { done: () => void }) {
     } catch (e) { setErr((e as Error).message); setBusy(false); }
   };
 
+  const dateText = new Date(day + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
   return (
     <div className="stack enter">
-      <div className={`dirBanner ${dir}`}>
-        <span className="dirIc" aria-hidden="true">{dir === 'out' ? '↗' : '↙'}</span>
-        <b>{dir === 'out' ? 'Sent to another project' : 'Received from another project'}</b>
-        <span className="muted">{dir === 'out' ? 'Stock goes down' : 'Stock goes up'}</span>
-        <button className="btn link" onClick={() => setDir(null)}>Change</button>
-      </div>
-      <section className="panel" aria-label="Transfer note">
-      <header className="panelHead"><b>Transfer note</b></header>
-      <div className="formFields">
-      <div className="span2">
-        <Suggest label={dir === 'out' ? 'Sent to (project)' : 'Received from (project)'} value={site} onChange={setSite} options={sites} placeholder="Start typing the project name" autoFocus glow={!site} inputClass={miss(!site.trim())} />
+      <div className="mir trfSheet" role="group" aria-label="Project transfer note">
+        <div className="mirHead">
+          <div className="mwcLogo"><span className="mwcArc" aria-hidden="true" /><b>{(company || 'Comex Builders').toUpperCase()}</b><small>LTD</small></div>
+          <div className="mirTitle">PROJECT TRANSFER NOTE</div>
+          <div className="mirMeta"><span>Week <b className="mono">{projectWeek ?? '–'}</b></span><span>Date <b>{dateText}</b></span></div>
         </div>
-        <label className="field"><span>Transfer note no.</span>
-          <input data-nav className={`input ${site && !note ? 'next' : ''} ${miss(!note.trim())}`} value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={enterNext} placeholder="e.g. TN 112" />
-        </label>
-        <Suggest label="Authorised by" value={by} onChange={setBy} options={people} glow={!!note && !by} inputClass={miss(!by.trim())} />
-        <label className="field"><span>Vehicle <i className="muted" style={{ fontStyle: 'normal', fontWeight: 400 }}>(optional)</i></span>
-          <input data-nav className="input" value={vehicle} onChange={(e) => setVehicle(e.target.value)} onKeyDown={enterNext} placeholder="e.g. KDA 123A" />
-        </label>
+        <div className="trfHead">
+          <div className="trfDir" role="radiogroup" aria-label="Sent out or received">
+            <button type="button" role="radio" aria-checked={dir === 'out'} className={`out ${dir === 'out' ? 'on' : ''}`} onClick={() => setDir('out')}>↗ Sent out</button>
+            <button type="button" role="radio" aria-checked={dir === 'in'} className={`in ${dir === 'in' ? 'on' : ''}`} onClick={() => setDir('in')}>↙ Received</button>
+          </div>
+          <div className="trfBox wide"><small>{dir === 'out' ? 'To project' : 'From project'}</small>
+            <Suggest bare showAll nav="site" label={dir === 'out' ? 'Sent to (project)' : 'Received from (project)'} value={site} onChange={setSite} options={sites} placeholder="Project name" autoFocus glow={!site} inputClass={`mirIn ${miss(!site.trim())}`} /></div>
+          <label className="trfBox"><small>Transfer note no.</small>
+            <input data-nav className={`input mirIn ${site && !note ? 'next' : ''} ${miss(!note.trim())}`} value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. TN 112" /></label>
+          <div className="trfBox"><small>Authorised by</small>
+            <Suggest bare showAll nav="by" label="Authorised by" value={by} onChange={setBy} options={people} placeholder="Name" glow={!!note && !by} inputClass={`mirIn ${miss(!by.trim())}`} /></div>
+          <label className="trfBox"><small>Vehicle (optional)</small>
+            <input data-nav className="input mirIn" value={vehicle} onChange={(e) => setVehicle(e.target.value)} placeholder="e.g. KDA 123A" /></label>
+        </div>
+        <SheetGrid lines={lines} setLines={setLines} stock={balanceOf} effect={dir === 'out' ? 'out' : 'in'} flag={flag} onEmptyEnter={() => save()} />
       </div>
-      </section>
-      <section className="panel" aria-label="Items">
-        <header className="panelHead"><b>Items {dir === 'out' ? 'sent' : 'received'}</b><span className="small muted keyHintInline">Enter moves to the next box</span></header>
-        <LineTable lines={lines} setLines={setLines} effect={dir === 'out' ? 'out' : 'in'} flag={flag} />
-      </section>
       {err && <div className="note err" role="alert">{err}</div>}
       {later && <LaterBar kind={dir === 'out' ? 'transfer_out' : 'transfer_in'} missing={later} busy={busy} onLater={() => save(true)} onCancel={() => setLater(null)} />}
       <div className="actionBar">
         <button className="btn ghost sm" onClick={() => openRecords(go, 'transfers')}>Cancel</button>
         <button className="btn link" disabled={busy} onClick={saveDraft}>Save as draft</button>
         <span className="abGrow" />
+        <span className="small muted abHint">{(() => { const n = lines.filter((l) => l.item).length; return n ? `${n} item${n === 1 ? '' : 's'} · stock goes ${dir === 'out' ? 'down' : 'up'}` : 'Item, quantity, Enter. Next item.'; })()}</span>
         <button data-nav className="btn accent sm" disabled={busy} onClick={() => save()}>{busy ? 'Saving…' : 'Save transfer'}</button>
       </div>
     </div>
