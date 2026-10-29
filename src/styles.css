@@ -4162,3 +4162,5 @@ button.adAcc:hover { border-color: currentColor; }
   .trfHead > * { border-top: 1.5px solid #2A2F2E; } .trfHead > :first-child { grid-column: 1 / -1; border-top: 0; }
   .trfHead > :nth-child(odd):not(:first-child) { border-left: 1.5px solid #2A2F2E; }
 }
+.incErr { margin: 0 16px 8px; padding: 8px 12px; border-radius: 10px; background: #FFF4E5; color: #8A5000; font-size: 13px; }
+.incHead2 .zohoLogoBtn.incZoho { margin-left: 8px; }

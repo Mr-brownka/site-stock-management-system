@@ -40,6 +40,13 @@ Deno.serve(async (req) => {
   const c = (conns ?? [])[0] as Rec | undefined;
   if (!c) return json({ connected: false });
 
+  // One shared answer per site: fresh for 20 minutes for everyone; Refresh asks again at most every 3 minutes.
+  // Zoho allows 10,000 calls a day for the whole organisation, and one full check costs well over a hundred.
+  const body = await req.json().catch(() => ({})) as Rec;
+  const { data: cached } = await db.from('zoho_incoming_cache').select('body, checked_at').eq('site_id', siteId).maybeSingle();
+  const age = cached ? Date.now() - new Date(String(cached.checked_at)).getTime() : Infinity;
+  if (cached && (age < 20 * 60_000) && !(body.force === true && age > 3 * 60_000)) return json(cached.body);
+
   try {
     const token = await refreshAccess(String(c.refresh_token), String(c.accounts_domain));
     const api = String(c.api_domain), org = String(c.org_id);
@@ -67,7 +74,11 @@ Deno.serve(async (req) => {
 
     const poCache = new Map<string, Rec | null>();
     const getPo = async (id: string) => {
-      if (!poCache.has(id)) { const r = await zget(api, token, `${base}/purchaseorders/${id}`, { organization_id: org }); poCache.set(id, (r.body.purchaseorder as Rec) ?? null); }
+      if (!poCache.has(id)) {
+        const r = await zget(api, token, `${base}/purchaseorders/${id}`, { organization_id: org });
+        if (r.status === 429) throw new Error('Zoho’s daily limit is used up · showing the last check');
+        poCache.set(id, (r.body.purchaseorder as Rec) ?? null);
+      }
       return poCache.get(id) ?? null;
     };
 
@@ -91,6 +102,7 @@ Deno.serve(async (req) => {
       if (elsewhere.has(id)) continue;
       if (++looked > 80) break;
       const d = await zget(api, token, `${base}/purchasereceives/${id}`, { organization_id: org });
+      if (d.status === 429) throw new Error('Zoho’s daily limit is used up · showing the last check');
       const rec = (d.body.purchasereceive ?? row) as Rec;
       const poId = str(rec.purchaseorder_id ?? row.purchaseorder_id);
       if (!poId) continue;
@@ -161,8 +173,12 @@ Deno.serve(async (req) => {
     thisWeek.sort(byDate); nextWeek.sort(byDate); part.sort((a, b) => String(b.lastIn).localeCompare(String(a.lastIn)));
     console.log(JSON.stringify({ site: siteId, debug, thisWeek: thisWeek.length, nextWeek: nextWeek.length, part: part.length }));
     const web = `${api.replace(/^https:\/\/(www\.)?zohoapis/, c.api_kind === 'inventory' ? 'https://inventory.zoho' : 'https://books.zoho')}/app/${org}`;
-    return json({ connected: true, web, checked_at: new Date().toISOString(), today, week: { from: wk, to: wkEnd }, next: { from: nxt, to: nxtEnd }, thisWeek, nextWeek, part });
+    const out = { connected: true, web, checked_at: new Date().toISOString(), today, week: { from: wk, to: wkEnd }, next: { from: nxt, to: nxtEnd }, thisWeek, nextWeek, part };
+    await db.from('zoho_incoming_cache').upsert({ site_id: siteId, body: out, checked_at: out.checked_at });
+    return json(out);
   } catch (e) {
-    return json({ connected: true, error: (e as Error).message });
+    // Zoho busy or out of calls: the last good answer, with the reason.
+    const msg = /429|limit/i.test((e as Error).message) ? 'Zoho’s daily limit is used up · showing the last check' : (e as Error).message;
+    return json(cached ? { ...(cached.body as Rec), error: msg } : { connected: true, error: msg });
   }
 });

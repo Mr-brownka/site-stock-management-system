@@ -354,8 +354,8 @@ export function supabaseBackend(url: string, key: string): Backend {
       const { error } = await sb.from('incoming_dismissed').delete().eq('site_id', await mySite()).eq('po_id', poId);
       if (error) fail(error);
     },
-    async incoming() {
-      const { data, error } = await sb.functions.invoke('zoho-incoming', { body: {} });
+    async incoming(force = false) {
+      const { data, error } = await sb.functions.invoke('zoho-incoming', { body: { force } });
       if (error) return { connected: true, error: error.message };
       return data as Incoming;
     },

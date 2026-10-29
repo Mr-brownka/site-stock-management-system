@@ -27,7 +27,7 @@ function useIncoming() {
     setBusy(true);
     const started = Date.now();
     try {
-      const r = await api.incoming();
+      const r = await api.incoming(force);
       if (!r.error || !memo) { memo = r; setData(r); try { localStorage.setItem(KEY, JSON.stringify(r)); } catch { /* full */ } }
       else setData({ ...memo, error: r.error });
     } finally { setTimeout(() => setBusy(false), Math.max(0, 800 - (Date.now() - started))); }
@@ -156,10 +156,11 @@ export function IncomingPanel() {
         <div className="incTabs2" role="tablist">
           {cols.map((c) => <button key={c.k} role="tab" className={c.k} aria-selected={tab === c.k} onClick={() => { setTab(c.k); setAll(false); }}>{c.title}<span className="mono">{c.list.length}</span></button>)}
         </div>
-        <button className={`incRef2 ${busy ? 'busy' : ''}`} onClick={refresh} disabled={busy} aria-label="Refresh incoming deliveries from Zoho Books" title={data?.error ? 'Zoho didn’t answer · showing last check' : data?.checked_at ? `Checked ${ago(data.checked_at)}` : 'Refresh'}>
-          <Icon name="refresh" size={15} />
+        <button className={`zohoLogoBtn inCard incZoho ${busy ? 'busy' : ''}`} onClick={refresh} disabled={busy} aria-label="Refresh incoming deliveries from Zoho Books" title={data?.error ? `${data.error}` : data?.checked_at ? `Checked ${ago(data.checked_at)} · press to refresh` : 'Refresh from Zoho Books'}>
+          <ZohoBooksMark size={20} />
         </button>
       </header>
+      {data?.error && <div className="incErr" role="status">{/limit/i.test(data.error) ? 'Zoho’s daily limit is used up, so this is the last check. It refreshes on its own once Zoho allows it again.' : 'Zoho didn’t answer just now. Showing the last check.'}</div>}
       {(() => {
         const c = cols.find((x) => x.k === tab)!;
         const list = all ? c.list : c.list.slice(0, SHOW);

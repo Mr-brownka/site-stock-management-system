@@ -314,7 +314,7 @@ export interface Backend {
   sendMail(m: { to: string[]; cc?: string[]; subject: string; html?: string; text?: string; attachment?: { name: string; base64: string } }): Promise<{ ok?: boolean; error?: string; reconnect?: boolean; from?: string }>;
   zohoSync(): Promise<ZohoSyncResult>;
   /** What is expected this week and next, and what is still owed on part deliveries (from Zoho). */
-  incoming(): Promise<Incoming>;
+  incoming(force?: boolean): Promise<Incoming>;
   /** The exact record's page in Zoho Books (falls back to the list). */
   zohoOpen(q: ZohoRef): Promise<{ url?: string; error?: string }>;
   /** Part deliveries marked "Not coming" (hidden from Incoming). */

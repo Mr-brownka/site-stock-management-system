@@ -15,7 +15,8 @@ import { continueEvening, EveningFlow, stageFor } from './EveningFlow';
 import { Icon, PulseDot, Ring, useMinutesToClose } from './fx';
 import { CommandPalette } from './CommandPalette';
 import { Welcome } from '../screens/Welcome';
-import { noteVisit, showMeAround, Tour } from './Tour';
+import { noteVisit, Tour } from './Tour';
+import { StartTraining } from './Training';
 import { UnfinishedCard } from './Unfinished';
 
 const CHECKIN: Screen[] = ['home', 'submitted'];
@@ -160,7 +161,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
             <div className="railUserMenu" role="menu" onMouseLeave={() => setUserMenu(false)}>
               {user.role === 'admin' && <button className="railLink" role="menuitem" onClick={() => { setUserMenu(false); openAdmin(); }}><Icon name="user" /><span className="rlText">Admin</span></button>}
               <ZohoStatusLine compact />
-              {(user.role === 'store' || user.role === 'admin') && <button className="railLink" role="menuitem" onClick={() => { setUserMenu(false); showMeAround(); }}><Icon name="checkin" /><span className="rlText">Show me around</span></button>}
+              {user.role === 'admin' && <StartTraining user={user} label="Training mode" />}
               <button className="railLink" role="menuitem" onClick={() => { setUserMenu(false); setPwOpen(true); }}><Icon name="lock" /><span className="rlText">Change password</span></button>
               <button className="railLink signOut" role="menuitem" onClick={signOut}><Icon name="out" /><span className="rlText">Sign out</span></button>
             </div>
@@ -265,7 +266,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
                 <div className="mList">
                   {user.role === 'admin' && <button className="railLink" onClick={() => { setSheet(null); openAdmin(); }}><Icon name="user" /><span className="rlText">Admin</span></button>}
                   <ZohoStatusLine compact />
-                  {(user.role === 'store' || user.role === 'admin') && <button className="railLink" onClick={() => { setSheet(null); showMeAround(); }}><Icon name="checkin" /><span className="rlText">Show me around</span></button>}
+                  {user.role === 'admin' && <StartTraining user={user} label="Training mode" />}
                   <button className="railLink" onClick={() => { setSheet(null); setPwOpen(true); }}><Icon name="lock" /><span className="rlText">Change password</span></button>
                   <button className="railLink signOut" onClick={signOut}><Icon name="out" /><span className="rlText">Sign out</span></button>
                 </div>
