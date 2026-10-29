@@ -127,10 +127,15 @@ async function place(db: SupabaseClient, c: Conn, p: Parsed, siteId: string): Pr
     await db.from('zoho_pending').delete().eq('zoho_receive_id', p.id);
     return 'linked';
   }
-  // A second Zoho receive with the same delivery note number as one already in Bohari: let the admin decide.
+  // A second Zoho receive with the same delivery note number as one already in Bohari: let the admin decide,
+  // but only when it carries some of the same items. One supplier note often covers several POs (different goods);
+  // those come in as normal.
   if (digits(p.dn)) {
-    const { data: same } = await db.from('documents').select('id, ref_no').eq('site_id', siteId).eq('kind', 'delivery').not('zoho_receive_id', 'is', null);
-    if ((same ?? []).some((d) => digits(d.ref_no) === digits(p.dn))) {
+    const { data: same } = await db.from('documents').select('id, ref_no, movements(item_id)').eq('site_id', siteId).eq('kind', 'delivery').not('zoho_receive_id', 'is', null);
+    const mine = new Set(p.lines.map((l) => map.get(l.zid)).filter((x) => x != null));
+    const clash = ((same ?? []) as { ref_no: string | null; movements: { item_id: number }[] }[])
+      .some((d) => digits(d.ref_no) === digits(p.dn) && (d.movements ?? []).some((m) => mine.has(m.item_id)));
+    if (clash) {
       await db.from('zoho_pending').upsert({ zoho_receive_id: p.id, site_id: null, project: p.project, grn: p.grn, receive_date: p.date || null, vendor: p.vendor,
         reason: `Same delivery note (${p.dn}) as a delivery already in Bohari. Check it isn't the same goods twice.`, payload: p });
       return 'pending';
