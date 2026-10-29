@@ -44,6 +44,24 @@ export function keepFocusClear() {
 /** Everywhere in the app: Enter in a box moves to the next box (like Tab), unless the box handles Enter itself.
  *  Sign-in style forms (<form>) still submit, search boxes keep their own Enter, and text areas keep new lines. */
 export function enterMovesOn() {
+  // Tab does what Enter does in a form box: picks the highlighted item, moves to the next box, or saves at the end.
+  // (Shift+Tab still goes back; search boxes and text areas keep the normal Tab.)
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab' || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.defaultPrevented) return;
+    const t = e.target as HTMLElement;
+    if (!(t instanceof HTMLInputElement || t instanceof HTMLSelectElement)) return;
+    const i = t as HTMLInputElement;
+    if (['checkbox', 'radio', 'file', 'search', 'button', 'submit'].includes(i.type) || t.closest('.fxSearch, .recSearch, .stFind, .consFind, [data-tab="keep"]')) return;
+    e.preventDefault();
+    const enter = new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true } as KeyboardEventInit);
+    t.dispatchEvent(enter);
+    // Nothing used the Enter (no next box): go on to the next thing on the page, like Tab normally would.
+    if (!enter.defaultPrevented && document.activeElement === t) {
+      const all = Array.from(document.querySelectorAll<HTMLElement>('input, select, textarea, button, a[href], [tabindex]:not([tabindex="-1"])'))
+        .filter((el) => !(el as HTMLButtonElement).disabled && el.tabIndex >= 0 && el.offsetParent !== null);
+      all[all.indexOf(t) + 1]?.focus();
+    }
+  }, true);
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter' || e.defaultPrevented || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
     const el = e.target as Element;
