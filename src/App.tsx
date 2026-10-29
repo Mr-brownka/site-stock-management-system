@@ -1,5 +1,6 @@
 import type React from 'react';
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
+import { lazyPage, PageGuard } from './components/Recover';
 import { AppShell } from './components/Shell';
 import { api } from './lib/api';
 import { DataProvider, type Screen } from './lib/store';
@@ -22,14 +23,14 @@ import { canSee, firstAllowed } from './lib/access';
 import { toast } from './components/feedback';
 
 // Screens used less often load on demand, so the first download is smaller.
-const Admin = lazy(() => import('./screens/Admin').then((m) => ({ default: m.Admin })));
-const Corrections = lazy(() => import('./screens/Corrections').then((m) => ({ default: m.Corrections })));
-const StockTake = lazy(() => import('./screens/StockTake').then((m) => ({ default: m.StockTake })));
-const Records = lazy(() => import('./screens/Records').then((m) => ({ default: m.Records })));
-const Consumption = lazy(() => import('./screens/Consumption').then((m) => ({ default: m.Consumption })));
-const Balances = lazy(() => import('./screens/Balances').then((m) => ({ default: m.Balances })));
-const ComingIn = lazy(() => import('./components/Incoming').then((m) => ({ default: m.ComingInPage })));
-const Reports = lazy(() => import('./screens/Reports').then((m) => ({ default: m.Reports })));
+const Admin = lazyPage(() => import('./screens/Admin').then((m) => ({ default: m.Admin })));
+const Corrections = lazyPage(() => import('./screens/Corrections').then((m) => ({ default: m.Corrections })));
+const StockTake = lazyPage(() => import('./screens/StockTake').then((m) => ({ default: m.StockTake })));
+const Records = lazyPage(() => import('./screens/Records').then((m) => ({ default: m.Records })));
+const Consumption = lazyPage(() => import('./screens/Consumption').then((m) => ({ default: m.Consumption })));
+const Balances = lazyPage(() => import('./screens/Balances').then((m) => ({ default: m.Balances })));
+const ComingIn = lazyPage(() => import('./components/Incoming').then((m) => ({ default: m.ComingInPage })));
+const Reports = lazyPage(() => import('./screens/Reports').then((m) => ({ default: m.Reports })));
 const PageSkeleton = () => (
   <div className="page" aria-busy="true">
     <i className="skel" style={{ width: 180, height: 14 }} /><i className="skel" style={{ width: '45%', height: 34 }} />
@@ -122,14 +123,14 @@ export function App() {
         </main></div>
       );
     }
-    return <Suspense fallback={<PageSkeleton />}><Admin user={user} onExit={() => go('home')} onSignOut={signOut} /></Suspense>;
+    return <PageGuard screen="admin"><Suspense fallback={<PageSkeleton />}><Admin user={user} onExit={() => go('home')} onSignOut={signOut} /></Suspense></PageGuard>;
   }
   // Pages the admin hasn't given this person go to the first page they may see.
   const allowed = canSee(user, screen) ? screen : firstAllowed(user);
   const View = SCREENS[allowed];
   return (
     <DataProvider user={user} go={(s: Screen) => { if (!canSee(user, s)) { toast('That page is turned off for you. Ask the admin to turn it on.', 'warn'); return; } go(s); }} signOut={signOut} openAdmin={openAdmin}>
-      <AppShell screen={allowed}><Suspense fallback={<PageSkeleton />}><View /></Suspense></AppShell>
+      <AppShell screen={allowed}><PageGuard screen={allowed}><Suspense fallback={<PageSkeleton />}><View /></Suspense></PageGuard></AppShell>
     </DataProvider>
   );
 }
