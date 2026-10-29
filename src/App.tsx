@@ -83,6 +83,17 @@ export function App() {
     forgetVisitor();
     setUser(null); history.replaceState(null, '', '/'); setAdminPath(false);
   }, []);
+  // Tell the admin who is using the app today: once on opening, then every 5 minutes while it is open and in view.
+  const signedIn = !!user && user.status === 'approved' && api.mode === 'live';
+  useEffect(() => {
+    if (!signedIn) return;
+    let lastAt = 0;
+    const ping = () => { if (document.visibilityState !== 'visible' || Date.now() - lastAt < 60_000) return; lastAt = Date.now(); api.touch().catch(() => undefined); };
+    ping();
+    const t = setInterval(ping, 300_000);
+    document.addEventListener('visibilitychange', ping);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', ping); };
+  }, [signedIn]);
   // Screens that don't load the store finish the boot screen straight away.
   const storeScreen = !!user && user.status === 'approved' && !adminPath && !recovering;
   // Once we know who is signed in, greet that person (or nobody), never the last person on this device.

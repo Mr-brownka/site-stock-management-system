@@ -690,6 +690,26 @@ const WORDS = ['Simba', 'Tembo', 'Chui', 'Twiga', 'Nyati', 'Pundamilia', 'Cement
 const newPassword = () => `${WORDS[Math.floor(Math.random() * WORDS.length)]}-${WORDS[Math.floor(Math.random() * WORDS.length)]}-${10 + Math.floor(Math.random() * 90)}`;
 const ROLE_OPTS: Role[] = ['store', 'assistant', 'procurement', 'site_manager', 'admin'];
 
+const hm = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' });
+/** Who used the app today (first seen → last active), and when everyone else was last on. */
+function OnToday({ people, act }: { people: Profile[]; act: { today: Record<string, { first: string; last: string }>; lastSeen: Record<string, string>; signIn: Record<string, string> } }) {
+  const on = people.filter((p) => act.today[p.id]).sort((a, b) => act.today[b.id].last.localeCompare(act.today[a.id].last));
+  const off = people.filter((p) => !act.today[p.id]);
+  const lastOf = (id: string) => { const a = act.lastSeen[id], s = act.signIn[id]; return a && s ? (a > s ? a : s) : a ?? s ?? null; };
+  const fresh = (iso: string) => Date.now() - new Date(iso).getTime() < 10 * 60_000;
+  return (
+    <section className="panel adPad adOnToday enter" aria-label="On today">
+      <div className="otHead"><b>On today</b><small className="muted">{on.length} of {people.length} · first seen → last active</small></div>
+      <div className="otList">
+        {on.map((p) => { const t = act.today[p.id]; return (
+          <span key={p.id} className="otChip"><i className={fresh(t.last) ? 'live' : ''} aria-hidden="true" /><b>{p.full_name}</b><span className="mono">{hm(t.first)} → {fresh(t.last) ? 'now' : hm(t.last)}</span></span>); })}
+        {!on.length && <span className="muted">Nobody yet today.</span>}
+      </div>
+      {off.length > 0 && <div className="otOff">{off.map((p) => { const l = lastOf(p.id); return <span key={p.id}>{p.full_name} <small>{l ? ago(l) : 'never signed in'}</small></span>; })}</div>}
+    </section>
+  );
+}
+
 /** The details to send a new person (or a new password): name, password, link. */
 function ShareDetails({ name, password, phone, onDone }: { name: string; password: string; phone: string | null; onDone: () => void }) {
   const link = location.origin;
@@ -766,11 +786,14 @@ function People({ d, me, busy, act }: { d: Data; me: User; busy: string; act: Ac
   const active = d.profiles.filter((p) => p.status === 'approved');
   const off = d.profiles.filter((p) => p.status === 'declined' || p.status === 'removed');
   const rows = f === 'off' ? off : active.filter((p) => f === 'all' || (f === 'admin' ? p.role === 'admin' : p.role !== 'admin'));
+  const [act_, setAct] = useState<{ today: Record<string, { first: string; last: string }>; lastSeen: Record<string, string>; signIn: Record<string, string> } | null>(null);
+  useEffect(() => { api.admin.activity(new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Nairobi' })).then(setAct).catch(() => setAct(null)); }, [d]);
   const lastSeen = (id: string) => d.docs.filter((x) => x.created_by === id).reduce<string | null>((m, x) => (!m || x.created_at > m ? x.created_at : m), null);
   return (
     <div className="adStack">
       <Head title="People" lead="Everyone with access. ··· on a row: edit, pages, new password, remove access." right={<><button className="adBtn acc" onClick={() => { setAdding((x) => !x); setShare(null); }}><Icon name="plus" size={16} />Add person</button><Seg opts={[['all', `All ${active.length}`], ['store', 'Store'], ['admin', 'Admin'], ['off', `Removed ${off.length}`]]} value={f} onPick={setF} /></>} />
       {adding && <AddPerson d={d} busy={busy} act={act} onClose={() => setAdding(false)} onMade={(x) => { setAdding(false); setShare(x); toast(`${x.name} can sign in now`); }} />}
+      {act_ && <OnToday people={active} act={act_} />}
       {share && <ShareDetails name={share.name} password={share.password} phone={share.phone} onDone={() => setShare(null)} />}
       <section className="panel adCard enter">
         <div className="adTable adPeople">

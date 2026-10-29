@@ -58,6 +58,21 @@ function adminApi(sb: SupabaseClient): AdminApi {
       if (error) return {};
       return Object.fromEntries((data ?? []).map((r) => [String(r.user_id), { password: String(r.password), set_at: String(r.set_at) }]));
     },
+    async activity(day) {
+      const [a, b, s] = await Promise.all([
+        sb.from('user_activity').select('user_id, first_at, last_at').eq('day', day),
+        sb.from('user_activity').select('user_id, last_at').order('last_at', { ascending: false }).limit(500),
+        sb.rpc('people_sign_ins'),
+      ]);
+      if (a.error) throw new Error(a.error.message); // not set up yet: the admin page just leaves the list out
+      const today: Record<string, { first: string; last: string }> = {};
+      (a.data ?? []).forEach((r) => { today[String(r.user_id)] = { first: String(r.first_at), last: String(r.last_at) }; });
+      const lastSeen: Record<string, string> = {};
+      (b.data ?? []).forEach((r) => { const k = String(r.user_id); if (!lastSeen[k]) lastSeen[k] = String(r.last_at); });
+      const signIn: Record<string, string> = {};
+      ((s.data ?? []) as { user_id: string; last_sign_in_at: string | null }[]).forEach((r) => { if (r.last_sign_in_at) signIn[r.user_id] = r.last_sign_in_at; });
+      return { today, lastSeen, signIn };
+    },
     async deletePerson(userId) {
       const { data, error } = await sb.functions.invoke('admin-users', { body: { action: 'delete', user_id: userId } });
       if (error) throw new Error(error.message);
@@ -288,6 +303,7 @@ export function supabaseBackend(url: string, key: string): Backend {
       history.replaceState(null, '', location.pathname);
     },
 
+    async touch() { await sb.rpc('touch_activity'); },
     async alertInfo() {
       const { data, error } = await sb.from('sites').select('alert_name, alert_phone, alert_sent_at, alert_sent_by').eq('id', await mySite()).maybeSingle();
       if (error || !data) return null;
