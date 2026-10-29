@@ -4104,7 +4104,7 @@ button.adAcc:hover { border-color: currentColor; }
 .tour { position: fixed; inset: 0; z-index: 400; }
 .tourDim { position: fixed; left: 50%; top: 50%; width: 0; height: 0; box-shadow: 0 0 0 9999px rgba(12,20,18,.55); }
 .tourHole { position: fixed; border-radius: 14px; box-shadow: 0 0 0 4px var(--accent, #FCA72D), 0 0 0 9999px rgba(12,20,18,.55); transition: all .28s cubic-bezier(.2,.8,.2,1); pointer-events: none; }
-.tourCard { position: fixed; background: #fff; color: var(--ink); border-radius: 14px; padding: 18px 18px 14px; box-shadow: 0 24px 60px -24px rgba(0,0,0,.55); display: flex; flex-direction: column; gap: 9px; animation: tourIn .24s ease-out; }
+.tourCard { position: fixed; text-align: left; background: #fff; color: var(--ink); border-radius: 14px; padding: 18px 18px 14px; box-shadow: 0 24px 60px -24px rgba(0,0,0,.55); display: flex; flex-direction: column; gap: 9px; animation: tourIn .24s ease-out; }
 .tourCard.center { width: 460px; }
 @media (max-width: 760px) { .tourCard.center { width: auto; } }
 .tourCard b { font-size: 19px; line-height: 1.25; }
