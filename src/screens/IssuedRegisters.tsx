@@ -80,7 +80,8 @@ export function RegisterSheet({ row, all, onClose, onFix }: { row: RegRow; all: 
   const open = !submitted;
   const saved = new Date(d.created_at).toLocaleString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' });
   const addTo = () => {
-    if (submitted) { toast('That day is submitted. Use Fix an error to add a missed line.'); return; }
+    // A submitted day is changed through Fix an error, opened on this register.
+    if (submitted) { onFix?.(); return; }
     if (d.doc_date !== realToday) startCatchUp(d.doc_date);
     go('issued');
   };
@@ -105,7 +106,7 @@ export function RegisterSheet({ row, all, onClose, onFix }: { row: RegRow; all: 
           <small className="muted">{row.ref} · store {d.authorised_by || '—'} · {d.lines.length} item{d.lines.length === 1 ? '' : 's'}</small></div>
         {submitted !== null && <span className={`regPill ${open ? (d.doc_date === realToday ? 'open' : 'no') : 'ok'}`}>{open ? (d.doc_date === realToday ? 'Today · open' : 'Not submitted') : 'Submitted'}</span>}
         {submitted === false && canEdit(user) && <button className="btn accent sm regSubmit" disabled={busy} onClick={submit}><Icon name="check" size={16} />{busy ? 'Submitting…' : 'Submit'}</button>}
-        {!d.ref_no && onFix && <button className="btn ghost sm" onClick={addTo}><Icon name="plus" size={16} />Add to it</button>}
+        {!d.ref_no && onFix && <button className="btn ghost sm" onClick={addTo}><Icon name="plus" size={16} />Add</button>}
         {onFix && <button className="btn ghost sm" onClick={onFix}><Icon name="fix" size={16} />Fix an error</button>}
         <button className="btn ghost sm" onClick={() => window.print()}><Icon name="print" size={16} />Print</button>
         <button className="iconBtn" onClick={onClose} aria-label="Close"><Icon name="close" /></button>

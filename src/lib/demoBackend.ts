@@ -140,6 +140,21 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
       }
       save(); return 'added';
     },
+    async setRegister(day, store, ls) {
+      const reg = s.docs.filter((d) => d.kind === 'issue' && !d.ref_no && d.doc_date === day).sort((a, b) => a.created_at.localeCompare(b.created_at))[0];
+      if (!reg) { await this_.saveDocument({ kind: 'issue', doc_date: day, authorised_by: store }, ls.map((l) => ({ ...l, subphase: null }))); return 'new'; }
+      const keep = new Set<number>();
+      for (const l of ls) {
+        if (!(l.qty > 0)) continue;
+        const ex = reg.lines.find((x) => x.item_id === l.item_id && !keep.has(x.id));
+        if (ex) { ex.qty = l.qty; keep.add(ex.id); }
+        else { const id = s.nextLine++; reg.lines.push({ id, document_id: reg.id, kind: 'issue', move_date: day, item_id: l.item_id, qty: l.qty, subphase: null, return_of: null }); keep.add(id); }
+      }
+      reg.lines = reg.lines.filter((x) => keep.has(x.id));
+      if (store) reg.authorised_by = store;
+      if (!reg.lines.length) s.docs = s.docs.filter((d) => d.id !== reg.id);
+      save(); return reg.lines.length ? 'saved' : 'emptied';
+    },
     async deleteEntry(docId, why, note) {
       const d = s.docs.find((x) => x.id === docId);
       if (!d) throw new Error('The entry no longer exists');

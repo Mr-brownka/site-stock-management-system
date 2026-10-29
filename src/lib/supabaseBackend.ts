@@ -409,6 +409,11 @@ export function supabaseBackend(url: string, key: string): Backend {
       if (error) fail(error);
       return data as 'new' | 'added';
     },
+    async setRegister(day, store, lines) {
+      const { data, error } = await sb.rpc('set_register', { on_date: day, store: store ?? '', items: lines });
+      if (error) fail(error);
+      return data as 'new' | 'saved' | 'emptied';
+    },
     async myCorrections() {
       const { data, error } = await sb.from('correction_requests').select('*').eq('site_id', await mySite()).order('created_at', { ascending: false }).limit(200);
       if (error) fail(error);
