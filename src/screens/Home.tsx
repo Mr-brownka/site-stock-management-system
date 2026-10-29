@@ -321,7 +321,7 @@ export function Home() {
           <span className="k3Bars" aria-hidden="true">{weekBars.map((v, i) => <i key={i} className={i === todayIdx ? 'on' : ''} style={{ height: `${Math.max(8, (v / (Math.max(...weekBars) || 1)) * 100)}%` }} />)}</span>
         </button>
         {inc && <button className="kpi3 blue enter" onClick={() => go('incoming')}>
-          <span className="k3Txt"><b className="k3L">Coming in</b><span className="k3N"><Num value={inc.week} /><small>order{inc.week === 1 ? '' : 's'} this week</small></span><span className={`k3F ${inc.late ? 'late' : ''}`}>{inc.late ? `${inc.late} late` : 'None late'}{inc.today ? ` · ${inc.today} today` : ''} <Icon name="arrow" size={12} /></span></span>
+          <span className="k3Txt"><b className="k3L">Coming in</b><span className="k3N"><Num value={inc.week} /><small>order{inc.week === 1 ? '' : 's'} this week</small></span><span className={`k3F ${inc.late ? 'late' : ''}`}>{inc.late ? `${inc.late} pending` : 'None pending'}{inc.today ? ` · ${inc.today} today` : ''} <Icon name="arrow" size={12} /></span></span>
         </button>}
         <button className="kpi3 ink enter" onClick={() => go('stocktake')}>
           <span className="k3Txt"><b className="k3L">Last stock take</b><span className="k3N">{lastTake == null ? '–' : <><Num value={lastTake} /><small>day{lastTake === 1 ? '' : 's'} ago</small></>}</span><span className={`k3F ${lastTake != null && lastTake > 14 ? 'late' : ''}`}>{lastTake == null ? 'None yet' : lastTake > 14 ? 'Time for a count' : 'Count is recent'} <Icon name="arrow" size={12} /></span></span>

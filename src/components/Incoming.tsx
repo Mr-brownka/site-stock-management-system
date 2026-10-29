@@ -37,10 +37,16 @@ function useIncoming() {
 }
 
 /** When it's due: red if the date has passed, amber if it's today. */
+/** When it's due, in words. Nothing is "late" inside its own week: Yesterday, Today, Tomorrow, Monday, Friday…
+ *  Only after its week has ended (then it sits in Pending deliveries) is it marked late. */
 function due(o: IncomingOrder, today: string) {
   if (!o.expected) return { t: 'No date', k: '' };
-  if (o.expected < today) return { t: o.expected === addDay(today, -1) ? 'Due yesterday' : `Due ${short(o.expected)}`, k: 'late' };
-  if (o.expected === today) return { t: 'Due today', k: 'today' };
+  const mon = (x: string) => { const t = new Date(x + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() - ((t.getUTCDay() + 6) % 7)); return t.toISOString().slice(0, 10); };
+  if (mon(o.expected) < mon(today)) return { t: `Due ${short(o.expected)}`, k: 'late' };
+  if (o.expected === today) return { t: 'Today', k: 'today' };
+  if (o.expected === addDay(today, -1)) return { t: 'Yesterday', k: '' };
+  if (o.expected === addDay(today, 1)) return { t: 'Tomorrow', k: '' };
+  if (mon(o.expected) === mon(today)) return { t: new Date(o.expected + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'long', timeZone: 'UTC' }), k: '' };
   return { t: niceDate(o.expected).split(' ').slice(0, 2).join(' '), k: '' };
 }
 const addDay = (d: string, n: number) => { const x = new Date(d + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
@@ -178,7 +184,7 @@ export function IncomingPanel() {
             {data && !c.list.length && <div className="incEmpty2">{c.empty}</div>}
             {!!c.list.length && (c.part
               ? <div className="incTh2 part" aria-hidden="true"><span>PO</span><span>Vendor</span><span>Items</span><span>Qty</span><span>From</span><span>Subphase</span><span /></div>
-              : <div className={`incTh2 ${editable && c.list.some((x) => due(x, today).k === 'late') ? 'withBin' : ''}`} aria-hidden="true"><span>Vendor</span><span>PO</span><span>Items</span><span>Qty</span><span>Expected</span></div>)}
+              : <div className="incTh2" aria-hidden="true"><span>Vendor</span><span>PO</span><span>Items</span><span>Qty</span><span>Expected</span></div>)}
             {list.map((o) => {
               const dd = due(o, today);
               const first = o.lines[0];
@@ -201,12 +207,11 @@ export function IncomingPanel() {
                         <span className="irPo mono">{o.po}</span>
                         <span className="irIt">{first?.name}{more > 0 ? ` + ${more}` : ''}</span>
                         <b className="irQ mono">{first ? <>{fmt(first.ordered - first.received)} <small>{first.unit ?? ''}</small></> : ''}</b>
-                        <span className="irDueW"><span className={`irDue ${dd.k}`}>{data?.week && o.expected && o.expected < data.week.from ? `Late · ${short(o.expected)}` : dd.k === 'late' && o.expected === addDay(today, -1) ? 'Yesterday' : dd.k === 'today' ? 'Today' : dd.t}</span></span>
+                        <span className="irDueW"><span className={`irDue ${dd.k}`}>{dd.t}</span></span>
                       </>
                     )}
                   </button>
-                  {(c.part || dd.k === 'late') && editable && <button type="button" className="incBin" onClick={() => setRemoving(o)} title="Remove: the rest won’t be delivered" aria-label={`Remove ${o.po}`}><Icon name="trash" size={15} /></button>}
-                  {!c.part && dd.k !== 'late' && editable && c.list.some((x) => due(x, today).k === 'late') && <span className="incBin incBinGap" aria-hidden="true" />}
+                  {c.part && editable && <button type="button" className="incBin" onClick={() => setRemoving(o)} title="Remove: the rest won’t be delivered" aria-label={`Remove ${o.po}`}><Icon name="trash" size={15} /></button>}
                 </div>
               );
             })}
@@ -248,7 +253,7 @@ export function useIncomingCounts() {
   if (!m || !m.connected) return null;
   const today = m.today ?? new Date().toISOString().slice(0, 10);
   const wk = m.thisWeek ?? [];
-  return { week: wk.length, late: wk.filter((o) => o.expected && o.expected < today).length, today: wk.filter((o) => o.expected === today).length, part: (m.part ?? []).length };
+  return { week: wk.length, late: (m.part ?? []).filter((o) => o.late).length, today: wk.filter((o) => o.expected === today).length, part: (m.part ?? []).length };
 }
 
 type PTab = 'this' | 'next' | 'part' | 'all';
@@ -280,7 +285,7 @@ export function ComingInPage() {
     const s = q.trim().toLowerCase();
     return !s || [o.vendor, o.po, ...o.lines.map((l) => l.name)].some((x) => (x ?? '').toLowerCase().includes(s));
   });
-  const late = lists.this.filter((o) => o.expected && o.expected < today);
+  const late = lists.part.filter((o) => o.late);
   const dueToday = lists.this.filter((o) => o.expected === today).length;
   const sel = all.find((x) => x.o.id === selId) ?? null;
   const remove = async (o: IncomingOrder, reason: string) => {
@@ -289,7 +294,7 @@ export function ComingInPage() {
     toast(`${o.po} removed from incoming`, 'ok', { label: 'Undo', run: () => { api.restoreIncoming(o.id).then(loadGone).catch(() => undefined); } });
   };
   const kp = [
-    { l: 'Due this week', n: lists.this.length, s: `${late.length ? `${late.length} late` : 'None late'}${dueToday ? ` · ${dueToday} today` : ''}`, t: '' },
+    { l: 'Due this week', n: lists.this.length, s: `${late.length ? `${late.length} pending from past weeks` : 'Nothing pending'}${dueToday ? ` · ${dueToday} today` : ''}`, t: '' },
     { l: wkName(1), n: lists.next.length, s: data?.next ? `${short(data.next.from)} – ${short(data.next.to)}` : 'Next week', t: '' },
     { l: 'Pending deliveries', n: lists.part.length, s: 'late or rest still owed', t: 'blue' },
     { l: 'Late', n: late.length, s: late.slice(0, 2).map((o) => (o.vendor ?? '').split(' ')[0]).join(' · ') || 'Nothing late', t: late.length ? 'red' : '' },
@@ -328,7 +333,7 @@ export function ComingInPage() {
                 <span className="cinIt">{first?.name}{more > 0 && <em> · +{more} more</em>}</span>
                 {tab === 'part' && <span className="cinSub">{o.subphase || '—'}</span>}
                 <b className="cinQ mono">{first ? <>{fmt(owed)}{k === 'part' && <small>/{fmt(first.ordered)}</small>} <small>{first.unit ?? ''}</small></> : ''}</b>
-                <span className="cinDue">{k === 'part' ? <span className={`incChip ${o.late ? 'late' : 'part'}`}>{o.late && o.expected ? `Late · due ${short(o.expected)}` : o.lastIn ? `Last in ${short(o.lastIn)}` : 'Part in'}</span> : <span className={`incChip ${dd.k}`}>{dd.k === 'late' && o.expected === addDay(today, -1) ? 'Yesterday' : dd.k === 'today' ? 'Today' : dd.t.replace('Due ', '')}</span>}</span>
+                <span className="cinDue">{k === 'part' ? <span className={`incChip ${o.late ? 'late' : 'part'}`}>{o.late && o.expected ? `Late · due ${short(o.expected)}` : o.lastIn ? `Last in ${short(o.lastIn)}` : 'Part in'}</span> : <span className={`incChip ${dd.k}`}>{dd.t}</span>}</span>
               </button>
               {tab === 'part' && editable && <button type="button" className="incBin" onClick={() => setRemoving(o)} title="Remove: the rest won’t be delivered" aria-label={`Remove ${o.po} from part-delivered`}><Icon name="trash" size={15} /></button>}
               </div>

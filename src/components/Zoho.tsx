@@ -21,8 +21,9 @@ export function ZohoOpen({ zref, className = 'btn ghost', label = 'Open in Zoho 
 }
 
 /** The small blue tag on anything that came from Zoho Books. */
+/** From Zoho: the Zoho Books icon, with the goods received note number when there is one. */
 export const ZohoTag = ({ grn }: { grn?: string | null }) => (
-  <span className="zohoTag"><b>ZOHO</b>{grn ? <span className="mono">{grn}</span> : null}</span>
+  <span className="zohoTag" title="From Zoho Books"><ZohoBooksMark size={16} />{grn ? <span className="mono">{grn}</span> : null}</span>
 );
 
 const ago = (iso: string | null) => {
@@ -36,7 +37,7 @@ export function ZohoBooksMark({ size = 20 }: { size?: number }) {
   const [ok, setOk] = useState(true);
   return ok
     ? <img className="zbMark" src="/brand/zoho-books.png" alt="" aria-hidden="true" width={size} height={size} onError={() => setOk(false)} />
-    : <span className="zohoTag"><b>ZOHO</b></span>;
+    : <b className="zohoWord">ZOHO</b>;
 }
 
 /** Is a Zoho check running right now? Shared, so every Refresh button spins together. */
