@@ -194,18 +194,23 @@ export function Suggest({ label, value, onChange, options, placeholder, autoFocu
   );
 }
 
-function rank(items: Item[], q: string): Item[] {
-  const s = q.trim().toLowerCase();
+/** Names and searches compared loosely: "50mm x 1.5", "50mm*1.5", "50mmx1.5" and "50 mm x 1.5" all match. */
+const looseName = (t: string) => t.toLowerCase().replace(/[*×]/g, ' x ').replace(/(\d)\s*mm/g, '$1mm').replace(/(\d(?:mm)?)x(?=\s*\d)/g, '$1 ').replace(/\bx\b/g, ' ').replace(/\bx(?=\d)/g, '').replace(/(\d)\.0(?!\d)/g, '$1').replace(/\s+/g, ' ').trim();
+/** Items in this store come first (and the ones with stock before those without), then the shortest names. */
+function rank(items: Item[], q: string, stock?: (id: number) => number | null): Item[] {
+  const s = looseName(q);
   if (!s) return [];
-  const words = s.split(/\s+/);
+  const words = s.split(' ').filter(Boolean);
   const scored: [number, Item][] = [];
   for (const it of items) {
-    const n = it.name.toLowerCase();
+    const n = looseName(it.name);
     if (!words.every((w) => n.includes(w))) continue;
     const score = n.startsWith(s) ? 0 : n.split(/[\s(/-]+/).some((p) => p.startsWith(words[0])) ? 1 : 2;
-    scored.push([score * 1000 + n.length, it]);
+    const b = stock?.(it.id);
+    const tier = b == null ? 2 : b > 0 ? 0 : 1;
+    scored.push([tier * 100000 + score * 1000 + n.length, it]);
   }
-  return scored.sort((a, b) => a[0] - b[0]).slice(0, 8).map((x) => x[1]);
+  return scored.sort((a, b) => a[0] - b[0]).slice(0, 10).map((x) => x[1]);
 }
 
 /** Search the project item list. The unit comes with the item and cannot be changed. */
@@ -215,8 +220,9 @@ export function ItemPicker({ item, onPick, autoFocus, glow, bare, label = 'Item'
   /** Where to go after an item is picked (default: the next box). */ onNext?: (el: HTMLElement) => void;
   /** Enter on an empty row: the list is finished. */ onEmptyEnter?: (el: HTMLElement) => void;
 }) {
-  const { items, addItem } = useData();
+  const { items, addItem, balances } = useData();
   const id = useId();
+  const stock = useMemo(() => { const m = new Map(balances.map((b) => [b.item_id, b.balance])); return (iid: number) => m.get(iid) ?? null; }, [balances]);
   const [q, setQ] = useState(item?.name ?? '');
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -225,7 +231,7 @@ export function ItemPicker({ item, onPick, autoFocus, glow, bare, label = 'Item'
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => { setQ(item?.name ?? ''); }, [item]);
-  const matches = useMemo(() => (item && q === item.name ? [] : rank(items, q)), [items, q, item]);
+  const matches = useMemo(() => (item && q === item.name ? [] : rank(items, q, stock)), [items, q, item, stock]);
   const exact = items.some((i) => i.name.toLowerCase() === q.trim().toLowerCase());
   const units = useMemo(() => [...new Set(items.map((i) => i.unit))].sort(), [items]);
   const place = useDropPlace(ref, open && !!q.trim() && !item, matches.length);
@@ -255,7 +261,7 @@ export function ItemPicker({ item, onPick, autoFocus, glow, bare, label = 'Item'
         <div {...place} role="listbox">
           {matches.map((m, i) => (
             <button type="button" key={m.id} role="option" aria-selected={i === active} onMouseDown={(e) => e.preventDefault()} onClick={() => choose(m)}>
-              <span>{m.name}</span><span className="unit">{m.unit}</span>
+              <span>{m.name}</span><span className="unit">{stock(m.id) != null ? <b className={`pkStock ${(stock(m.id) ?? 0) > 0 ? '' : 'none'}`}>{fmt(stock(m.id) ?? 0)} in store</b> : null}{m.unit}</span>
             </button>
           ))}
           {!exact && <button type="button" className="add" onMouseDown={(e) => e.preventDefault()} onClick={() => { setAdding(true); setOpen(false); }}>+ Add “{q.trim()}” as a new item</button>}

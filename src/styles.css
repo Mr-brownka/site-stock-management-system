@@ -4137,3 +4137,7 @@ button.adAcc:hover { border-color: currentColor; }
 .mirIn.editHere { background: #FFF4E0 !important; box-shadow: inset 0 0 0 2px #F28C28 !important; animation: editPulse .9s ease-in-out 3; }
 .mirEditHere { position: absolute; right: 6px; top: -11px; z-index: 3; background: #F28C28; color: #fff; font-size: 11.5px; font-weight: 800; padding: 2px 8px; border-radius: 99px; white-space: nowrap; pointer-events: none; box-shadow: 0 4px 10px -4px rgba(242,140,40,.6); }
 @keyframes editPulse { 50% { box-shadow: inset 0 0 0 2px #F28C28, 0 0 0 4px rgba(242,140,40,.25) !important; } }
+
+/* Item search: how much of each is in the store. */
+.pkStock { font-weight: 700; color: #1F7A4D; margin-right: 8px; font-size: 12px; }
+.pkStock.none { color: #9AA29F; font-weight: 600; }
