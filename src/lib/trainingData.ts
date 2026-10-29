@@ -197,9 +197,9 @@ export function buildAstanaTraining(allItems: Item[], user: { email: string; nam
     profiles: [
       { id: ME, full_name: user.name, email: user.email, phone: null, role: 'admin', status: 'approved', site_id: SITE, created_at: iso(addDays(today, -62), '08:00'), decided_at: iso(addDays(today, -62), '08:00') },
       P('demo-mary', 'Mary Achieng', 'store', 'approved', 58, 'mary.achieng@example.com', '0712 448 210'),
-      P('demo-kevin', 'Kevin Mutiso', 'assistant', 'approved', 40, 'kevin.mutiso@example.com', '0723 119 870'),
+      P('demo-kevin', 'Kevin Mutiso', 'store', 'approved', 40, 'kevin.mutiso@example.com', '0723 119 870'),
       P('demo-faith', 'Faith Njeri', 'store', 'pending', 1, 'faith.njeri@example.com', '0701 552 334'),
-      P('demo-ali', 'Ali Hussein', 'assistant', 'pending', 0, 'ali.hussein@example.com', '0745 300 912'),
+      P('demo-ali', 'Ali Hussein', 'procurement', 'pending', 0, 'ali.hussein@example.com', '0745 300 912'),
     ],
     corrections,
   };

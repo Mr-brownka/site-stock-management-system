@@ -4084,3 +4084,13 @@ button.adAcc:hover { border-color: currentColor; }
 .otChip > i.live { background: #22A35A; box-shadow: 0 0 0 3px rgba(34,163,90,.18); }
 .otOff { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: #8A938F; }
 .otOff small { color: #A9B0AD; margin-left: 2px; }
+
+/* Admin → People → Roles & pages */
+.adRoles { display: flex; flex-direction: column; gap: 0; }
+.arHead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding-bottom: 10px; }
+.arRow { display: grid; grid-template-columns: 200px minmax(0, 1fr) auto; gap: 18px; align-items: start; padding: 14px 0; border-top: 1px solid var(--line); }
+.arRole { display: flex; flex-direction: column; gap: 4px; }
+.arRole small { color: var(--muted); }
+.arSeg { display: inline-flex; margin-top: 6px; width: max-content; }
+.arSeg button { padding: 0 10px; height: 30px; font-size: 12.5px; }
+@media (max-width: 860px) { .arRow { grid-template-columns: minmax(0, 1fr); } }

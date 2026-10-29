@@ -11,12 +11,12 @@ import { ZohoOpen } from '../components/Zoho';
 import { ask, toast } from '../components/feedback';
 import { StartTraining } from '../components/Training';
 import { TRAINING_DAYS } from '../lib/trainingPlan';
-import { PAGES, viewerRole } from '../lib/access';
+import { PAGES, ROLE_DEFAULT, ROLE_NAME, ROLES } from '../lib/access';
 import { describeStructure, subphasesFor } from '../lib/structure';
 
 type Sec = 'overview' | 'approvals' | 'sites' | 'people' | 'items' | 'zoho' | 'activity';
 type SiteTab = 'overview' | 'list' | 'reorder' | 'building' | 'manager' | 'zoho';
-const ROLE_LABEL: Record<Role, string> = { store: 'Store', assistant: 'Assistant', admin: 'Admin', procurement: 'Procurement', site_manager: 'Site manager' };
+const ROLE_LABEL = ROLE_NAME;
 const KIND_LABEL: Record<string, string> = { opening: 'Opening count', delivery: 'Delivery', issue: 'Card', return: 'Return', transfer_in: 'Transfer in', transfer_out: 'Transfer out', correction: 'Correction' };
 const KIND_DOT: Record<string, string> = { opening: '#1B2120', delivery: '#1F7A4D', issue: '#B54708', return: '#2E5AAC', transfer_in: '#6B46C1', transfer_out: '#6B46C1', correction: '#8A5000' };
 const PREFIX: Record<string, string> = { delivery: 'DLV', issue: 'ISS', return: 'RET', transfer_in: 'TRF', transfer_out: 'TRF' };
@@ -688,7 +688,7 @@ function ChecklistEditor({ d, siteId, ids, onSaved }: { d: Data; siteId: string;
 /** An easy password to read out or type: two words and two digits (e.g. "Simba-Tiles-47"). */
 const WORDS = ['Simba', 'Tembo', 'Chui', 'Twiga', 'Nyati', 'Pundamilia', 'Cement', 'Ballast', 'Mawe', 'Mchanga', 'Bati', 'Tiles', 'Store', 'Tower', 'Jengo', 'Kazi'];
 const newPassword = () => `${WORDS[Math.floor(Math.random() * WORDS.length)]}-${WORDS[Math.floor(Math.random() * WORDS.length)]}-${10 + Math.floor(Math.random() * 90)}`;
-const ROLE_OPTS: Role[] = ['store', 'assistant', 'procurement', 'site_manager', 'admin'];
+const ROLE_OPTS: Role[] = ROLES.map((x) => x.key);
 
 const hm = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' });
 /** Who used the app today (first seen → last active), and when everyone else was last on. */
@@ -728,7 +728,38 @@ function ShareDetails({ name, password, phone, onDone }: { name: string; passwor
   );
 }
 
-/** Which pages a person sees. Unticked pages leave their menu. */
+type Perms = Partial<Record<Role, { access: Access; pages: string[] | null }>>;
+/** Roles & pages: what each role can do. Everyone in a role gets the same; change it here once. */
+function RolesPanel({ perms, people, onSaved, onClose }: { perms: Perms | null; people: Profile[]; onSaved: () => void; onClose: () => void }) {
+  const roles = ROLES.filter((r) => r.key !== 'admin');
+  const [draft, setDraft] = useState<Perms>(() => Object.fromEntries(roles.map((r) => [r.key, perms?.[r.key] ?? ROLE_DEFAULT[r.key]])) as Perms);
+  const [busy, setBusy] = useState('');
+  const same = (r: Role) => JSON.stringify(draft[r]) === JSON.stringify(perms?.[r] ?? ROLE_DEFAULT[r]);
+  const save = async (r: Role) => {
+    setBusy(r);
+    try { await api.admin.setRolePermission({ role: r, ...draft[r]! }); toast(`${ROLE_LABEL[r]} saved · applies to everyone in the role`); onSaved(); }
+    catch (e) { toast((e as Error).message, 'warn'); } finally { setBusy(''); }
+  };
+  return (
+    <section className="panel adPad adRoles enter" aria-label="Roles and pages">
+      <div className="arHead"><b>Roles &amp; pages</b><small className="muted">Everyone in a role sees the same pages. People see the change next time they open the app.</small><span className="abGrow" /><button className="adBtn" onClick={onClose}>Close</button></div>
+      {!perms && <div className="note">Role settings aren’t set up in the database yet, so these are the defaults.</div>}
+      {roles.map(({ key: r, label }) => { const v = draft[r]!; const n = people.filter((p) => p.role === r).length; return (
+        <div key={r} className="arRow">
+          <div className="arRole"><b>{label}</b><small>{n} {n === 1 ? 'person' : 'people'}</small>
+            <div className="seg arSeg" role="group" aria-label={`${label} access`}>
+              <button type="button" aria-pressed={v.access === 'edit'} onClick={() => setDraft({ ...draft, [r]: { ...v, access: 'edit' } })}>Can edit</button>
+              <button type="button" aria-pressed={v.access === 'read'} onClick={() => setDraft({ ...draft, [r]: { ...v, access: 'read' } })}>View only</button>
+            </div>
+          </div>
+          <PagesPick value={v.pages} onChange={(pages) => setDraft({ ...draft, [r]: { ...v, pages } })} />
+          <span className="adActs"><button className="adBtn dark" disabled={!perms || same(r) || !!busy} onClick={() => save(r)}>{busy === r ? 'Saving…' : 'Save'}</button></span>
+        </div>); })}
+    </section>
+  );
+}
+
+/** Which pages a role sees. Unticked pages leave their menu. */
 function PagesPick({ value, onChange }: { value: string[] | null; onChange: (v: string[] | null) => void }) {
   const on = (k: string) => value == null || value.includes(k);
   const toggle = (k: string) => { const cur = value ?? PAGES.map((p) => p.key); onChange(cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]); };
@@ -741,10 +772,11 @@ function PagesPick({ value, onChange }: { value: string[] | null; onChange: (v: 
 }
 
 /** The admin adds a person: they sign in with first and last name and the password set here. */
-function AddPerson({ d, busy, act, onClose, onMade }: { d: Data; busy: string; act: Act; onClose: () => void; onMade: (x: { name: string; password: string; phone: string | null }) => void }) {
+function AddPerson({ d, busy, act, perms, onClose, onMade }: { d: Data; busy: string; act: Act; perms: Perms | null; onClose: () => void; onMade: (x: { name: string; password: string; phone: string | null }) => void }) {
   const [v, setV] = useState({ first: '', last: '', phone: '', role: 'store' as Role, site_id: d.sites[0]?.id ?? '', access: 'edit' as Access, pages: null as string[] | null, password: newPassword() });
   const full = `${v.first.trim()} ${v.last.trim()}`.trim();
-  const readOnly = viewerRole(v.role) || v.access === 'read';
+  const isStore = v.role === 'store';
+  const pagesOf = (pp: string[] | null) => pp == null ? 'every page' : `${pp.length} page${pp.length === 1 ? '' : 's'}`;
   return (
     <section className="panel adPad adAdd enter">
       <b>Add a person</b>
@@ -752,18 +784,18 @@ function AddPerson({ d, busy, act, onClose, onMade }: { d: Data; busy: string; a
         <label className="field"><span>First name</span><input className="input" value={v.first} autoFocus onChange={(e) => setV({ ...v, first: e.target.value })} /></label>
         <label className="field"><span>Last name</span><input className="input" value={v.last} onChange={(e) => setV({ ...v, last: e.target.value })} /></label>
         <label className="field"><span>Phone (for WhatsApp)</span><input className="input" inputMode="tel" value={v.phone} placeholder="07…" onChange={(e) => setV({ ...v, phone: e.target.value })} /></label>
-        <label className="field"><span>Role</span><select className="select input" value={v.role} onChange={(e) => { const r = e.target.value as Role; setV({ ...v, role: r, access: viewerRole(r) ? 'read' : v.access }); }}>{ROLE_OPTS.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select></label>
+        <label className="field"><span>Role</span><select className="select input" value={v.role} onChange={(e) => { const r = e.target.value as Role; setV({ ...v, role: r, access: r === 'store' ? v.access : 'read' }); }}>{ROLE_OPTS.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select></label>
         <label className="field"><span>Site</span><select className="select input" value={v.site_id} onChange={(e) => setV({ ...v, site_id: e.target.value })}><option value="__ho">Head office (all sites)</option>{d.sites.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
-        <label className="field"><span>Can they change things?</span><select className="select input" value={viewerRole(v.role) ? 'read' : v.access} disabled={viewerRole(v.role) || v.role === 'admin'} onChange={(e) => setV({ ...v, access: e.target.value as Access })}><option value="edit">Yes, can edit</option><option value="read">No, view only</option></select></label>
+        {isStore && <label className="field"><span>Can they change things?</span><select className="select input" value={v.access} onChange={(e) => setV({ ...v, access: e.target.value as Access })}><option value="edit">Yes, can edit</option><option value="read">No, view only</option></select></label>}
         <label className="field"><span>Password</span><span className="adInline"><input className="input mono" value={v.password} onChange={(e) => setV({ ...v, password: e.target.value })} /><button type="button" className="adBtn" onClick={() => setV({ ...v, password: newPassword() })} title="Make another">↻</button></span></label>
       </div>
-      {readOnly && v.role !== 'admin' && <><span className="adSub">Pages they see</span><PagesPick value={v.pages} onChange={(pages) => setV({ ...v, pages })} /></>}
+      {v.role !== 'admin' && <small className="muted">{ROLE_LABEL[v.role]} get the same pages and access as everyone in that role ({(perms?.[v.role] ?? ROLE_DEFAULT[v.role]).access === 'edit' ? 'can edit' : 'view only'}, {pagesOf((perms?.[v.role] ?? ROLE_DEFAULT[v.role]).pages)}). Change it once for the whole role under “Roles & pages”.</small>}
       <span className="adActs">
         <button className="adBtn" onClick={onClose}>Cancel</button>
         <button className="adBtn dark" disabled={!!busy || !v.first.trim() || !v.last.trim() || v.password.length < 6}
           onClick={() => act('addperson', async () => {
             const ho = v.site_id === '__ho';
-            await api.admin.createPerson({ full_name: full, password: v.password, role: v.role, head_office: ho, site_id: ho ? (d.sites[0]?.id ?? null) : v.site_id || null, access: viewerRole(v.role) ? 'read' : v.access, pages: readOnly ? v.pages : null, phone: v.phone.trim() || null });
+            await api.admin.createPerson({ full_name: full, password: v.password, role: v.role, head_office: ho, site_id: ho ? (d.sites[0]?.id ?? null) : v.site_id || null, access: isStore ? v.access : 'read', pages: null, phone: v.phone.trim() || null });
             onMade({ name: full, password: v.password, phone: v.phone.trim() || null });
           })}>Add {v.first.trim() || 'person'}</button>
       </span>
@@ -775,24 +807,29 @@ function AddPerson({ d, busy, act, onClose, onMade }: { d: Data; busy: string; a
 function People({ d, me, busy, act }: { d: Data; me: User; busy: string; act: Act }) {
   const [adding, setAdding] = useState(false);
   const [share, setShare] = useState<{ name: string; password: string; phone: string | null } | null>(null);
-  const [pagesFor, setPagesFor] = useState<{ id: string; pages: string[] | null } | null>(null);
   const [pwFor, setPwFor] = useState<{ id: string; value: string; show: boolean } | null>(null);
   const [issued, setIssued] = useState<Record<string, { password: string; set_at: string }>>({});
   const loadIssued = useCallback(() => { api.admin.issuedPasswords().then(setIssued).catch(() => undefined); }, []);
   useEffect(() => { loadIssued(); }, [loadIssued, d]);
   const [f, setF] = useState<'all' | 'store' | 'admin' | 'off'>('all');
+  const [perms, setPerms] = useState<Perms | null>(null);
+  const [rolesOpen, setRolesOpen] = useState(false);
+  const loadPerms = useCallback(() => { api.admin.rolePermissions().then((l) => setPerms(Object.fromEntries(l.map((x) => [x.role, { access: x.access, pages: x.pages }])) as Perms)).catch(() => setPerms(null)); }, []);
+  useEffect(() => { loadPerms(); }, [loadPerms]);
+  const roleAcc = (r: Role) => r === 'admin' ? 'edit' : (perms?.[r] ?? ROLE_DEFAULT[r]).access;
   const [edit, setEdit] = useState<{ id: string; full_name: string; phone: string; site_id: string; role: Role } | null>(null);
   const name = (id: string | null | undefined) => d.sites.find((s) => s.id === id)?.name ?? '';
   const active = d.profiles.filter((p) => p.status === 'approved');
   const off = d.profiles.filter((p) => p.status === 'declined' || p.status === 'removed');
-  const rows = f === 'off' ? off : active.filter((p) => f === 'all' || (f === 'admin' ? p.role === 'admin' : p.role !== 'admin'));
+  const rows = f === 'off' ? off : active.filter((p) => f === 'all' || (f === 'store' ? p.role === 'store' : p.role !== 'store'));
   const [act_, setAct] = useState<{ today: Record<string, { first: string; last: string }>; lastSeen: Record<string, string>; signIn: Record<string, string> } | null>(null);
   useEffect(() => { api.admin.activity(new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Nairobi' })).then(setAct).catch(() => setAct(null)); }, [d]);
   const lastSeen = (id: string) => d.docs.filter((x) => x.created_by === id).reduce<string | null>((m, x) => (!m || x.created_at > m ? x.created_at : m), null);
   return (
     <div className="adStack">
-      <Head title="People" lead="Everyone with access. ··· on a row: edit, pages, new password, remove access." right={<><button className="adBtn acc" onClick={() => { setAdding((x) => !x); setShare(null); }}><Icon name="plus" size={16} />Add person</button><Seg opts={[['all', `All ${active.length}`], ['store', 'Store'], ['admin', 'Admin'], ['off', `Removed ${off.length}`]]} value={f} onPick={setF} /></>} />
-      {adding && <AddPerson d={d} busy={busy} act={act} onClose={() => setAdding(false)} onMade={(x) => { setAdding(false); setShare(x); toast(`${x.name} can sign in now`); }} />}
+      <Head title="People" lead="Everyone with access. Pages and access come from each person’s role. ··· on a row: edit, password, remove access." right={<><button className="adBtn acc" onClick={() => { setAdding((x) => !x); setShare(null); }}><Icon name="plus" size={16} />Add person</button><button className="adBtn" onClick={() => setRolesOpen((x) => !x)}>Roles &amp; pages</button><Seg opts={[['all', `All ${active.length}`], ['store', 'Stores'], ['admin', 'Office'], ['off', `Removed ${off.length}`]]} value={f} onPick={setF} /></>} />
+      {adding && <AddPerson d={d} busy={busy} act={act} perms={perms} onClose={() => setAdding(false)} onMade={(x) => { setAdding(false); setShare(x); toast(`${x.name} can sign in now`); }} />}
+      {rolesOpen && <RolesPanel perms={perms} people={active} onSaved={loadPerms} onClose={() => setRolesOpen(false)} />}
       {act_ && <OnToday people={active} act={act_} />}
       {share && <ShareDetails name={share.name} password={share.password} phone={share.phone} onDone={() => setShare(null)} />}
       <section className="panel adCard enter">
@@ -816,19 +853,18 @@ function People({ d, me, busy, act }: { d: Data; me: User; busy: string; act: Ac
                 <span className="adWhoS"><Av name={p.full_name} /><span><b>{p.full_name}</b><small>{p.email}{p.phone ? ` · ${p.phone}` : ''}</small></span></span>
                 <span>{p.role === 'admin' ? 'All sites' : p.head_office ? <span className="adHO">Head office</span> : name(p.site_id) || '—'}</span>
                 <span><span className={`adRole ${p.role}`}>{ROLE_LABEL[p.role]}</span></span>
-                <span>{p.role === 'admin' ? <span className="muted">Everything</span> : viewerRole(p.role)
-                  ? <span className="adAcc read" title={`${ROLE_LABEL[p.role]} is view only`}>View only</span>
+                <span>{p.role === 'admin' ? <span className="muted">Everything</span> : roleAcc(p.role) === 'read'
+                  ? <span className="adAcc read" title={`${ROLE_LABEL[p.role]} is view only (Roles & pages)`}>View only</span>
                   : <button className={`adAcc ${p.access === 'read' ? 'read' : 'edit'}`} title="Tap to switch" disabled={!!busy || f === 'off'}
                       onClick={() => act(p.id, () => api.admin.setProfile(p.id, { access: p.access === 'read' ? 'edit' : 'read' })).then(() => toast(`${p.full_name.split(' ')[0]} can ${p.access === 'read' ? 'edit now' : 'only view now'}`))}>{p.access === 'read' ? 'View only' : 'Can edit'}</button>}
-                  {p.pages && p.role !== 'admin' && <small className="adPgN">{p.pages.length} page{p.pages.length === 1 ? '' : 's'}</small>}</span>
+</span>
                 <span>{f === 'off' ? <span className="stPill idle">{p.status === 'removed' ? 'Removed' : 'Declined'}</span> : p.role === 'admin' ? '—' : p.training_waived ? <span className="muted">Skipped</span> : done >= TRAINING_DAYS ? <span className="stPill ok">Trained</span>
                   : <span className="adTrain"><i><b style={{ width: `${(done / TRAINING_DAYS) * 100}%` }} /></i>{done}/{TRAINING_DAYS} days</span>}</span>
                 <span className="muted">{ago(lastSeen(p.id))}</span>
                 <span className="adRowActs">{f !== 'off' && p.email !== me.email && <button className="adSend" title={`Send ${p.full_name.split(' ')[0]} the login details on WhatsApp`} aria-label={`Send ${p.full_name} the login details`}
-                  onClick={() => { const cur = issued[p.id]; if (cur) { setPwFor(null); setShare({ name: p.full_name, password: cur.password, phone: p.phone }); window.scrollTo({ top: 0, behavior: 'smooth' }); } else { setPagesFor(null); setPwFor({ id: p.id, value: newPassword(), show: true }); toast(`${p.full_name.split(' ')[0]}’s password isn’t known · save a new one and the message opens`, 'warn'); } }}><Icon name="mail" size={15} />Send</button>}
+                  onClick={() => { const cur = issued[p.id]; if (cur) { setPwFor(null); setShare({ name: p.full_name, password: cur.password, phone: p.phone }); window.scrollTo({ top: 0, behavior: 'smooth' }); } else { setPwFor({ id: p.id, value: newPassword(), show: true }); toast(`${p.full_name.split(' ')[0]}’s password isn’t known · save a new one and the message opens`, 'warn'); } }}><Icon name="mail" size={15} />Send</button>}
                 <Dots items={f === 'off' ? [{ label: 'Give access back', onClick: () => act(p.id, () => api.admin.setProfile(p.id, { status: 'approved' })) }] : [
-                  ...(p.role !== 'admin' ? [{ label: 'Pages they see…', onClick: () => setPagesFor({ id: p.id, pages: p.pages ?? null }) }] : []),
-                  { label: 'Password…', onClick: () => { setPagesFor(null); setPwFor({ id: p.id, value: issued[p.id]?.password ?? '', show: false }); } },
+                  { label: 'Password…', onClick: () => { setPwFor({ id: p.id, value: issued[p.id]?.password ?? '', show: false }); } },
                   { label: 'Edit', onClick: () => setEdit({ id: p.id, full_name: p.full_name, phone: p.phone ?? '', site_id: p.head_office ? '__ho' : p.site_id ?? d.sites[0]?.id ?? '', role: p.role }) },
                   ...(p.role !== 'admin' && done < TRAINING_DAYS ? [p.training_waived
                     ? { label: 'Undo skip training', onClick: () => act(p.id, () => api.admin.setProfile(p.id, { training_waived: false })) }
@@ -854,13 +890,6 @@ function People({ d, me, busy, act }: { d: Data; me: User; busy: string; act: Ac
                 <button className="adBtn dark" disabled={!!busy || !changed || pwFor.value.trim().length < 6}
                   onClick={() => { const pw = pwFor.value.trim(); act(p.id, () => api.admin.setPersonPassword(p.id, pw)).then(() => { setPwFor(null); loadIssued(); setShare({ name: p.full_name, password: pw, phone: p.phone }); toast('Password changed'); }); }}>Save new password</button></span>
               <small className="muted">You see the password you gave out until they change it to their own.</small>
-            </div>); })()}
-          {pagesFor && (() => { const p = d.profiles.find((x) => x.id === pagesFor.id); if (!p) return null; return (
-            <div className="adPagesRow enter">
-              <b>Pages {p.full_name.split(' ')[0]} sees</b>
-              <PagesPick value={pagesFor.pages} onChange={(pages) => setPagesFor({ ...pagesFor, pages })} />
-              <span className="adActs"><button className="adBtn" onClick={() => setPagesFor(null)}>Cancel</button>
-                <button className="adBtn dark" disabled={!!busy} onClick={() => act(p.id, () => api.admin.setProfile(p.id, { pages: pagesFor.pages })).then(() => { setPagesFor(null); toast('Saved'); })}>Save pages</button></span>
             </div>); })()}
           {!rows.length && <div className="adEmpty">Nobody here.</div>}
         </div>

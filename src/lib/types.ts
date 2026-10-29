@@ -85,7 +85,8 @@ export interface Submission {
 }
 
 export interface NewPerson { full_name: string; password: string; role: Role; site_id: string | null; access: Access; pages: string[] | null; phone: string | null; head_office?: boolean }
-export type Role = 'store' | 'assistant' | 'admin' | 'procurement' | 'site_manager';
+export type Role = 'admin' | 'store' | 'site_manager' | 'procurement' | 'accounts' | 'coo' | 'ceo' | 'project_manager';
+export interface RolePermission { role: Role; access: Access; pages: string[] | null }
 /** Edit: can enter and change. Read: can only look. */
 export type Access = 'edit' | 'read';
 export type Status = 'pending' | 'approved' | 'declined' | 'removed';
@@ -101,7 +102,9 @@ export interface User {
   /** The admin let this person skip training. */
   trainingWaived?: boolean;
   access?: Access;
-  /** Pages the admin allows (null: every page). */
+  /** What the person's role allows (from the admin's role settings). */
+  roleAccess?: Access;
+  /** Pages the person's role sees (null: every page). */
   pages?: string[] | null;
   /** Head office: not tied to one site; picks which site to look at. */
   headOffice?: boolean;
@@ -186,7 +189,7 @@ export interface SignUpInput {
   full_name: string;
   phone: string;
   site_id: string;
-  role: 'store' | 'assistant';
+  role: 'store';
 }
 
 /** The boxes on a paper that can be fixed. */
@@ -236,6 +239,8 @@ export interface AdminApi {
   /** Delete an account for good (only when they have nothing on record). */
   deletePerson(userId: string): Promise<void>;
   /** Passwords the admin gave out and the person hasn't changed yet. */
+  rolePermissions(): Promise<RolePermission[]>;
+  setRolePermission(p: RolePermission): Promise<void>;
   issuedPasswords(): Promise<Record<string, { password: string; set_at: string }>>;
   /** Who used the app on a day (first and last time seen), and each person's last sign-in. */
   activity(day: string): Promise<{ today: Record<string, { first: string; last: string }>; lastSeen: Record<string, string>; signIn: Record<string, string> }>;

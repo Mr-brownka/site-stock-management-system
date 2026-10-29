@@ -2,7 +2,8 @@
 // before Supabase is connected. Nothing leaves the phone.
 import ITEMS from '../data/items.json';
 import { addDays, today, weekday } from './dates';
-import { delta, type Backend, type Balance, type CorrectionRequest, type Doc, type DocInput, type Draft, type IncomingDismissed, type Field, type Item, type Line, type LineInput, type Profile, type SiteDoc, type SiteInfo, type StockTake, type Submission, type ZohoStatus } from './types';
+import { ROLE_DEFAULT } from './access';
+import { delta, type Role, type Access, type Backend, type Balance, type CorrectionRequest, type Doc, type DocInput, type Draft, type IncomingDismissed, type Field, type Item, type Line, type LineInput, type Profile, type SiteDoc, type SiteInfo, type StockTake, type Submission, type ZohoStatus } from './types';
 
 const KEY = 'ssms-demo-v4';
 const SITE = 'site-reveal';
@@ -12,8 +13,9 @@ export interface Store {
   /** Training mode: the real site's item list, company, site and person. */
   /** Demo: passwords the admin gave out. */
   issued?: Record<string, { password: string; set_at: string }>;
+  rolePerms?: Partial<Record<Role, { access: Access; pages: string[] | null }>>;
   items?: Item[];
-  meta?: { company: string; site: string; user: { email: string; name: string; role: 'store' | 'assistant' | 'admin' | 'procurement' | 'site_manager' } };
+  meta?: { company: string; site: string; user: { email: string; name: string; role: Role } };
   docs: Doc[];
   nextLine: number;
   submissions: Record<string, Submission>;
@@ -45,7 +47,7 @@ function seed(): Store {
     profiles: [
       { id: ME, full_name: 'Abdirahman', email: 'admin@demo', phone: null, role: 'admin', status: 'approved', site_id: SITE, created_at: now, decided_at: now },
       { id: 'demo-peter', full_name: 'Peter Otieno', email: 'peter.o@example.com', phone: '0712 345 678', role: 'store', status: 'pending', site_id: SITE, created_at: now, decided_at: null },
-      { id: 'demo-jane', full_name: 'Jane Wambui', email: 'janew@example.com', phone: '0722 111 222', role: 'assistant', status: 'pending', site_id: 'site-astana', created_at: now, decided_at: null },
+      { id: 'demo-jane', full_name: 'Jane Wambui', email: 'janew@example.com', phone: '0722 111 222', role: 'store', status: 'pending', site_id: 'site-astana', created_at: now, decided_at: null },
     ],
     corrections: [] };
   const t = today();
@@ -155,11 +157,13 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
       async createPerson(p) {
         if (s.profiles.some((x) => x.full_name.toLowerCase() === p.full_name.trim().toLowerCase())) throw new Error(`Someone called ${p.full_name} already has an account.`);
         const nid = uid(); s.issued = { ...(s.issued ?? {}), [nid]: { password: p.password, set_at: new Date().toISOString() } };
-        s.profiles.unshift({ id: nid, full_name: p.full_name.trim(), email: null, phone: p.phone, role: p.role, status: 'approved', site_id: p.site_id, created_at: new Date().toISOString(), decided_at: new Date().toISOString(), access: p.role === 'procurement' || p.role === 'site_manager' ? 'read' : p.access, pages: p.pages, head_office: !!p.head_office, training_waived: p.role !== 'store' && p.role !== 'assistant' });
+        s.profiles.unshift({ id: nid, full_name: p.full_name.trim(), email: null, phone: p.phone, role: p.role, status: 'approved', site_id: p.site_id, created_at: new Date().toISOString(), decided_at: new Date().toISOString(), access: p.access, pages: null, head_office: !!p.head_office, training_waived: p.role !== 'store' });
         save();
       },
       async setPersonPassword(id, pw) { s.issued = { ...(s.issued ?? {}), [id]: { password: pw, set_at: new Date().toISOString() } }; save(); },
       async issuedPasswords() { return s.issued ?? {}; },
+      async rolePermissions() { return (Object.keys(ROLE_DEFAULT) as Role[]).filter((r) => r !== 'admin').map((r) => ({ role: r, ...ROLE_DEFAULT[r], ...(s.rolePerms?.[r] ?? {}) })); },
+      async setRolePermission(p) { s.rolePerms = { ...(s.rolePerms ?? {}), [p.role]: { access: p.access, pages: p.pages } }; save(); },
       async activity() { const now = new Date().toISOString(); return { today: { [s.profiles[0]?.id ?? 'x']: { first: now, last: now } }, lastSeen: {}, signIn: {} }; },
       async deletePerson(id) { s.profiles = s.profiles.filter((x) => x.id !== id); save(); },
       async setProfile(id, patch) { s.profiles = s.profiles.map((p) => (p.id === id ? { ...p, ...patch, decided_at: new Date().toISOString() } : p)); save(); },

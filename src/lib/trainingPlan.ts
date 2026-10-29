@@ -8,7 +8,7 @@ export const isWorkday = (d: string) => weekday(d) !== 'Sun';
 
 /** Admins never need training; the admin can also waive it for someone. */
 export function isTrained(u: User): boolean {
-  return u.role === 'admin' || !!u.trainingWaived || (u.trainingDays?.length ?? 0) >= TRAINING_DAYS;
+  return u.role !== 'store' || !!u.trainingWaived || (u.trainingDays?.length ?? 0) >= TRAINING_DAYS;
 }
 
 export interface TrainingTile { n: number; date: string; state: 'done' | 'today' | 'ahead' }

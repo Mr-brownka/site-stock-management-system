@@ -44,9 +44,10 @@ Deno.serve(async (req) => {
   if (b.action === 'create') {
     const full = String(b.full_name ?? '').replace(/\s+/g, ' ').trim();
     const pw = String(b.password ?? '');
-    const role = ['store', 'assistant', 'admin', 'procurement', 'site_manager'].includes(String(b.role)) ? String(b.role) : 'store';
-    const access = role === 'procurement' || role === 'site_manager' ? 'read' : b.access === 'read' ? 'read' : 'edit';
-    const pages = Array.isArray(b.pages) ? (b.pages as unknown[]).map(String) : null;
+    const role = ['admin', 'store', 'site_manager', 'procurement', 'accounts', 'coo', 'ceo', 'project_manager'].includes(String(b.role)) ? String(b.role) : 'store';
+    // Pages and access come from the role; a store keeper can be made view only one by one.
+    const access = role === 'store' && b.access === 'read' ? 'read' : 'edit';
+    const pages = null;
     if (full.split(' ').length < 2) return json({ error: 'Type the first and last name.' });
     if (pw.length < 6) return json({ error: 'The password needs at least 6 characters.' });
     const { data: same } = await db.from('profiles').select('id').ilike('full_name', full).neq('status', 'removed');
@@ -63,7 +64,7 @@ Deno.serve(async (req) => {
     const { error: e2 } = await db.from('profiles').upsert({
       id: made.user.id, full_name: full, email, phone: (b.phone as string) || null, role, access, pages, head_office: b.head_office === true,
       site_id: (b.site_id as string) || null, status: 'approved', decided_at: new Date().toISOString(),
-      training_waived: role !== 'store' && role !== 'assistant',
+      training_waived: role !== 'store',
     });
     if (e2) return json({ error: e2.message });
     await db.from('issued_passwords').upsert({ user_id: made.user.id, password: pw, set_at: new Date().toISOString(), set_by: user.id });

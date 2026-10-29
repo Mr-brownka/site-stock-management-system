@@ -1,5 +1,5 @@
 import type { Screen } from './store';
-import type { User } from './types';
+import type { Access, Role, User } from './types';
 
 /** The pages the admin can turn on or off for a person (menu sections). */
 export const PAGES: { key: string; label: string; screens: Screen[] }[] = [
@@ -17,9 +17,32 @@ export const PAGES: { key: string; label: string; screens: Screen[] }[] = [
 /** Screens that change stock: never open for someone who can only read. */
 const WRITE: Screen[] = ['deliveries', 'issued', 'returns', 'transfers', 'corrections', 'stocktake'];
 
-/** Procurement and site managers: view only, always. */
-export const viewerRole = (r: string) => r === 'procurement' || r === 'site_manager';
-export const canEdit = (u: User) => u.role === 'admin' || (!viewerRole(u.role) && (u.access ?? 'edit') === 'edit');
+/** The roles, in the order the admin sees them, with their names. */
+export const ROLES: { key: Role; label: string }[] = [
+  { key: 'store', label: 'Stores' },
+  { key: 'site_manager', label: 'Site manager' },
+  { key: 'procurement', label: 'Procurement' },
+  { key: 'accounts', label: 'Accounts' },
+  { key: 'coo', label: 'COO' },
+  { key: 'ceo', label: 'CEO' },
+  { key: 'project_manager', label: 'Project manager' },
+  { key: 'admin', label: 'Admin' },
+];
+export const ROLE_NAME = Object.fromEntries(ROLES.map((r) => [r.key, r.label])) as Record<Role, string>;
+/** What a role may do unless the admin changes it: Stores edit everything, everyone else views. */
+export const ROLE_DEFAULT: Record<Role, { access: Access; pages: string[] | null }> = {
+  admin: { access: 'edit', pages: null },
+  store: { access: 'edit', pages: null },
+  site_manager: { access: 'read', pages: ['home', 'incoming', 'items', 'stocktake', 'deliveries', 'issued', 'returns', 'transfers'] },
+  procurement: { access: 'read', pages: ['home', 'incoming', 'items', 'stocktake', 'deliveries', 'transfers'] },
+  accounts: { access: 'read', pages: ['home', 'items', 'deliveries', 'issued', 'returns', 'transfers', 'reports'] },
+  coo: { access: 'read', pages: null },
+  ceo: { access: 'read', pages: null },
+  project_manager: { access: 'read', pages: ['home', 'incoming', 'items', 'stocktake', 'deliveries', 'issued', 'returns', 'transfers', 'reports'] },
+};
+
+/** Can change things: the admin always; others when their role edits and they haven't been switched to view only. */
+export const canEdit = (u: User) => u.role === 'admin' || ((u.roleAccess ?? ROLE_DEFAULT[u.role]?.access ?? 'read') === 'edit' && (u.access ?? 'edit') === 'edit');
 
 /** May this person open this screen? */
 export function canSee(u: User, s: Screen): boolean {
@@ -38,4 +61,4 @@ export function firstAllowed(u: User): Screen {
   return 'home';
 }
 /** "Admin", "Store keeper", "Procurement · view only" … */
-export const roleLabel = (u: User) => `${{ admin: 'Admin', store: 'Store keeper', assistant: 'Assistant', procurement: 'Procurement', site_manager: 'Site manager' }[u.role] ?? 'Store keeper'}${u.role !== 'admin' && !canEdit(u) ? ' · view only' : ''}`;
+export const roleLabel = (u: User) => `${ROLE_NAME[u.role] ?? 'Stores'}${u.role !== 'admin' && !canEdit(u) ? ' · view only' : ''}`;

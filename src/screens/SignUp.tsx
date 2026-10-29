@@ -9,7 +9,6 @@ export function SignUp({ onBack, onDone }: { onBack: () => void; onDone: () => v
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [site, setSite] = useState('');
-  const [role, setRole] = useState<'store' | 'assistant'>('store');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   useEffect(() => { api.signupSites().then(setSites).catch(() => setSites([])); }, []);
@@ -21,7 +20,7 @@ export function SignUp({ onBack, onDone }: { onBack: () => void; onDone: () => v
     if (problem) { setErr(problem); return; }
     setBusy(true); setErr('');
     try {
-      await api.signUp({ email: email.trim(), password, full_name: name.trim(), phone: '', site_id: site, role });
+      await api.signUp({ email: email.trim(), password, full_name: name.trim(), phone: '', site_id: site, role: 'store' });
       onDone();
     } catch (x) {
       const m = (x as Error).message;
@@ -50,12 +49,6 @@ export function SignUp({ onBack, onDone }: { onBack: () => void; onDone: () => v
                   style={{ minHeight: 50, borderRadius: 12, border: `2px solid ${site === s.id ? 'var(--accent)' : '#C9CFCB'}`, background: site === s.id ? 'var(--accent-soft)' : '#fff', fontWeight: 700 }}>{s.name}</button>
               ))}
               {!sites.length && <span className="small muted">Loading sites…</span>}
-            </div>
-          </div>
-          <div className="field"><span>Your role</span>
-            <div className="seg" role="group" aria-label="Your role" style={{ display: 'flex' }}>
-              <button type="button" style={{ flex: 1 }} aria-pressed={role === 'store'} onClick={() => setRole('store')}>Store</button>
-              <button type="button" style={{ flex: 1 }} aria-pressed={role === 'assistant'} onClick={() => setRole('assistant')}>Assistant</button>
             </div>
           </div>
           {err && <div className="note err" role="alert">{err}</div>}
