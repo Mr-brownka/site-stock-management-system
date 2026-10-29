@@ -193,7 +193,7 @@ export function Home() {
             return (
               <div key={k} className={`ppStep ${isNow ? 'now' : ''} ${v}`}>
                 <span className="ppNo">{v === 'done' ? <Icon name="check" size={16} /> : v === 'none' ? '–' : i}</span>
-                <button className="ppST" onClick={() => { setProcOpen(false); openRecords(go, k); }} title={`See ${s.label.toLowerCase()}`}>
+                <button className="ppST" onClick={() => { setProcOpen(false); add(k); }} title={`Enter ${s.label.toLowerCase()}`}>
                   <b>{s.label}</b><span>{v === 'todo' ? s.desc : st.detail}</span>
                 </button>
                 {isNow ? <button className="ppGo" onClick={() => { setProcOpen(false); go3(); }} autoFocus>{flowStage ? 'Continue' : 'Start here'}<Icon name="arrow" size={16} /></button>

@@ -60,7 +60,7 @@ export function entrySaved(step: StepKey, day: string, go: (s: Screen) => void) 
   openRecords(go, step);
 }
 
-const ORDER: { key: StepKey; label: string }[] = [{ key: 'issued', label: 'Cards' }, { key: 'returns', label: 'Returns' }, { key: 'transfers', label: 'Transfers' }, { key: 'deliveries', label: 'Submit' }];
+const ORDER: { key: StepKey; label: string }[] = [{ key: 'issued', label: 'Issued' }, { key: 'returns', label: 'Returns' }, { key: 'transfers', label: 'Transfers' }, { key: 'deliveries', label: 'Submit' }];
 const at = (s: Stage) => (s === 'issued' || s === 'askCard' || s === 'askNoCard' ? 0 : s === 'askReturns' || s === 'returns' ? 1 : s === 'askSubmit' ? 3 : 2);
 
 /** The questions, shown over whatever page the person is on. */
@@ -120,29 +120,25 @@ export function EveningFlow({ screen }: { screen: Screen }) {
   let size = 'sm';
   if (stage === 'askCard' || stage === 'askNoCard') {
     const first = stage === 'askNoCard';
-    const before = count('issued'); // cards typed during the day, before the check-in
-    body = <Ask kicker={first ? (before ? `Issuance register · ${before} entered during the day` : 'Material Issuance Register') : 'Register saved'} icon="card"
-      title={first ? (before ? `Were any other materials issued ${wd}?` : `Were materials issued ${wd}?`) : 'Anything else issued?'}
-      yes={{ label: first ? 'Yes, open the register' : 'Yes, add more', hint: 'One sheet for the whole day', run: () => enter('issued') }}
-      no={{ label: first && !before ? 'No, nothing issued' : 'No, that’s all', hint: 'Next: returns', run: () => { if (first) none('issued'); to('askReturns'); } }} />;
+    const before = count('issued'); // already entered during the day
+    body = <Ask kicker="Issued items" icon="card" title={first && !before ? `Anything issued ${wd}?` : 'Anything else issued?'}
+      yes={{ label: 'Yes', hint: '', run: () => enter('issued') }}
+      no={{ label: 'No', hint: '', run: () => { if (first && !before) none('issued'); to('askReturns'); } }} />;
   } else if (stage === 'askReturns') {
-    size = 'md';
-    body = <Ask kicker="Returns" icon="back" title={`Were any materials returned to the stores ${wd} from production?`}
-      yes={{ label: 'Yes, enter the returns', hint: 'Against today’s issues', run: () => enter('returns') }}
-      no={{ label: 'No returns', hint: 'Next: project transfers', run: () => { none('returns'); to('askTransfer'); } }} />;
+    body = <Ask kicker="Returns" icon="back" title={`Anything returned ${wd}?`}
+      yes={{ label: 'Yes', hint: '', run: () => enter('returns') }}
+      no={{ label: 'No', hint: '', run: () => { none('returns'); to('askTransfer'); } }} />;
   } else if (stage === 'askTransfer' || stage === 'askMoreTransfer') {
-    const more = stage === 'askMoreTransfer';
-    size = 'md';
-    body = <Ask kicker={more ? `${savedIn(day, 'transfers')} transfer${savedIn(day, 'transfers') === 1 ? '' : 's'} entered now` : count('transfers') ? `Project transfers · ${count('transfers')} entered during the day` : 'Project transfers'} icon="swap"
-      title={more ? 'Was there another project transfer?' : count('transfers') ? `Were there any other project transfers ${wd}?` : `Was there a project transfer ${wd}?`}
-      yes2={[{ label: 'Yes, sent out', hint: 'To another project', run: () => enter('transfers', 'out') }, { label: 'Yes, received', hint: 'From another project', run: () => enter('transfers', 'in') }]}
-      no={{ label: more ? 'No, that’s all' : 'No transfers', hint: 'Next: submit the day', run: () => { if (!more) none('transfers'); to('askSubmit'); } }} />;
+    const more = stage === 'askMoreTransfer' || count('transfers') > 0;
+    body = <Ask kicker="Project transfers" icon="swap" title={more ? 'Another transfer?' : `Any transfer ${wd}?`}
+      yes2={[{ label: 'Yes, sent', hint: '', run: () => enter('transfers', 'out') }, { label: 'Yes, received', hint: '', run: () => enter('transfers', 'in') }]}
+      no={{ label: 'No', hint: '', run: () => { if (!more) none('transfers'); to('askSubmit'); } }} />;
   } else {
     size = 'lg';
     const rows = STEPS.map((s) => ({ s, n: count(s.key) }));
     body = (
       <div className="evAsk">
-        <span className="evKick"><Icon name="check" size={14} />Everything answered</span>
+        <span className="evKick"><Icon name="check" size={14} />Last step</span>
         <h2 id="evTitle">Submit {day === today() ? 'today' : weekdayName(day)}?</h2>
         <div className="evSum">
           {rows.map(({ s, n }) => (
@@ -150,8 +146,8 @@ export function EveningFlow({ screen }: { screen: Screen }) {
               <span>{s.label}</span><b>{n ? `${n} entr${n === 1 ? 'y' : 'ies'}` : s.key === 'deliveries' && zoho ? 'From Zoho' : 'None'}</b></div>
           ))}
         </div>
-        <p className="muted small">Submitting locks the day and makes the balances final. Mistakes are fixed later with “Fix an error”.</p>
-        <button className="evGo" disabled={busy} onClick={submit} autoFocus>{busy ? 'Submitting…' : 'Submit the day'}<Icon name="check" size={18} /></button>
+        <p className="muted small">This locks the day.</p>
+        <button className="evGo" disabled={busy} onClick={submit} autoFocus>{busy ? 'Submitting…' : 'Yes, submit'}<Icon name="check" size={18} /></button>
         <button className="btn link" onClick={() => to('askTransfer')}>Back</button>
       </div>
     );
@@ -187,9 +183,9 @@ function Ask({ kicker, icon, title, yes, yes2, no }: { kicker: string; icon: str
       <h2 id="evTitle">{title}</h2>
       <div className={`evChoices ${yes2 ? 'three' : ''}`}>
         {(yes2 ?? [yes!]).map((c, i) => (
-          <button key={c.label} className="evYes" onClick={c.run} autoFocus={i === 0}><b>{c.label}</b><small>{c.hint}</small><Icon name="arrow" size={18} /></button>
+          <button key={c.label} className="evYes" onClick={c.run} autoFocus={i === 0}><b>{c.label}</b>{c.hint && <small>{c.hint}</small>}<Icon name="arrow" size={18} /></button>
         ))}
-        <button className="evNo" onClick={no.run}><b>{no.label}</b><small>{no.hint}</small></button>
+        <button className="evNo" onClick={no.run}><b>{no.label}</b>{no.hint && <small>{no.hint}</small>}</button>
       </div>
       {yes && <span className="evKeys"><kbd>Y</kbd> yes · <kbd>N</kbd> no</span>}
     </div>
