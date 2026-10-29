@@ -4099,3 +4099,36 @@ button.adAcc:hover { border-color: currentColor; }
 .mirTd.mirSaved { background: #F6F7F5; color: #59625F; }
 .mirSavedName { flex: 1; padding: 10px 12px; font-size: 16px; font-weight: 600; color: var(--ink); }
 .mirSavedQty { flex: 1; padding: 10px 12px; font-size: 16px; text-align: right; font-weight: 700; color: var(--ink); }
+
+/* The guide: a spotlight tour on the real screens. */
+.tour { position: fixed; inset: 0; z-index: 400; }
+.tourDim { position: fixed; left: 50%; top: 50%; width: 0; height: 0; box-shadow: 0 0 0 9999px rgba(12,20,18,.55); }
+.tourHole { position: fixed; border-radius: 14px; box-shadow: 0 0 0 4px var(--accent, #FCA72D), 0 0 0 9999px rgba(12,20,18,.55); transition: all .28s cubic-bezier(.2,.8,.2,1); pointer-events: none; }
+.tourCard { position: fixed; background: #fff; color: var(--ink); border-radius: 14px; padding: 18px 18px 14px; box-shadow: 0 24px 60px -24px rgba(0,0,0,.55); display: flex; flex-direction: column; gap: 9px; animation: tourIn .24s ease-out; }
+.tourCard.center { width: 460px; }
+@media (max-width: 760px) { .tourCard.center { width: auto; } }
+.tourCard b { font-size: 19px; line-height: 1.25; }
+.tourCard p { margin: 0; color: #3F4845; line-height: 1.5; font-size: 14.5px; }
+.tourKick { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #B26A00; }
+.tourDots { display: flex; gap: 5px; margin: 2px 0; }
+.tourDots i { width: 8px; height: 8px; border-radius: 9px; background: #E1E5E2; transition: width .2s; }
+.tourDots i.on { width: 22px; background: var(--accent, #FCA72D); } .tourDots i.done { background: #F6D29A; }
+.tourActs { display: flex; align-items: center; gap: 8px; }
+@keyframes tourIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.tourCard.center { animation: none; }
+
+/* Get started checklist on the dashboard (new store keepers, until the first day is submitted). */
+.gsCard { border: 1.5px solid var(--accent, #FCA72D); background: #FFFCF5; border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.gsCard header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.gsCard header b { font-size: 16px; }
+.gsBar { width: 160px; height: 8px; border-radius: 9px; background: #F1E7D2; overflow: hidden; }
+.gsBar i { display: block; height: 100%; background: var(--accent, #FCA72D); border-radius: 9px; transition: width .3s; }
+.gsList { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.gsTask { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 10px 12px; border-radius: 10px; background: #fff; border: 1px solid #E4E7E5; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.gsTask:hover:not(:disabled) { border-color: var(--accent, #FCA72D); }
+.gsTask b { font-size: 13.5px; line-height: 1.3; } .gsTask small { color: var(--muted); font-size: 12.5px; }
+.gsTask.done { background: #EEF7F1; border-color: #CFE8D8; cursor: default; }
+.gsTask.done b { color: var(--muted); text-decoration: line-through; }
+.gsN { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 800; border: 1.5px solid #C9CFCB; color: var(--muted); }
+.gsTask.done .gsN { background: #1F7A4D; border-color: #1F7A4D; color: #fff; }
+@media (max-width: 860px) { .gsList { grid-template-columns: minmax(0, 1fr); } .gsTask { flex-direction: row; align-items: center; } .gsTask small { margin-left: auto; } .gsBar { display: none; } }

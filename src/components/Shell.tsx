@@ -13,10 +13,9 @@ import { toast } from './feedback';
 import { DatePick } from './DatePick';
 import { continueEvening, EveningFlow, stageFor } from './EveningFlow';
 import { Icon, PulseDot, Ring, useMinutesToClose } from './fx';
-import { StartTraining } from './Training';
 import { CommandPalette } from './CommandPalette';
 import { Welcome } from '../screens/Welcome';
-import { isTrained } from '../lib/trainingPlan';
+import { noteVisit, showMeAround, Tour } from './Tour';
 import { UnfinishedCard } from './Unfinished';
 
 const CHECKIN: Screen[] = ['home', 'submitted'];
@@ -67,6 +66,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
   const newDel = useNewZohoDeliveries();
   const [pwOpen, setPwOpen] = useState(false);
   useEffect(() => { if (screen === 'rec-deliveries' && newDel) markDeliveriesSeen(); }, [screen, newDel]);
+  useEffect(() => { if (user.role === 'store') noteVisit(user, screen); }, [screen, user]);
   const [mini, setMini] = useState(readRail);
   // The menu can be dragged wider or narrower by its right edge; each person's width is remembered.
   const [railW] = useState(readRailW);
@@ -102,8 +102,9 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
   // A store with no stock take yet starts on the welcome page.
   // New store members stay on the welcome page until the training days are done and the store has stock
   // (a store with no stock unlocks its first stock take after training).
-  const onboarding = api.mode !== 'training' && user.role !== 'admin' && (!isTrained(user) || !balances.length);
-  if (onboarding && !(screen === 'stocktake' && isTrained(user))) return <><ZohoAutoSync /><Welcome /></>;
+  // No training days any more: a new store keeper lands on the real dashboard and the guide shows them around.
+  const onboarding = api.mode !== 'training' && user.role !== 'admin' && !balances.length;
+  if (onboarding && screen !== 'stocktake') return <><ZohoAutoSync /><Welcome /></>;
   if (screen === 'welcome' || (!balances.length && (screen === 'home' || screen === 'dashboard'))) return <><ZohoAutoSync /><Welcome /></>;
   const done = STEPS.filter((s) => s.key !== 'deliveries' && stepState(s.key) !== 'todo').length; // the three evening steps
   const urgent = !submission && min < 60;
@@ -159,7 +160,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
             <div className="railUserMenu" role="menu" onMouseLeave={() => setUserMenu(false)}>
               {user.role === 'admin' && <button className="railLink" role="menuitem" onClick={() => { setUserMenu(false); openAdmin(); }}><Icon name="user" /><span className="rlText">Admin</span></button>}
               <ZohoStatusLine compact />
-              <StartTraining user={user} label="Training mode" />
+              {(user.role === 'store' || user.role === 'admin') && <button className="railLink" role="menuitem" onClick={() => { setUserMenu(false); showMeAround(); }}><Icon name="checkin" /><span className="rlText">Show me around</span></button>}
               <button className="railLink" role="menuitem" onClick={() => { setUserMenu(false); setPwOpen(true); }}><Icon name="lock" /><span className="rlText">Change password</span></button>
               <button className="railLink signOut" role="menuitem" onClick={signOut}><Icon name="out" /><span className="rlText">Sign out</span></button>
             </div>
@@ -172,6 +173,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
         </div>
       </aside>
 
+      {api.mode !== 'training' && <Tour />}
       <div className="shellMain">
         {catchUp && (
           <div className="catchBar" role="status">
@@ -263,7 +265,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
                 <div className="mList">
                   {user.role === 'admin' && <button className="railLink" onClick={() => { setSheet(null); openAdmin(); }}><Icon name="user" /><span className="rlText">Admin</span></button>}
                   <ZohoStatusLine compact />
-                  <StartTraining user={user} label="Training mode" />
+                  {(user.role === 'store' || user.role === 'admin') && <button className="railLink" onClick={() => { setSheet(null); showMeAround(); }}><Icon name="checkin" /><span className="rlText">Show me around</span></button>}
                   <button className="railLink" onClick={() => { setSheet(null); setPwOpen(true); }}><Icon name="lock" /><span className="rlText">Change password</span></button>
                   <button className="railLink signOut" onClick={signOut}><Icon name="out" /><span className="rlText">Sign out</span></button>
                 </div>

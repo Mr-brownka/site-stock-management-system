@@ -10,7 +10,6 @@ import type { Access, AlertContact, Balance, ZohoConnection, ZohoItemMatch, Zoho
 import { ZohoOpen } from '../components/Zoho';
 import { ask, toast } from '../components/feedback';
 import { StartTraining } from '../components/Training';
-import { TRAINING_DAYS } from '../lib/trainingPlan';
 import { PAGES, ROLE_DEFAULT, ROLE_NAME, ROLES } from '../lib/access';
 import { describeStructure, subphasesFor } from '../lib/structure';
 
@@ -371,7 +370,7 @@ function Approvals({ d, sel, setSel, busy, act }: { d: Data; sel: string | null;
                       <button className="adBtn" disabled={!!busy} onClick={() => act(p.id, () => api.admin.setProfile(p.id, { status: 'declined' })).then(() => setSel(null))}>Decline</button>
                       <button className="adBtn ok" disabled={!!busy} onClick={() => act(p.id, () => api.admin.setProfile(p.id, { status: 'approved', site_id: c.site, role: c.role })).then(() => { toast(`${p.full_name} can sign in now`); setSel(null); })}>Approve</button>
                     </div>
-                    <small className="muted">After approval they do the {TRAINING_DAYS}-day training first, unless you skip it in People.</small>
+                    <small className="muted">After approval, Stores get a short guide the first time they open the app.</small>
                   </>
                 ) : <span className={`stPill ${p.status === 'approved' ? 'ok' : 'out'}`}>{p.status === 'approved' ? 'Approved' : 'Declined'} {p.decided_at ? ago(p.decided_at) : ''}</span>}
               </div>
@@ -536,7 +535,6 @@ function SitePage({ d, day, id, tab, setTab, back, busy, act }: { d: Data; day: 
   const low = lowCount(d.balances, id, d.docs, day);
   const out = bal.filter((b) => b.balance <= 0).length;
   const withLevel = bal.filter((b) => b.reorder_level != null).length;
-  const trainingN = team.filter((p) => !p.training_waived && (p.training_days?.length ?? 0) < TRAINING_DAYS).length;
   const conn = d.conns.filter((c) => c.site_id === id);
   const ct = d.contacts[id];
   const TABS: [SiteTab, string][] = [['overview', 'Overview'], ['list', 'Stock take list'], ['reorder', 'Reorder levels'], ['building', 'Building & week'], ['manager', 'Site manager'], ['zoho', 'Zoho']];
@@ -554,7 +552,7 @@ function SitePage({ d, day, id, tab, setTab, back, busy, act }: { d: Data; day: 
             <div className="panel"><span>Items in store</span><b className="mono">{inStore}</b><small>{bal.length} ever held</small></div>
             <div className="panel"><span>Low stock</span><b className={`mono ${low ? 'red' : ''}`}>{low}</b><small>{out} finished</small></div>
             <div className="panel"><span>Entries, last 14 days</span><b className="mono">{d.docs.filter((x) => x.site_id === id && x.kind !== 'correction').length}</b><small>{d.docs.filter((x) => x.site_id === id && x.doc_date === day).length} today</small></div>
-            <div className="panel"><span>Team</span><b className="mono">{team.length}</b><small>{trainingN ? `${trainingN} in training` : 'All trained'}</small></div>
+            <div className="panel"><span>Team</span><b className="mono">{team.length}</b><small>{team.filter((p) => p.role === 'store').length} in the store</small></div>
           </div>
           <section className="panel adCard">
             <div className="adSetRow">
@@ -834,9 +832,8 @@ function People({ d, me, busy, act }: { d: Data; me: User; busy: string; act: Ac
       {share && <ShareDetails name={share.name} password={share.password} phone={share.phone} onDone={() => setShare(null)} />}
       <section className="panel adCard enter">
         <div className="adTable adPeople">
-          <div className="th"><span>Name</span><span>Site</span><span>Role</span><span>Access</span><span>Training</span><span>Last entry</span><span /></div>
+          <div className="th"><span>Name</span><span>Site</span><span>Role</span><span>Access</span><span>Joined</span><span>Last entry</span><span /></div>
           {rows.map((p) => {
-            const done = p.training_days?.length ?? 0;
             return edit?.id === p.id ? (
               <div key={p.id} className="tr adEditRow">
                 <label className="field"><span>Full name</span><input className="input" value={edit.full_name} autoFocus onChange={(e) => setEdit({ ...edit, full_name: e.target.value })} /></label>
@@ -858,17 +855,13 @@ function People({ d, me, busy, act }: { d: Data; me: User; busy: string; act: Ac
                   : <button className={`adAcc ${p.access === 'read' ? 'read' : 'edit'}`} title="Tap to switch" disabled={!!busy || f === 'off'}
                       onClick={() => act(p.id, () => api.admin.setProfile(p.id, { access: p.access === 'read' ? 'edit' : 'read' })).then(() => toast(`${p.full_name.split(' ')[0]} can ${p.access === 'read' ? 'edit now' : 'only view now'}`))}>{p.access === 'read' ? 'View only' : 'Can edit'}</button>}
 </span>
-                <span>{f === 'off' ? <span className="stPill idle">{p.status === 'removed' ? 'Removed' : 'Declined'}</span> : p.role === 'admin' ? '—' : p.training_waived ? <span className="muted">Skipped</span> : done >= TRAINING_DAYS ? <span className="stPill ok">Trained</span>
-                  : <span className="adTrain"><i><b style={{ width: `${(done / TRAINING_DAYS) * 100}%` }} /></i>{done}/{TRAINING_DAYS} days</span>}</span>
+                <span>{f === 'off' ? <span className="stPill idle">{p.status === 'removed' ? 'Removed' : 'Declined'}</span> : <span className="muted">{ago(p.decided_at ?? p.created_at)}</span>}</span>
                 <span className="muted">{ago(lastSeen(p.id))}</span>
                 <span className="adRowActs">{f !== 'off' && p.email !== me.email && <button className="adSend" title={`Send ${p.full_name.split(' ')[0]} the login details on WhatsApp`} aria-label={`Send ${p.full_name} the login details`}
                   onClick={() => { const cur = issued[p.id]; if (cur) { setPwFor(null); setShare({ name: p.full_name, password: cur.password, phone: p.phone }); window.scrollTo({ top: 0, behavior: 'smooth' }); } else { setPwFor({ id: p.id, value: newPassword(), show: true }); toast(`${p.full_name.split(' ')[0]}’s password isn’t known · save a new one and the message opens`, 'warn'); } }}><Icon name="mail" size={15} />Send</button>}
                 <Dots items={f === 'off' ? [{ label: 'Give access back', onClick: () => act(p.id, () => api.admin.setProfile(p.id, { status: 'approved' })) }] : [
                   { label: 'Password…', onClick: () => { setPwFor({ id: p.id, value: issued[p.id]?.password ?? '', show: false }); } },
                   { label: 'Edit', onClick: () => setEdit({ id: p.id, full_name: p.full_name, phone: p.phone ?? '', site_id: p.head_office ? '__ho' : p.site_id ?? d.sites[0]?.id ?? '', role: p.role }) },
-                  ...(p.role !== 'admin' && done < TRAINING_DAYS ? [p.training_waived
-                    ? { label: 'Undo skip training', onClick: () => act(p.id, () => api.admin.setProfile(p.id, { training_waived: false })) }
-                    : { label: 'Skip training', onClick: async () => { if (await ask({ title: `Let ${p.full_name} skip training?`, body: <p>Their store opens now (or the first stock take unlocks, if the store has no stock yet).</p>, yes: 'Skip training' })) act(p.id, () => api.admin.setProfile(p.id, { training_waived: true })); } }] : []),
                   ...(p.email !== me.email ? [{ label: 'Delete account', danger: true, onClick: async () => { if (await ask({ title: `Delete ${p.full_name}’s account?`, body: <p>The account is gone for good and the name is free to use again. If they have entries on record, use “Remove access” instead so the entries keep their name.</p>, yes: 'Delete account', tone: 'danger' })) act(p.id, () => api.admin.deletePerson(p.id)).then(() => toast(`${p.full_name}’s account is deleted`)); } }] : []),
                   ...(p.email !== me.email ? [{ label: 'Remove access', danger: true, onClick: async () => { if (await ask({ title: `Remove ${p.full_name}’s access?`, body: <p>They will no longer be able to sign in. You can give access back later.</p>, yes: 'Remove access', tone: 'danger' })) act(p.id, () => api.admin.setProfile(p.id, { status: 'removed' })); } }] : []),
                 ]} /></span>

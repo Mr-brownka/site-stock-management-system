@@ -22,6 +22,7 @@ import { continueEvening, startEvening, useFlow } from '../components/EveningFlo
 import { IncomingPanel, useIncomingCounts } from '../components/Incoming';
 import { Ring } from '../components/Ring';
 import { canEdit } from '../lib/access';
+import { GetStarted } from '../components/Tour';
 
 
 export function Home() {
@@ -308,6 +309,7 @@ export function Home() {
           { day: realToday, kind: 'today', label: 'TODAY', sub: catchUp ? 'After these' : 'Waiting' },
         ]} />
       )}
+      <GetStarted />
       {phoneA}
       <section className="kpis k3 k2 kStrip" aria-label="Key figures">
         <button className="kpi3 green enter" style={{ animationDelay: '.05s' }} onClick={() => go('balances')}>
