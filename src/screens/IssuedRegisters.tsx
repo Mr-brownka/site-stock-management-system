@@ -5,7 +5,9 @@ import { useData } from '../lib/store';
 import type { Doc } from '../lib/types';
 import { Icon } from '../components/fx';
 import { fmt } from '../components/ui';
-import { toast } from '../components/feedback';
+import { ask, toast } from '../components/feedback';
+import { canEdit } from '../lib/access';
+import { STEPS } from '../lib/store';
 
 export type RegRow = { doc: Doc; ref: string };
 
@@ -69,7 +71,8 @@ export function IssuedTable({ rows, all, onOpen }: { rows: RegRow[]; all: Doc[] 
 
 /** One day's register as the sheet: what went out, what came back, what was used. */
 export function RegisterSheet({ row, all, onClose, onFix }: { row: RegRow; all: Doc[] | null; onClose: () => void; onFix?: () => void }) {
-  const { itemById, realToday, startCatchUp, go } = useData();
+  const { itemById, realToday, startCatchUp, go, recent, refresh, refreshPending, user } = useData();
+  const [busy, setBusy] = useState(false);
   const returned = useReturned(all);
   const [submitted, setSubmitted] = useState<boolean | null>(null);
   const d = row.doc;
@@ -81,12 +84,27 @@ export function RegisterSheet({ row, all, onClose, onFix }: { row: RegRow; all: 
     if (d.doc_date !== realToday) startCatchUp(d.doc_date);
     go('issued');
   };
+  // Submit the day straight from its register (the same as the evening check-in's last step).
+  const submit = async () => {
+    const dayDocs = recent.filter((x) => x.doc_date === d.doc_date);
+    const steps = Object.fromEntries(STEPS.map((st) => [st.key, dayDocs.some((x) => st.kinds.includes(x.kind)) ? 'done' : 'none']));
+    const wd = new Date(d.doc_date + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'UTC' });
+    const ok = await ask({ title: `Submit ${wd}?`, body: <p>{STEPS.map((st) => { const n = dayDocs.filter((x) => st.kinds.includes(x.kind)).length; return `${st.label}: ${n || 'none'}`; }).join(' · ')}. After submitting, the day is locked and balances are final. Mistakes are fixed with Fix an error.</p>, yes: 'Submit the day', no: 'Not yet', tone: 'go' });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      await api.submitDay(d.doc_date, steps as never);
+      setSubmitted(true); toast(`${wd} submitted · balances are final`);
+      await Promise.all([refresh(), refreshPending()]);
+    } catch (e) { toast((e as Error).message, 'warn'); } finally { setBusy(false); }
+  };
   return (
     <section className="recDetail regSheet">
       <header>
         <div><span className="recKicker">{d.ref_no ? `Withdrawal card ${d.ref_no}` : 'Material Issuance Register'} · Stock out</span><h2>{niceDate(d.doc_date)}</h2>
           <small className="muted">{row.ref} · store {d.authorised_by || '—'} · {d.lines.length} item{d.lines.length === 1 ? '' : 's'}</small></div>
         {submitted !== null && <span className={`regPill ${open ? (d.doc_date === realToday ? 'open' : 'no') : 'ok'}`}>{open ? (d.doc_date === realToday ? 'Today · open' : 'Not submitted') : 'Submitted'}</span>}
+        {submitted === false && canEdit(user) && <button className="btn accent sm regSubmit" disabled={busy} onClick={submit}><Icon name="check" size={16} />{busy ? 'Submitting…' : 'Submit'}</button>}
         {!d.ref_no && onFix && <button className="btn ghost sm" onClick={addTo}><Icon name="plus" size={16} />Add to it</button>}
         {onFix && <button className="btn ghost sm" onClick={onFix}><Icon name="fix" size={16} />Fix an error</button>}
         <button className="btn ghost sm" onClick={() => window.print()}><Icon name="print" size={16} />Print</button>

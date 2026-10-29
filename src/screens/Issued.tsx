@@ -26,6 +26,8 @@ function RegisterForm({ done, again }: { done: () => void; again: () => Promise<
   const [addedTo, setAddedTo] = useState(false);
   // One register a day: when the day already has one, this sheet adds to it.
   const existing = recent.find((d) => d.kind === 'issue' && !d.ref_no && d.doc_date === day);
+  const prior = existing?.lines ?? [];
+  const off = prior.length; // new rows are numbered after the saved ones
   useEffect(() => { api.siteTeam().then((t) => setTeam(t.length ? t : [user.name])).catch(() => undefined); }, [user.name]);
 
   const patch = (k: number, q: Partial<LineDraft>) => setLines((ls) => {
@@ -83,7 +85,7 @@ function RegisterForm({ done, again }: { done: () => void; again: () => Promise<
 
   return (
     <div className="stack enter">
-      {existing && <div className="note mirAdd" role="status"><b>{dateText} already has a register</b> with {existing.lines.length} item{existing.lines.length === 1 ? '' : 's'}. What you type here is added to it: the same item adds up, a new item is a new line.</div>}
+      {existing && <div className="note mirAdd" role="status"><b>Continuing {dateText}’s register.</b> {prior.length === 1 ? 'Row 1 is' : `Rows 1–${prior.length} are`} already saved. Add the next items below; the same item again adds to its row.</div>}
       <div ref={root} className={`mir ${stamped ? 'stamped' : ''}`} role="group" aria-label="Material Issuance Register"
         onFocusCapture={(e) => { const k = (e.target as HTMLElement).closest<HTMLElement>('[data-g]')?.dataset.g; if (k) setGuide(k); }}>
         {stamped && <div className="stampMark big" aria-live="polite"><b>{addedTo ? 'ADDED' : 'ENTERED'}</b><small>{dateText} · {store.split(' ')[0]}</small></div>}
@@ -94,6 +96,16 @@ function RegisterForm({ done, again }: { done: () => void; again: () => Promise<
         </div>
         <div className="mirGrid">
           <div className="mirTh c">#</div><div className="mirTh">Item</div><div className="mirTh r">Qty</div><div className="mirTh">Unit</div><div className="mirTh r">Balance</div>
+          {prior.map((l, i) => {
+            const it = itemById.get(l.item_id);
+            return [
+              <div key={`pn${l.id}`} className="mirTd c mono mirSaved">{i + 1}</div>,
+              <div key={`pi${l.id}`} className="mirTd mirItem mirSaved"><span className="mirSavedName">{it?.name ?? 'Item'}</span>{totalFor(l.item_id) > 0 && <span className="mirDup">+{fmt(totalFor(l.item_id))} below</span>}</div>,
+              <div key={`pq${l.id}`} className="mirTd mirSaved"><span className="mirSavedQty mono">{fmt(Number(l.qty) + totalFor(l.item_id))}</span></div>,
+              <div key={`pu${l.id}`} className="mirTd mirUnit mirSaved">{it?.unit ?? ''}</div>,
+              <div key={`pa${l.id}`} className="mirTd r mono mirAfter mirSaved">{fmt(balanceOf(l.item_id) - totalFor(l.item_id))}</div>,
+            ];
+          })}
           {lines.map((l, i) => {
             const q = Number(l.qty) || 0;
             const have = l.item ? balanceOf(l.item.id) : 0;
@@ -102,11 +114,12 @@ function RegisterForm({ done, again }: { done: () => void; again: () => Promise<
             const dup = !!l.item && lines.findIndex((x) => x.item?.id === l.item!.id) !== i;
             const ms = lineMiss(lines, i, flag);
             return [
-              <div key={`n${l.key}`} className="mirTd c mono">{i + 1}</div>,
+              <div key={`n${l.key}`} className="mirTd c mono">{off + i + 1}</div>,
               <div key={`i${l.key}`} className="mirTd mirItem">
-                <ItemPicker bare nav={`item${i}`} label={`Item ${i + 1}`} item={l.item} onPick={(it) => patch(l.key, { item: it })} inputClass={`mirIn ${ms.item ? 'miss' : ''}`} placeholder={i === firstEmpty ? 'Item…' : ''} glow={g(`item${i}`)}
+                <ItemPicker bare nav={`item${i}`} label={`Item ${off + i + 1}`} item={l.item} onPick={(it) => patch(l.key, { item: it })} inputClass={`mirIn ${ms.item ? 'miss' : ''}`} placeholder={i === firstEmpty ? 'Item…' : ''} glow={g(`item${i}`)}
                   onNext={() => goTo(`qty${i}`)} onEmptyEnter={() => save()} />
-                {dup && <span className="mirDup">adds to row {lines.findIndex((x) => x.item?.id === l.item!.id) + 1}</span>}
+                {dup && <span className="mirDup">adds to row {off + lines.findIndex((x) => x.item?.id === l.item!.id) + 1}</span>}
+                {!dup && l.item && prior.some((x) => x.item_id === l.item!.id) && <span className="mirDup">adds to row {prior.findIndex((x) => x.item_id === l.item!.id) + 1}</span>}
               </div>,
               <div key={`q${l.key}`} className="mirTd">
                 <label className="field bare"><span className="sr">Qty for item {i + 1}</span>
@@ -128,8 +141,8 @@ function RegisterForm({ done, again }: { done: () => void; again: () => Promise<
         <button className="btn ghost sm" onClick={() => openRecords(go, 'issued')}>Cancel</button>
         <button className="btn link" disabled={!!busy} onClick={saveDraft}>{busy === 'draft' ? 'Saving…' : 'Save as draft'}</button>
         <span className="abGrow" />
-        <span className="small muted abHint">{used.length ? `${merged().size} item${merged().size === 1 ? '' : 's'} · one entry for the day` : 'Item, quantity, Enter. Next item.'}</span>
-        <button className="btn accent sm" disabled={!!busy} onClick={save}>{busy === 'save' ? 'Saving…' : 'Save the register'}</button>
+        <span className="small muted abHint">{used.length ? `${merged().size} item${merged().size === 1 ? '' : 's'} to add${off ? ` · ${off} already saved` : ' · one entry for the day'}` : off ? `${off} item${off === 1 ? '' : 's'} saved · add the next one` : 'Item, quantity, Enter. Next item.'}</span>
+        <button className="btn accent sm" disabled={!!busy} onClick={save}>{busy === 'save' ? 'Saving…' : off ? 'Add to the register' : 'Save the register'}</button>
       </div>
     </div>
   );
