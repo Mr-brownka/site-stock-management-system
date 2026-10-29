@@ -3,6 +3,7 @@ import { StepShell } from '../components/StepShell';
 import { checkLines, fmt, ItemPicker, lineMiss, newLine, Suggest, type LineDraft } from '../components/ui';
 import { api } from '../lib/api';
 import { useData } from '../lib/store';
+import type { Item } from '../lib/types';
 import { focusMiss, linesFromPayload, linesToPayload, useDraft } from '../components/Unfinished';
 import { ask, toast } from '../components/feedback';
 import { openRecords } from '../components/AddEntry';
@@ -54,6 +55,17 @@ function RegisterForm({ done, again }: { done: () => void; again: () => Promise<
   };
   const totalFor = (id: number) => merged().get(id) ?? 0;
 
+  // Picking an item that is already on the sheet: that row's quantity is where to change it.
+  const [editHere, setEditHere] = useState<number | null>(null);
+  const jump = useRef<string | null>(null);
+  const pick = (k: number, i: number, it: Item | null) => {
+    const j = it ? lines.findIndex((x, n) => n !== i && x.item?.id === it.id) : -1;
+    if (j < 0) { patch(k, { item: it }); return; }
+    setLines((ls) => ls.map((x) => (x.key === k ? newLine() : x))); // the repeated row empties
+    setEditHere(lines[j].key);
+    jump.current = `qty${j}`;
+    toast(`${it!.name} is already on row ${j + 1}. Change its quantity there.`);
+  };
   const root = useRef<HTMLDivElement>(null);
   const [guide, setGuide] = useState('item0');
   const goTo = (key: string) => {
@@ -121,16 +133,17 @@ function RegisterForm({ done, again }: { done: () => void; again: () => Promise<
             return [
               <div key={`n${l.key}`} className="mirTd c mono">{i + 1}</div>,
               <div key={`i${l.key}`} className="mirTd mirItem">
-                <ItemPicker bare nav={`item${i}`} label={`Item ${i + 1}`} item={l.item} onPick={(it) => patch(l.key, { item: it })} inputClass={`mirIn ${ms.item ? 'miss' : ''}`} placeholder={i === firstEmpty ? 'Item…' : ''} glow={g(`item${i}`)}
-                  onNext={() => goTo(`qty${i}`)} onEmptyEnter={() => save()} />
+                <ItemPicker bare nav={`item${i}`} label={`Item ${i + 1}`} item={l.item} onPick={(it) => pick(l.key, i, it)} inputClass={`mirIn ${ms.item ? 'miss' : ''}`} placeholder={i === firstEmpty ? 'Item…' : ''} glow={g(`item${i}`)}
+                  onNext={() => { const k = jump.current; jump.current = null; goTo(k ?? `qty${i}`); if (k) setTimeout(() => root.current?.querySelector<HTMLInputElement>(`[data-g="${k}"]`)?.select(), 30); }} onEmptyEnter={() => save()} />
                 {dup && <span className="mirDup">adds to row {lines.findIndex((x) => x.item?.id === l.item!.id) + 1}</span>}
               </div>,
               <div key={`q${l.key}`} className="mirTd">
                 <label className="field bare"><span className="sr">Qty for item {i + 1}</span>
-                  <input data-nav data-g={`qty${i}`} className={`input mirIn num ${over ? 'bad' : g(`qty${i}`) ? 'next' : ''} ${ms.qty ? 'miss' : ''}`} inputMode="decimal" value={l.qty}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); goTo(`item${i + 1}`); } }}
+                  <input data-nav data-g={`qty${i}`} className={`input mirIn num ${over ? 'bad' : g(`qty${i}`) ? 'next' : ''} ${ms.qty ? 'miss' : ''} ${editHere === l.key ? 'editHere' : ''}`} inputMode="decimal" value={l.qty}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (editHere === l.key) { setEditHere(null); const n = lines.findIndex((x) => !x.item); goTo(`item${n < 0 ? i + 1 : n}`); } else goTo(`item${i + 1}`); } }}
                     onChange={(e) => patch(l.key, { qty: e.target.value.replace(/[^0-9.]/g, '') })} aria-invalid={over} />
                 </label>
+                {editHere === l.key && <span className="mirEditHere" role="status">Edit here</span>}
               </div>,
               <div key={`u${l.key}`} className="mirTd mirUnit">{l.item?.unit ?? ''}</div>,
               <div key={`a${l.key}`} className={`mirTd r mono mirAfter ${over ? 'bad' : ''}`}>{l.item && q ? (over ? `Only ${fmt(have)}` : fmt(after)) : l.item ? fmt(have) : ''}</div>,
