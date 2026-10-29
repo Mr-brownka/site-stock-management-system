@@ -146,14 +146,13 @@ export function IncomingPanel() {
   const bringBack = async (g: IncomingDismissed) => { await api.restoreIncoming(g.po_id); await loadGone(); toast(`${g.po ?? 'Order'} is back in part-delivered`); };
   const cols: { k: Tab; title: string; sub: string; list: IncomingOrder[]; part?: boolean; empty: string }[] = [
     { k: 'this', title: wkName(0), sub: data?.week ? `${short(data.week.from)} – ${short(data.week.to)}` : 'By expected date', list: data?.thisWeek ?? [], empty: `Nothing expected in ${wkName(0)}` },
-    { k: 'next', title: wkName(1), sub: data?.next ? `${short(data.next.from)} – ${short(data.next.to)}` : '', list: data?.nextWeek ?? [], empty: `Nothing expected in ${wkName(1)}` },
     { k: 'part', title: 'Part-delivered', sub: 'Part came in, the rest still owed · kept 2 weeks', list: partList, part: true, empty: 'No part deliveries waiting' },
   ];
   return (
-    <section className="panel incPanel enter" aria-label="Deliveries to expect">
+    <section className="panel incPanel enter" aria-label="Incoming deliveries this week">
       <header className="incHead incHead2">
         <span className="incIc"><Icon name="truck" size={16} /></span>
-        <b className="incT2">Deliveries to expect</b>
+        <b className="incT2">Incoming deliveries this week</b>
         <div className="incTabs2" role="tablist">
           {cols.map((c) => <button key={c.k} role="tab" className={c.k} aria-selected={tab === c.k} onClick={() => { setTab(c.k); setAll(false); }}>{c.title}<span className="mono">{c.list.length}</span></button>)}
         </div>
@@ -192,16 +191,17 @@ export function IncomingPanel() {
                         <span className="irPo mono">{o.po}</span>
                         <span className="irIt">{first?.name}{more > 0 ? ` + ${more}` : ''}</span>
                         <b className="irQ mono">{first ? <>{fmt(first.ordered - first.received)} <small>{first.unit ?? ''}</small></> : ''}</b>
-                        <span className="irDueW"><span className={`irDue ${dd.k}`}>{dd.k === 'late' && o.expected === addDay(today, -1) ? 'Yesterday' : dd.k === 'today' ? 'Today' : dd.t}</span></span>
+                        <span className="irDueW"><span className={`irDue ${dd.k}`}>{data?.week && o.expected && o.expected < data.week.from ? `Late · ${short(o.expected)}` : dd.k === 'late' && o.expected === addDay(today, -1) ? 'Yesterday' : dd.k === 'today' ? 'Today' : dd.t}</span></span>
                       </>
                     )}
                   </button>
-                  {c.part && editable && <button type="button" className="incBin" onClick={() => setRemoving(o)} title="Remove: the rest won’t be delivered" aria-label={`Remove ${o.po} from part-delivered`}><Icon name="trash" size={15} /></button>}
+                  {(c.part || dd.k === 'late') && editable && <button type="button" className="incBin" onClick={() => setRemoving(o)} title="Remove: the rest won’t be delivered" aria-label={`Remove ${o.po}`}><Icon name="trash" size={15} /></button>}
+                  {!c.part && dd.k !== 'late' && editable && c.list.some((x) => due(x, today).k === 'late') && <span className="incBin incBinGap" aria-hidden="true" />}
                 </div>
               );
             })}
             {c.list.length > SHOW && <button type="button" className="incAll" onClick={() => setAll(!all)}>{all ? 'Show less' : `Show all ${c.list.length} →`}</button>}
-            {data && <button type="button" className="incAll incPageLink" onClick={() => go('incoming')}>See all {cols.reduce((a, x) => a + x.list.length, 0)} on the Coming in page →</button>}
+            {data && <button type="button" className="incAll incPageLink" onClick={() => go('incoming')}>Weeks ahead are on the Coming in page →</button>}
             {c.part && gone.length > 0 && (
               <div className="incGone">
                 <button type="button" className="incGoneBtn" onClick={() => setShowGone(!showGone)}>Removed: {gone.length} · {showGone ? 'Hide' : 'Show'}</button>

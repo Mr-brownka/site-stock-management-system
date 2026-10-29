@@ -1,5 +1,6 @@
 // Incoming deliveries for the dashboard: read-only from Zoho, for the caller's site.
 //  · This week / next week: purchase orders whose expected delivery date falls in that week and that are not fully received.
+//    Late ones (due in the last 4 weeks, still not delivered) stay on this week's list until they arrive or are removed.
 //  · Part-delivered: purchase-order lines with part received and part still owed. Each order shows for 2 weeks from the
 //    day its first part came in (this week and the next), then drops off. Orders the store marked "Not coming" are left out.
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.45.4';
@@ -58,7 +59,10 @@ Deno.serve(async (req) => {
       if (!(r.body.page_context as Rec | undefined)?.has_more_page) break;
     }
     const closed = (s: unknown) => /cancel|closed|draft|^received$|fully/i.test(String(s ?? ''));
-    const dueRows = poRows.filter((p) => { const e = dayOf(p.delivery_date ?? p.expected_delivery_date); return e && e >= wk && e <= nxtEnd && !closed(p.status) && !/^received$/i.test(String(p.received_status ?? '')); });
+    // Late orders carry over: due in the last 4 weeks and still not delivered stay on this week's list (marked late)
+    // until they come in, are closed in Zoho, or the store removes them.
+    const lateFrom = addDays(wk, -28);
+    const dueRows = poRows.filter((p) => { const e = dayOf(p.delivery_date ?? p.expected_delivery_date); return e && e >= lateFrom && e <= nxtEnd && !closed(p.status) && !/^received$/i.test(String(p.received_status ?? '')); });
     debug.push(`POs listed ${poRows.length}, due in the two weeks ${dueRows.length}`);
 
     const poCache = new Map<string, Rec | null>();
@@ -126,7 +130,10 @@ Deno.serve(async (req) => {
     const ours = (p: Rec | null) => !!p && norm(custom(p, /project/i)) === mine;
 
     const thisWeek: Order[] = [], nextWeek: Order[] = [], part: Order[] = [];
+    const { data: gone } = await db.from('incoming_dismissed').select('po_id').eq('site_id', siteId);
+    const dismissed = new Set((gone ?? []).map((x) => String(x.po_id)));
     for (const row of dueRows) {
+      if (dismissed.has(String(row.purchaseorder_id))) continue;
       const p = await getPo(String(row.purchaseorder_id));
       if (!ours(p)) continue;
       const o = toOrder(p!);
@@ -136,8 +143,6 @@ Deno.serve(async (req) => {
     }
     // Part deliveries stay 2 weeks from the first part in; "Not coming" ones are left out.
     const keepFrom = addDays(today, -13);
-    const { data: gone } = await db.from('incoming_dismissed').select('po_id').eq('site_id', siteId);
-    const dismissed = new Set((gone ?? []).map((x) => String(x.po_id)));
     for (const poId of gotByPo.keys()) {
       if (dismissed.has(poId)) continue;
       const first = gotByPo.get(poId)!.grns.reduce((m, g) => (g.date && g.date < m ? g.date : m), '9999');

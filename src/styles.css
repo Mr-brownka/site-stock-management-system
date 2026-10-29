@@ -4141,3 +4141,5 @@ button.adAcc:hover { border-color: currentColor; }
 /* Item search: how much of each is in the store. */
 .pkStock { font-weight: 700; color: #1F7A4D; margin-right: 8px; font-size: 12px; }
 .pkStock.none { color: #9AA29F; font-weight: 600; }
+
+.incBin.incBinGap { visibility: hidden; pointer-events: none; }
