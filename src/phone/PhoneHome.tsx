@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Icon, Num, greeting } from '../components/fx';
+import { Icon, greeting } from '../components/fx';
 import { continueEvening, startEvening, useFlow } from '../components/EveningFlow';
 import { useIncomingCounts } from '../components/Incoming';
 import { GetStarted } from '../components/Tour';
@@ -8,7 +8,7 @@ import { api } from '../lib/api';
 import { periodRange } from '../lib/dates';
 import { useData } from '../lib/store';
 import { Home } from '../screens/Home';
-import { shortDay } from './PhoneUI';
+import { FlipNum, shortDay } from './PhoneUI';
 import './phone.css';
 
 const IN = ['delivery', 'transfer_in', 'return'], OUT = ['issue', 'transfer_out'];
@@ -62,7 +62,7 @@ export function PhoneHome() {
         {tiles.map((t) => (
           <button key={t.k} className={`pTileB ${t.k}`} onClick={t.run}>
             <span className="pTIc"><Icon name={t.icon} size={18} /></span>
-            <b className="mono">{typeof t.n === 'number' ? <Num value={t.n} /> : t.n}</b>
+            <b className="mono">{typeof t.n === 'number' ? <FlipNum value={t.n} /> : t.n}</b>
             <small>{t.t} · {t.s}</small>
           </button>
         ))}

@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Icon } from '../components/fx';
+import { Icon, Num } from '../components/fx';
+import { fmt } from '../components/ui';
 import { useData, type Screen } from '../lib/store';
 import './phone.css';
 import { buzz } from '../components/feedback';
@@ -89,5 +90,30 @@ export function PSearchHead({ title, value, onChange, placeholder, chips, onEnte
       </label>
       {chips.length > 0 && <div className="pSHeadChips"><small>Most used</small>{chips.map((c) => <button key={c} className={value === c ? 'on' : ''} onClick={() => onChange(value === c ? '' : c)}>{c}</button>)}</div>}
     </div>
+  );
+}
+
+/** While loading: grey placeholder rows with a soft shimmer, instead of "Loading…". */
+export function Skel({ rows = 5, card = false }: { rows?: number; card?: boolean }) {
+  return (
+    <div className={`pSkel ${card ? 'card' : ''}`} aria-busy="true" aria-label="Loading">
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className="pSkelRow"><i className="sk av" /><span><i className="sk" style={{ width: `${55 + ((i * 17) % 35)}%` }} /><i className="sk sm" style={{ width: `${30 + ((i * 11) % 25)}%` }} /></span><i className="sk n" /></div>
+      ))}
+    </div>
+  );
+}
+
+/** A number that counts up when it first shows, and rolls to the new value (with a green or orange flash) when it changes. */
+export function FlipNum({ value }: { value: number }) {
+  const [shown, setShown] = useState<{ now: number; was: number | null; key: number }>({ now: value, was: null, key: 0 });
+  useEffect(() => {
+    setShown((s) => (s.now === value ? s : { now: value, was: s.now, key: s.key + 1 }));
+  }, [value]);
+  if (shown.was == null) return <Num value={value} />;
+  return (
+    <span className={`pFlip ${shown.now > shown.was ? 'up' : 'down'}`} key={shown.key}>
+      <span className="pFlipOld">{fmt(shown.was)}</span><span className="pFlipNew">{fmt(shown.now)}</span>
+    </span>
   );
 }

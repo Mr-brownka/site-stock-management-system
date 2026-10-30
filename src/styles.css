@@ -4263,3 +4263,31 @@ button.adAcc:hover { border-color: currentColor; }
 .evPBody.lg .evAsk h2 { font-size: 28px; font-weight: 800; margin: 0; }
 .evPBody.lg .evGo { margin-top: auto; min-height: 58px; border-radius: 16px; }
 @media (prefers-reduced-motion: reduce) { .evPage, .evPBody { animation: none; } }
+
+/* Phone: Balances / Consumption item pop-up sits in the middle of the screen */
+@media (max-width: 767px) {
+  .consDetail.open { left: 0 !important; right: 0 !important; top: 0 !important; bottom: 0 !important; margin: auto !important; width: calc(100vw - 24px) !important; max-width: none !important; height: fit-content !important; max-height: calc(100dvh - 48px) !important; border-radius: 24px !important; z-index: 120 !important; box-shadow: 0 30px 80px -20px rgba(0,0,0,.45) !important; animation: popMid .32s cubic-bezier(.2,.9,.25,1.12) both !important; }
+  .consScrim { z-index: 119 !important; backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+}
+@keyframes popMid { from { opacity: 0; transform: scale(.92); } to { opacity: 1; transform: none; } }
+
+/* Any pop-up open: the page behind stays still (no scrolling, no bounce) */
+html:has(.sheetBack, .consDetail.open, .evPage, .celeb, .mSheetBack, .cmdBack, .incBack, .ppBack, .dayAskBack, [aria-modal="true"]),
+html:has(.sheetBack, .consDetail.open, .evPage, .celeb, .mSheetBack, .cmdBack, .incBack, .ppBack, .dayAskBack, [aria-modal="true"]) body { overflow: hidden !important; overscroll-behavior: none !important; }
+.sheetBack, .consScrim, .mSheetBack, .cmdBack, .incBack, .ppBack, .dayAskBack, .adScrim { overscroll-behavior: contain; touch-action: none; }
+.sheetBack > *, .dayAskBack > *, .consDetail.open, .evPage, .mSheetBack > *, .cmdBack > *, .incBack > *, .ppBack > * { touch-action: pan-y; overscroll-behavior: contain; }
+
+/* Phone tab bar: a glass pill glides under the open tab */
+.tabbar.glassBar { position: fixed; }
+.tabbar.glassBar button { position: relative; z-index: 1; background: transparent !important; }
+.tabbar.glassBar button[aria-current="page"] .tbIcon { background: transparent; color: var(--ink); }
+.tbGlass { position: absolute; left: 0; top: 6px; bottom: calc(6px + env(safe-area-inset-bottom)); z-index: 0; border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255,255,255,.75), rgba(255,240,215,.55));
+  border: 1px solid rgba(252,167,45,.35);
+  box-shadow: 0 6px 18px -8px rgba(224,115,26,.45), inset 0 1px 0 rgba(255,255,255,.9), inset 0 -1px 0 rgba(252,167,45,.15);
+  backdrop-filter: blur(14px) saturate(180%); -webkit-backdrop-filter: blur(14px) saturate(180%);
+  transition: transform .5s cubic-bezier(.32,1.35,.42,1), width .5s cubic-bezier(.32,1.35,.42,1), opacity .2s; will-change: transform; }
+.tbGlass.off { opacity: 0; }
+.tabbar.glassBar button { transition: transform .2s; }
+.tabbar.glassBar button:active { transform: scale(.92); }
+@media (prefers-reduced-motion: reduce) { .tbGlass { transition: none; } }

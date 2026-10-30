@@ -12,7 +12,7 @@ import { Upload } from './Opening';
 import { BackPill } from '../components/BackPill';
 import { canEdit } from '../lib/access';
 import { useIsPhone } from '../components/Ring';
-import { Chips, Pill, PSearch, PTop, useSub } from '../phone/PhoneUI';
+import { Chips, Pill, PSearch, PTop, Skel, useSub } from '../phone/PhoneUI';
 
 type View = 'home' | 'enter' | 'upload';
 const nice = (d: string) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
@@ -209,7 +209,7 @@ export function StockTake() {
         {editable && <button className="pUpload" onClick={() => setView('upload')}><Icon name="upload" size={16} />Have the count in Excel? Upload the file</button>}
         <div className="pSetH">Past counts</div>
         <section className="pSetCard">
-          {takes === null && <div className="pEmpty">Loading…</div>}
+          {takes === null && <Skel rows={3} />}
           {takes && !takes.length && <div className="pEmpty">No stock takes yet.</div>}
           {takes && [...takes].reverse().map((t) => (
             <button key={t.id} className="pSetRow pTakeRow" onClick={() => setSub(t.id)}>

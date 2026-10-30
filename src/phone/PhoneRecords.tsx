@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Icon, Num } from '../components/fx';
+import { Icon } from '../components/fx';
 import { useNewZohoDeliveries } from '../lib/newDeliveries';
 import { fmt } from '../components/ui';
 import { ZohoOpen } from '../components/Zoho';
@@ -13,7 +13,7 @@ import { REPORTS } from '../lib/reports';
 import { useData, type Screen } from '../lib/store';
 import type { Doc } from '../lib/types';
 import type { RecKey } from '../screens/Records';
-import { Chips, Pill, PSearch, PTop, shortDay, timeOf, useSub } from './PhoneUI';
+import { Chips, FlipNum, Pill, PSearch, PTop, shortDay, Skel, timeOf, useSub } from './PhoneUI';
 
 const LAST = 'ssms-rec-last';
 const SECTIONS: { screen: Screen; label: string; icon: string }[] = [
@@ -51,9 +51,9 @@ export function PhoneRecordsHub() {
       <section className="pWeekCard">
         <small>This week at {site || 'the store'}</small>
         <div>
-          <span className="in"><b className="mono"><Num value={lines(['delivery', 'transfer_in'])} /></b><small>items came in</small></span>
-          <span className="out"><b className="mono"><Num value={lines(['issue', 'transfer_out'])} /></b><small>went out</small></span>
-          <span className="back"><b className="mono"><Num value={lines(['return'])} /></b><small>came back</small></span>
+          <span className="in"><b className="mono"><FlipNum value={lines(['delivery', 'transfer_in'])} /></b><small>items came in</small></span>
+          <span className="out"><b className="mono"><FlipNum value={lines(['issue', 'transfer_out'])} /></b><small>went out</small></span>
+          <span className="back"><b className="mono"><FlipNum value={lines(['return'])} /></b><small>came back</small></span>
         </div>
       </section>
       <div className="pHubGrid pHubC">
@@ -155,13 +155,13 @@ export function PhoneRecList({ recKey: key }: { recKey: RecKey }) {
       <PTop title={TITLE[key]} back="records" right={<button className="pIconBtn" onClick={() => { setFind((v) => !v); if (find) setQ(''); }} aria-label="Search" aria-pressed={find}><Icon name={find ? 'close' : 'search'} size={19} /></button>} />
       {find && <PSearch value={q} onChange={setQ} placeholder={`Search ${TITLE[key].toLowerCase()}`} />}
       <Chips value={period} onChange={(p) => { setPeriod(p); setMore(40); }} items={[['week', 'This week'], ['month', 'This month'], ['all', 'All']]} />
-      {all === null && <div className="pEmpty">Loading…</div>}
+      {all === null && <Skel rows={5} card />}
       {all && !shown.length && <div className="pEmpty">Nothing {period === 'week' ? 'this week' : period === 'month' ? 'this month' : 'yet'}{q ? ' matching your search' : ''}.{period !== 'all' && <button className="pLink" onClick={() => setPeriod('all')}>See all</button>}</div>}
       <div className="pCards">
         {shown.slice(0, more).map(({ d, sys }) => {
           const ls = d.lines.slice(0, 2);
           return (
-            <button key={d.id} className="pCard" onClick={() => setOpen(d.id)}>
+            <button key={d.id} className={`pCard ${Date.now() - Date.parse(d.created_at) < 180_000 ? 'fresh' : ''}`} onClick={() => setOpen(d.id)}>
               <span className="pCardTop"><b className="mono pRef">{ref(d, sys)}</b><small>{when(d)}</small></span>
               <span className="pCardMid"><b>{title(d)}</b>{pill(d)}</span>
               <span className="pCardChips">{ls.map((l) => <span key={l.id}>{name(l.item_id)} {fmt(Number(l.qty))}</span>)}{d.lines.length > 2 && <span>+{d.lines.length - 2}</span>}</span>

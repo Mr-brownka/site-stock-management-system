@@ -8,7 +8,7 @@ import { api } from '../lib/api';
 import { niceDate } from '../lib/dates';
 import { useData } from '../lib/store';
 import type { IncomingDismissed, IncomingOrder } from '../lib/types';
-import { Chips, PTop, useSub } from './PhoneUI';
+import { Chips, PTop, Skel, useSub } from './PhoneUI';
 
 const addDay = (d: string, n: number) => { const x = new Date(d + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
 
@@ -75,7 +75,7 @@ export function PhoneIncoming() {
       <PTop title="Incoming deliveries" back="home" right={zohoBtn} />
       <Chips value={tab} onChange={setTab} items={[['this', `This week · ${week.length}`], ['part', `Pending · ${part.length}`]]} />
       {data?.error && <div className="pNote">Zoho didn’t answer just now. Showing the last check.</div>}
-      {!data && busy && <div className="pEmpty">Checking Zoho…</div>}
+      {!data && busy && <Skel rows={4} />}
       {data && !groups.some((g) => g.list.length) && <div className="pEmpty">{tab === 'this' ? 'Nothing expected this week.' : 'Nothing pending.'}</div>}
       {groups.map((g) => (
         <section key={g.label || 'p'}>

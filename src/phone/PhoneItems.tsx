@@ -5,7 +5,7 @@ import { canEdit } from '../lib/access';
 import { weekStart } from '../lib/projectWeek';
 import { useData } from '../lib/store';
 import { delta, type Doc } from '../lib/types';
-import { Chips, Pill, PSearch, PTop, shortDay, timeOf, useSub } from './PhoneUI';
+import { Chips, FlipNum, Pill, PSearch, PTop, shortDay, timeOf, useSub } from './PhoneUI';
 
 type F = 'all' | 'low' | 'today';
 const KIND: Record<string, string> = { delivery: 'Delivery', issue: 'Register', return: 'Return', transfer_in: 'Transfer in', transfer_out: 'Transfer out', correction: 'Correction', opening: 'Stock take' };
@@ -95,7 +95,7 @@ export function PhoneItems() {
               <span className="pAvI">{x.name.trim()[0]?.toUpperCase()}</span>
               <span className="pItemT"><b>{x.name}</b><small>{x.unit} · {st === 'out' ? 'Finished' : st === 'low' ? 'Low' : 'Healthy'}</small></span>
               <svg className="pSpark" width="78" height="30" viewBox="-1 0 80 30" aria-hidden="true"><path d={path} pathLength={1} /></svg>
-              <b className="mono pItemN">{fmt(x.balance)}</b>
+              <b className="mono pItemN"><FlipNum value={x.balance} /></b>
             </button>
           );
         })}

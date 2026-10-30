@@ -7,6 +7,7 @@ import { signal, useSignal } from '../lib/signals';
 import { ComexLogo, SiteLogo } from './Brand';
 import { ZohoAutoSync, ZohoStatusLine } from './Zoho';
 import { Celebrate } from '../phone/Celebrate';
+import { useSwipeBack } from '../phone/swipeBack';
 import { markDeliveriesSeen, useNewZohoDeliveries } from '../lib/newDeliveries';
 import { canEdit, canSee, roleLabel } from '../lib/access';
 import { ChangePassword } from './ChangePassword';
@@ -81,6 +82,19 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
   useEffect(() => { setSheet(null); }, [screen]);
   // The gold menu highlight slides to the current page.
   const navRef = useRef<HTMLElement>(null);
+  // Phone tab bar: a glass pill that glides to the open tab (like Apple's apps).
+  useSwipeBack(screen, go);
+  const tabRef = useRef<HTMLElement>(null);
+  const [glass, setGlass] = useState<{ x: number; w: number } | null>(null);
+  useLayoutEffect(() => {
+    const place = () => {
+      const on = tabRef.current?.querySelector<HTMLElement>('button[aria-current="page"]');
+      setGlass(on ? { x: on.offsetLeft, w: on.offsetWidth } : null);
+    };
+    place();
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
+  }, [screen]);
   const [ink, setInk] = useState<{ top: number; height: number; opacity: number }>({ top: 0, height: 0, opacity: 0 });
   useLayoutEffect(() => {
     const el = navRef.current?.querySelector<HTMLElement>('.railLink[aria-current="page"]');
@@ -225,7 +239,8 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
       </div>
 
       {TABBAR.includes(screen) && (
-        <nav className="tabbar" aria-label="Main menu">
+        <nav className="tabbar glassBar" aria-label="Main menu" ref={tabRef}>
+          <span className={`tbGlass ${glass ? '' : 'off'}`} aria-hidden="true" style={glass ? { transform: `translateX(${glass.x}px)`, width: glass.w } : undefined} />
           <button aria-current={CHECKIN.includes(screen) || ['balances', 'consumption', 'incoming', 'low'].includes(screen) ? 'page' : undefined} onClick={() => { setSheet(null); go('home'); }}>
             <span className="tbIcon"><Icon name="home" size={22} />{lowItems.length > 0 && <PulseDot />}</span>Home
           </button>
