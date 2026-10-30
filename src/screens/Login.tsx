@@ -3,7 +3,8 @@ import { useState, type FormEvent } from 'react';
 import { api } from '../lib/api';
 
 export function Login({ onIn, onCreate, notice }: { onIn: () => void; onCreate: () => void; notice?: string }) {
-  const [email, setEmail] = useState('');
+  // The name used last time on this device stays filled in (the phone or browser keeps the password).
+  const [email, setEmail] = useState(() => { try { return localStorage.getItem('ostock-login-name') ?? ''; } catch { return ''; } });
   const [password, setPassword] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -13,7 +14,7 @@ export function Login({ onIn, onCreate, notice }: { onIn: () => void; onCreate: 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true); setErr('');
-    try { await api.signIn(email.trim(), password); onIn(); }
+    try { await api.signIn(email.trim(), password); try { localStorage.setItem('ostock-login-name', email.trim()); } catch { /* ignore */ } onIn(); }
     catch (x) { setErr((x as Error).message === 'Invalid login credentials' ? 'Name or password is wrong.' : (x as Error).message); }
     finally { setBusy(false); }
   };
@@ -42,11 +43,11 @@ export function Login({ onIn, onCreate, notice }: { onIn: () => void; onCreate: 
         ) : (
           <form className="card pad stack enter" onSubmit={submit}>
             <label className="field"><span>Your name</span>
-              <input className="input" type="text" autoComplete="username" autoCapitalize="words" placeholder="First and last name" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
+              <input className="input" type="text" name="username" id="username" autoComplete="username" autoCapitalize="words" placeholder="First and last name" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus={!email} />
               <small className="muted">Or the email you signed up with.</small>
             </label>
             <label className="field"><span>Password</span>
-              <input className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              <input className="input" type="password" name="password" id="password" autoComplete="current-password" autoFocus={!!email} value={password} onChange={(e) => setPassword(e.target.value)} required />
             </label>
             {err && <div className="note err" role="alert">{err}</div>}
             <button className="btn accent" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>

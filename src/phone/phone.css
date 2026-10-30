@@ -206,11 +206,10 @@
 .pSHeadTop { display: flex; align-items: center; gap: 4px; min-height: 50px; margin-left: -10px; }
 .pSHeadTop h1 { margin: 0; font-size: 20px; font-weight: 800; color: #fff; }
 .pSHeadTop .pBack { color: #fff; }
-.pSHeadBox { margin-top: 6px; height: 54px; border-radius: 14px; background: #fff; display: flex; align-items: center; gap: 10px; padding: 0 12px 0 14px; color: #E0731A; animation: pGlow8 8s ease-in-out 1; }
+.pSHeadBox { margin-top: 6px; height: 54px; border-radius: 14px; background: #fff; display: flex; align-items: center; gap: 10px; padding: 0 12px 0 14px; color: #E0731A; animation: findHintP .6s ease-in-out 3; }
 .pSHeadBox input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; font-size: 16px; color: #1B2120; height: 50px; }
 .pSHeadBox input::placeholder { color: #69736F; }
 .pSHeadBox button { border: 0; background: none; color: #69736F; width: 32px; height: 32px; display: grid; place-items: center; }
-@keyframes pGlow8 { 0%, 100% { box-shadow: 0 0 0 0 rgba(252,167,45,0); } 50% { box-shadow: 0 0 0 5px rgba(252,167,45,.55), 0 0 26px 4px rgba(252,167,45,.35); } }
 .pSHeadChips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
 .pSHeadChips small { width: 100%; color: #B9CBC4; font-weight: 800; letter-spacing: .1em; font-size: 11px; text-transform: uppercase; }
 .pSHeadChips button { height: 34px; padding: 0 13px; border-radius: 99px; border: 1px solid rgba(255,255,255,.22); background: rgba(255,255,255,.08); color: #fff; font: inherit; font-size: 14px; font-weight: 600; }
@@ -366,3 +365,6 @@
 .tabbar.glassBar button { -webkit-tap-highlight-color: transparent !important; outline: none; }
 .tabbar.glassBar button:active { transform: none !important; background: transparent !important; }
 .tabbar.glassBar button:focus:not(:focus-visible) { outline: none; box-shadow: none; }
+
+/* the original hint: three quick orange pulses (1.8 s) */
+@keyframes findHintP { 0%, 12%, 88%, 100% { box-shadow: 0 0 0 0 rgba(242,140,40,0); } 22%, 78% { box-shadow: 0 0 0 3px #F28C28, 0 0 0 7px rgba(242,140,40,.25); } }
