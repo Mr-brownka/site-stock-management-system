@@ -145,6 +145,7 @@ export function IncomingPanel() {
   const [all, setAll] = useState(false);
   const [gone, setGone] = useState<IncomingDismissed[]>([]);
   const [showGone, setShowGone] = useState(false);
+  const [day, setDay] = useState<string | null>(null);
   const loadGone = useCallback(() => api.dismissedIncoming().then(setGone).catch(() => undefined), []);
   useEffect(() => { loadGone(); }, [loadGone]);
   // 9 · A new order from Zoho slides into the table with a soft gold glow (not on the first load).
@@ -179,7 +180,7 @@ export function IncomingPanel() {
         <span className="incIc"><Icon name="truck" size={16} /></span>
         <b className="incT2">Incoming deliveries this week</b>
         <div className="incTabs2" role="tablist">
-          {cols.map((c) => <button key={c.k} role="tab" className={c.k} aria-selected={tab === c.k} onClick={() => { setTab(c.k); setAll(false); }}>{c.title}<span className="mono">{c.list.length}</span></button>)}
+          {cols.map((c) => <button key={c.k} role="tab" className={c.k} aria-selected={tab === c.k} onClick={() => { setTab(c.k); setAll(false); setDay(null); }}>{c.title}<span className="mono">{c.list.length}</span></button>)}
         </div>
         <button className={`zohoLogoBtn inCard incZoho ${busy ? 'busy' : ''}`} onClick={refresh} disabled={busy} aria-label="Refresh incoming deliveries from Zoho Books" title={data?.error ? `${data.error}` : data?.checked_at ? `Checked ${ago(data.checked_at)} · press to refresh` : 'Refresh from Zoho Books'}>
           <ZohoBooksMark size={20} />
@@ -188,12 +189,17 @@ export function IncomingPanel() {
       {data?.error && <div className="incErr" role="status">{/limit/i.test(data.error) ? 'Zoho’s daily limit is used up, so this is the last check. It refreshes on its own once Zoho allows it again.' : 'Zoho didn’t answer just now. Showing the last check.'}</div>}
       {(() => {
         const c = cols.find((x) => x.k === tab)!;
-        const list = all ? c.list : c.list.slice(0, SHOW);
+        const wk = c.k === 'this' && data?.week ? Array.from({ length: 7 }, (_, i) => addDay(data.week!.from, i)) : null;
+        const dayOf = (o: IncomingOrder) => o.expected ?? o.firstIn ?? '';
+        const shown = wk && day ? c.list.filter((o) => dayOf(o) === day) : c.list;
+        const list = all ? shown : shown.slice(0, SHOW);
+        const nx = (data?.nextWeek ?? []).slice().sort((a, b) => dayOf(a).localeCompare(dayOf(b)))[0];
+        const dLabel = (d: string) => niceDate(d).split(' ').slice(0, 3).join(' ');
         return (
           <div className={`incTbl2 ${c.k}`} role="tabpanel">
             {!data && busy && <div className="incSkel" />}
-            {data && !c.list.length && <div className="incEmpty2">{c.empty}</div>}
-            {!!c.list.length && (c.part
+            {data && !c.list.length && !wk && <div className="incEmpty2">{c.empty}</div>}
+            {!!shown.length && (c.part
               ? <div className="incTh2 part" aria-hidden="true"><span>PO</span><span>Vendor</span><span>Items</span><span>Qty</span><span>From</span><span>Subphase</span><span /></div>
               : <div className="incTh2" aria-hidden="true"><span>Vendor</span><span>PO</span><span>Items</span><span>Qty</span><span>Expected</span></div>)}
             {list.map((o) => {
@@ -226,8 +232,39 @@ export function IncomingPanel() {
                 </div>
               );
             })}
-            {c.list.length > SHOW && <button type="button" className="incAll" onClick={() => setAll(!all)}>{all ? 'Show less' : `Show all ${c.list.length} →`}</button>}
-            <div className="incFill" aria-hidden="true" />
+            {shown.length > SHOW && <button type="button" className="incAll" onClick={() => setAll(!all)}>{all ? 'Show less' : `Show all ${shown.length} →`}</button>}
+            {wk ? (
+              <div className="incWeek">
+                <div className="incCalm" key={day ?? 'all'}>
+                  {day ? (
+                    <>
+                      {!shown.length && <b>Nothing due {dLabel(day)}</b>}
+                      <button type="button" className="incCalmLink" onClick={() => setDay(null)}>Show the whole week</button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="incCalmTick" aria-hidden="true"><Icon name="check" size={14} /></span>
+                      <b>{c.list.length ? 'That’s all for this week' : `Nothing expected in ${wkName(0)}`}</b>
+                      {nx && <small>Next: {dLabel(dayOf(nx))} · {nx.vendor ?? nx.po}</small>}
+                    </>
+                  )}
+                </div>
+                <div className="incDays" role="tablist" aria-label="Filter by day" style={{ ['--i' as string]: day ? wk.indexOf(day) : 0 }}>
+                  <span className={`incGlass ${day ? 'on' : ''}`} aria-hidden="true" />
+                  {wk.map((d) => {
+                    const n = c.list.filter((o) => dayOf(o) === d).length;
+                    const t = new Date(d + 'T00:00:00Z');
+                    return (
+                      <button key={d} type="button" role="tab" aria-selected={day === d} className={`incDay ${d === today ? 'today' : ''} ${n ? '' : 'none'}`} onClick={() => { setDay(day === d ? null : d); setAll(false); }} aria-label={`${dLabel(d)}: ${n} due`}>
+                        <small>{t.toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'UTC' })}</small>
+                        <b className="mono">{t.getUTCDate()}</b>
+                        <i>{Array.from({ length: Math.min(n, 3) }, (_, k) => <em key={k} />)}</i>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : <div className="incFill" aria-hidden="true" />}
             {data && <button type="button" className="incAll incPageLink" onClick={() => go('incoming')}>Weeks ahead are on the Coming in page →</button>}
             {c.part && gone.length > 0 && (
               <div className="incGone">
