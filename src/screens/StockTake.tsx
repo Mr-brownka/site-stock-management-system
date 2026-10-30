@@ -73,6 +73,7 @@ export function StockTake() {
   const [reviewing, setReviewing] = useState(false);
   const [openTake, setOpenTake] = useState<Take | null>(null);
   const [sharing, setSharing] = useState<Take | null>(null);
+  const [sharingLive, setSharingLive] = useState(false);
   const [saving, setSaving] = useState<Take | null>(null);
   const [savingLive, setSavingLive] = useState(false);
   const editable = canEdit(user);
@@ -269,6 +270,7 @@ export function StockTake() {
             <span>{sheet ? `${sheet.length} items on ${site || 'the store'}’s count sheet${!first ? ` · ${balances.length} have stock records` : ''}. ` : ''}Count straight into the system, or on the printed sheet.</span>
           </div>
           <button className="btn ghost sm" disabled={!sheet?.length} onClick={() => sheet && print({ items: sorted(sheet) })}><Icon name="print" size={16} />Print blank sheet</button>
+          <button className="btn ghost sm" disabled={!balances.length} onClick={() => { setSharingLive(true); refresh().catch(() => undefined); }}><Icon name="mail" size={16} />Email live stock take</button>
           <button className="btn accent sm" disabled={!sheet?.length} onClick={() => (hasDraft ? startTyping() : setChoosing(true))}><Icon name="plus" size={16} />{hasDraft ? 'Continue the count' : 'New stock take'}</button>
         </section>
       )}
@@ -321,6 +323,7 @@ export function StockTake() {
       {printLayer}
       {saving && <SaveTake take={saving} refName={refOf(saving)} onClose={() => setSaving(null)} />}
       {savingLive && <SaveTake take={{ id: 'live', count_date: realToday, lines: [...balances].sort((a, b) => a.name.localeCompare(b.name)).map((b) => ({ item_id: b.item_id, qty: b.balance })) } as unknown as Take} refName="Live balances" live onClose={() => setSavingLive(false)} />}
+      {sharingLive && <ShareTake take={{ id: 'live', count_date: realToday, lines: balances.map((b) => ({ item_id: b.item_id, qty: b.balance })) } as unknown as Take} refName="the live stock take" live onClose={() => setSharingLive(false)} />}
       {sharing && <ShareTake take={sharing} refName={refOf(sharing)} onClose={() => setSharing(null)} />}
     </div>
   );
@@ -331,16 +334,17 @@ const longDay = (d: string) => new Date(d + 'T00:00:00Z').toLocaleDateString('en
 const partOfDay = () => { const h = Number(new Date().toLocaleString('en-GB', { hour: '2-digit', hour12: false, timeZone: 'Africa/Nairobi' })); return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'; };
 
 /** Email one stock take from the person's own Zoho Mail, with the count as an Excel file attached. */
-function ShareTake({ take, refName, onClose }: { take: Take; refName: string; onClose: () => void }) {
+function ShareTake({ take, refName, live = false, onClose }: { take: Take; refName: string; live?: boolean; onClose: () => void }) {
   const { site, user, itemById } = useData();
-  const asOf = `${site}’s stock take as of ${longDay(take.count_date)}`;
+  const now = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' });
+  const asOf = live ? `${site}’s live stock take as of ${longDay(take.count_date)}, ${now}` : `${site}’s stock take as of ${longDay(take.count_date)}`;
   const [to, setTo] = useState(() => { try { return localStorage.getItem('ssms-st-mail-to') ?? ''; } catch { return ''; } });
   const [text, setText] = useState(() => `${partOfDay()},\n\nFind attached ${asOf}.\n\nRegards,\n${user.name}\n${site} Store`);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<{ text: string; reconnect?: boolean } | null>(null);
   const rows = sorted(take.lines.map((l) => itemById.get(l.item_id)).filter(Boolean) as Item[]);
   const qty = new Map(take.lines.map((l) => [l.item_id, l.qty]));
-  const fileName = `${site} stock take ${take.count_date.split('-').reverse().join('-')}.xlsx`.replace(/[\\/:*?"<>|]/g, '-');
+  const fileName = `${site} ${live ? 'live stock take' : 'stock take'} ${take.count_date.split('-').reverse().join('-')}.xlsx`.replace(/[\\/:*?"<>|]/g, '-');
   const notInZoho = rows.filter((it) => it.in_zoho === false).length;
   const excel = async () => {
     const { stockTakeExcel } = await import('../lib/stockTakeExcel');
