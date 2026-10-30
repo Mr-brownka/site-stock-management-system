@@ -139,6 +139,13 @@ export function StockTake() {
     } catch (e) { toast((e as Error).message, 'warn'); } finally { setBusy(false); }
   };
 
+  // Each item's own last count (it may not have been on the latest stock take): newest take that has the item.
+  const lastCount = useMemo(() => {
+    const m = new Map<number, { qty: number; date: string }>();
+    for (const t of [...(takes ?? [])].sort((a, b) => b.count_date.localeCompare(a.count_date) || b.created_at.localeCompare(a.created_at)))
+      for (const l of t.lines) if (!m.has(l.item_id)) m.set(l.item_id, { qty: Number(l.qty), date: t.count_date });
+    return m;
+  }, [takes]);
   const shown = ordered.filter((it) => (!onlyBlank || (qty[it.id] ?? '') === '') && (!q.trim() || it.name.toLowerCase().includes(q.trim().toLowerCase())));
   const dShort = (d: string) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 
@@ -180,14 +187,18 @@ export function StockTake() {
             <button aria-pressed={onlyBlank} onClick={() => setOnlyBlank(true)}>Not entered {blanks.length}</button>
           </span>
         </div>
-        <div className="stGrid" ref={rowsRef}>
+        <div className="stGrid stGrid3" ref={rowsRef}>
+          {shown.length > 0 && [0, 1].map((k) => <div key={`h${k}`} className={`stCell stCellHead ${k ? 'second' : ''}`} aria-hidden="true"><span /><span>Item</span><span>Unit</span><span>In system</span><span>Last count</span><span>Count</span></div>)}
           {shown.map((it) => {
             const v = qty[it.id] ?? '';
+            const lc = lastCount.get(it.id);
             return (
               <label key={it.id} className={`stCell ${v !== '' ? 'filled' : ''}`}>
                 <span className="stTick" aria-hidden="true">{v !== '' && <Icon name="check" size={11} />}</span>
                 <span className="stName" title={it.name}>{it.name}</span>
                 <span className="stUnit">{it.unit}</span>
+                <span className="stRead mono" title="What the system shows now">{fmt(balanceOf(it.id))}</span>
+                <span className="stRead mono" title={lc ? `Counted ${dShort(lc.date)}` : 'Not counted before'}>{lc ? <>{fmt(lc.qty)}<small>{dShort(lc.date).split(' ').slice(1).join(' ')}</small></> : '—'}</span>
                 <input className="input num stIn" inputMode="decimal" value={v} placeholder="—" aria-label={`${it.name} quantity`}
                   onChange={(e) => setQty({ ...qty, [it.id]: e.target.value.replace(/[^0-9.]/g, '') })}
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); nextRow(e.currentTarget); } }} />

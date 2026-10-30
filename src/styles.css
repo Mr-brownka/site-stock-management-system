@@ -4191,3 +4191,13 @@ button.adAcc:hover { border-color: currentColor; }
 }
 .tourAlso { position: fixed; border-radius: 12px; border: 2px solid rgba(252,167,45,.85); background: rgba(252,167,45,.14); pointer-events: none; animation: tourAlso 1.6s ease-in-out infinite; }
 @keyframes tourAlso { 50% { box-shadow: 0 0 0 5px rgba(252,167,45,.22); } }
+
+/* Stock take entry: the system's figure and the item's last count beside the box being typed (read only, greyed). */
+.stGrid3 .stCell { grid-template-columns: 20px minmax(0, 1fr) 46px 76px 84px 104px; }
+.stRead { color: #9AA29F; background: #F3F4F2; border-radius: 8px; padding: 6px 8px; font-size: 14px; text-align: right; user-select: none; display: flex; flex-direction: column; align-items: flex-end; line-height: 1.1; }
+.stRead small { font-family: var(--body); font-size: 10.5px; color: #B0B7B3; margin-top: 1px; }
+.stCellHead { cursor: default; padding-top: 2px !important; padding-bottom: 2px !important; font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #9AA29F; }
+.stCellHead > span:nth-child(n+4) { text-align: right; }
+.stCellHead > span:last-child { color: var(--ink); }
+@media (max-width: 900px) { .stCellHead.second { display: none; } }
+@media (max-width: 640px) { .stGrid3 .stCell { grid-template-columns: minmax(0, 1fr) 58px 62px 84px !important; } .stGrid3 .stTick, .stGrid3 .stUnit, .stCellHead > span:nth-child(1), .stCellHead > span:nth-child(3) { display: none; } }
