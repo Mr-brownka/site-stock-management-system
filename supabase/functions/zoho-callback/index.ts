@@ -4,19 +4,21 @@
 // created by zoho-start for that person is what proves who it is.
 import { admin, APP_URL, exchangeCode, ORG_ID, zget } from '../_shared/zoho.ts';
 
-const back = (q: Record<string, string>) => Response.redirect(`${APP_URL}/?${new URLSearchParams(q)}#/home`, 302);
 
 Deno.serve(async (req) => {
+  let home = APP_URL;
+  const back = (q: Record<string, string>) => Response.redirect(`${home}/?${new URLSearchParams(q)}#/home`, 302);
   const u = new URL(req.url);
   const code = u.searchParams.get('code');
   const state = u.searchParams.get('state');
   const accounts = u.searchParams.get('accounts-server') ?? 'https://accounts.zoho.com';
+  const db = admin();
+  const { data: st } = state ? await db.from('zoho_states').select('user_id, created_at, return_to').eq('state', state).maybeSingle() : { data: null };
+  home = st?.return_to ?? APP_URL;
   if (u.searchParams.get('error')) return back({ zoho: 'declined' });
   if (!code || !state) return back({ zoho: 'error', why: 'Zoho did not send a code back.' });
   if (!/^https:\/\/accounts\.zoho\.[a-z.]+$/.test(accounts)) return back({ zoho: 'error', why: 'Unexpected Zoho server.' });
 
-  const db = admin();
-  const { data: st } = await db.from('zoho_states').select('user_id, created_at').eq('state', state).maybeSingle();
   await db.from('zoho_states').delete().eq('state', state);
   if (!st || Date.now() - new Date(st.created_at).getTime() > 20 * 60_000) return back({ zoho: 'error', why: 'The sign-in took too long. Try again.' });
 

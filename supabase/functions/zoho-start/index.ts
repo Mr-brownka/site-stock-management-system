@@ -9,7 +9,10 @@ Deno.serve(async (req) => {
   const user = await caller(req, db);
   if (!user) return json({ error: 'Sign in to Bohari first.' }, 401);
   await db.from('zoho_states').delete().lt('created_at', new Date(Date.now() - 3600_000).toISOString());
-  const { data, error } = await db.from('zoho_states').insert({ user_id: user.id }).select('state').single();
+  // Send them back to the address they started from (the live app), not a fixed domain.
+  const origin = (req.headers.get('Origin') ?? '').replace(/\/+$/, '');
+  const return_to = /^https:\/\/[a-z0-9.-]+$/i.test(origin) ? origin : null;
+  const { data, error } = await db.from('zoho_states').insert({ user_id: user.id, return_to }).select('state').single();
   if (error) return json({ error: error.message }, 500);
   let body: { mail?: boolean } = {};
   try { body = await req.json(); } catch { /* no body */ }
