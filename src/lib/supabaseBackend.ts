@@ -589,6 +589,11 @@ export function supabaseBackend(url: string, key: string): Backend {
         const { error: e3 } = await sb.from('stock_take_lines').insert(lines.map((l) => ({ ...l, stock_take_id: t.id })));
         if (e3) fail(e3);
       }
+      // Each counted item's balance becomes the count: the differences go in as one correction.
+      if (!first && lines.length) {
+        const { error: e4 } = await sb.rpc('apply_stock_take', { take: t.id });
+        if (e4) fail(e4);
+      }
     },
 
     async projectWeek() {

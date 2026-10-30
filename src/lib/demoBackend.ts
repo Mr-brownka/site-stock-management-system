@@ -366,7 +366,17 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
         s.docs.push({ kind: 'opening', doc_date: input.count_date, doc_time: input.end_time, reason: 'First stock take', party: input.counted_by, id, created_at: new Date().toISOString(),
           lines: input.lines.filter((l) => l.qty > 0).map((l) => ({ id: s.nextLine++, document_id: id, kind: 'opening' as const, move_date: input.count_date, item_id: l.item_id, qty: l.qty, subphase: null, return_of: null })) });
       }
-      s.stockTakes = [{ ...input, id: uid(), is_first: first, status: first ? 'confirmed' : 'recorded', created_at: new Date().toISOString() }, ...(s.stockTakes ?? [])];
+      else {
+        // Each counted item's balance becomes the count: the differences go in as one correction.
+        const have = (id: number) => s.docs.reduce((a, d) => a + d.lines.reduce((b, l) => b + (l.item_id === id && l.move_date <= input.count_date ? delta(l.kind, Number(l.qty)) : 0), 0), 0);
+        const diffs = input.lines.map((l) => ({ item_id: l.item_id, qty: l.qty - have(l.item_id) })).filter((l) => l.qty !== 0);
+        if (diffs.length) {
+          const id = uid();
+          s.docs.push({ kind: 'correction', doc_date: input.count_date, doc_time: input.end_time, reason: 'Stock take', party: input.counted_by, id, created_at: new Date().toISOString(),
+            lines: diffs.map((l) => ({ id: s.nextLine++, document_id: id, kind: 'correction' as const, move_date: input.count_date, item_id: l.item_id, qty: l.qty, subphase: null, return_of: null })) });
+        }
+      }
+      s.stockTakes = [{ ...input, id: uid(), is_first: first, status: 'confirmed', created_at: new Date().toISOString() }, ...(s.stockTakes ?? [])];
       save(); return wait(undefined);
     },
     async projectWeek() { const x = s.sites.find((y) => y.id === SITE); return { anchorNo: x?.week_anchor_no ?? null, anchorDate: x?.week_anchor_date ?? null }; },

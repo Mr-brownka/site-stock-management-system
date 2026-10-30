@@ -229,7 +229,7 @@ export function StockTake() {
             {needWeek && (
               <label className="field" style={{ maxWidth: 220 }}><span>Which week of the project is this?</span><input className="input num" inputMode="numeric" value={week} placeholder="e.g. 46" onChange={(e) => setWeek(e.target.value.replace(/\D/g, ''))} /></label>
             )}
-            <span className="small muted">{first ? 'Every balance starts from this count. From tonight, each delivery, card, return and transfer moves them.' : 'Saving keeps the record. Balances don’t change until the differences are agreed.'}</span>
+            <span className="small muted">{first ? 'Every balance starts from this count. From tonight, each delivery, card, return and transfer moves them.' : 'Saving sets each counted item’s balance to your count. Items left blank keep their balance.'}</span>
             <div className="row" style={{ gap: 10 }}>
               <button className="btn ghost sm" disabled={busy} onClick={() => setReviewing(false)}>Go back</button>
               <span className="abGrow" />
