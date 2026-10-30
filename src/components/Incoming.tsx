@@ -227,6 +227,7 @@ export function IncomingPanel() {
               );
             })}
             {c.list.length > SHOW && <button type="button" className="incAll" onClick={() => setAll(!all)}>{all ? 'Show less' : `Show all ${c.list.length} →`}</button>}
+            <div className="incFill" aria-hidden="true" />
             {data && <button type="button" className="incAll incPageLink" onClick={() => go('incoming')}>Weeks ahead are on the Coming in page →</button>}
             {c.part && gone.length > 0 && (
               <div className="incGone">

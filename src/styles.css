@@ -4386,3 +4386,13 @@ button.btn.dark.isDone::after, button.evGo.isDone::after { color: #fff; }
 .retFrom { display: inline-flex; padding: 3px 10px; border-radius: 99px; background: #F1F3F2; color: #69736F; font-size: 12px; font-weight: 700; white-space: nowrap; }
 .retFrom.loose { background: #FFF1DC; color: #8A5000; }
 @media (max-width: 760px) { .retRow { grid-template-columns: minmax(0, 1fr) auto !important; } .retRow > :nth-child(1), .retRow > :nth-child(4) { display: none; } }
+
+/* Laptop dashboard: Incoming deliveries stretches to the height of Needs attention; the space is filled with empty ruled rows (placeholder) */
+@media (min-width: 1100px) {
+  .homeGrid.g3 { align-items: stretch; }
+  .homeGrid.g3 > .incPanel { height: auto; min-height: 100%; }
+  .incPanel > .incTbl2 { flex: 1; display: flex; flex-direction: column; }
+  .incFill { flex: 1; min-height: 0; background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 40px, #EEF0EE 40px, #EEF0EE 41px); border-top: 1px solid #EEF0EE; }
+}
+.incFill:only-child, .incEmpty2 + .incFill { border-top: 0; }
+@media (max-width: 1099px) { .incFill { display: none; } }
