@@ -37,8 +37,8 @@ const STORE_STEPS: Step[] = [
 
 /** Procurement and site managers: two moves, from 30 Oct 2026 (earlier sign-ins don't count). */
 const viewerSteps = (site: string): Step[] => [
-  { screen: 'home', sel: ['.kpi3.green'], kicker: 'Stock balances', title: 'View stock balances here', text: 'What is in the store right now. Tap it to see every item and its balance.' },
-  { screen: 'stocktake', sel: ['.stLiveBtn'], also: ['.railLink[title="Stock take"]', '.tabbar button[aria-current="page"]'], kicker: 'Stock take', title: `Import ${site || 'the site'}’s stock take here`, text: 'Press Print live balances to download today’s stock take as Excel or PDF.' },
+  { screen: 'home', sel: ['.kpi3.green', '.pTileB.bal'], kicker: 'Stock balances', title: 'View stock balances here', text: 'What is in the store right now. Tap it to see every item and its balance.' },
+  { screen: 'stocktake', sel: ['.stLiveBtn', '.pStLive'], also: ['.railLink[title="Stock take"]', '.tabbar button[aria-current="page"]'], kicker: 'Stock take', title: `Import ${site || 'the site'}’s stock take here`, text: 'Press Print live balances (Download live balances on the phone) to get today’s stock take as Excel or PDF.' },
 ];
 const VIEWER_FROM = '2026-10-30';
 const RESET = ['daniel.macharia@people.ostock.co.ke'];

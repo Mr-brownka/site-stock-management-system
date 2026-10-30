@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { api } from '../lib/api';
 import { niceDate } from '../lib/dates';
@@ -147,6 +147,17 @@ export function IncomingPanel() {
   const [showGone, setShowGone] = useState(false);
   const loadGone = useCallback(() => api.dismissedIncoming().then(setGone).catch(() => undefined), []);
   useEffect(() => { loadGone(); }, [loadGone]);
+  // 9 · A new order from Zoho slides into the table with a soft gold glow (not on the first load).
+  const seen = useRef<Set<string> | null>(null);
+  const [fresh, setFresh] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!data?.connected) return;
+    const ids = [...(data.thisWeek ?? []), ...(data.part ?? [])].map((o) => o.id);
+    if (!seen.current) { seen.current = new Set(ids); return; }
+    const n = ids.filter((i) => !seen.current!.has(i));
+    n.forEach((i) => seen.current!.add(i));
+    if (n.length) { setFresh(new Set(n)); setTimeout(() => setFresh(new Set()), 4500); }
+  }, [data]);
   if (data && !data.connected) return null;
   const today = data?.today ?? new Date().toISOString().slice(0, 10);
   const goneIds = new Set(gone.map((g) => g.po_id));
@@ -190,7 +201,7 @@ export function IncomingPanel() {
               const first = o.lines[0];
               const more = o.lines.length - 1;
               return (
-                <div key={o.id + c.k} className="incRow2">
+                <div key={o.id + c.k} className={`incRow2 ${fresh.has(o.id) ? 'fresh' : ''}`}>
                   <button type="button" className="incRowBtn" onClick={() => setOpen(o)}>
                     {c.part ? (
                       <>

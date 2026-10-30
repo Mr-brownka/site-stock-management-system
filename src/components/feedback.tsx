@@ -20,7 +20,11 @@ export function ask(o: Omit<Ask, 'resolve'>): Promise<boolean> {
 /** A short message at the bottom of the screen. */
 export function toast(text: string, tone: Toast['tone'] = 'ok', action?: Toast['action']) {
   pushToast?.({ id: nextId++, text, tone, action });
+  if (tone === 'ok') lastOk = Date.now();
 }
+
+/** When the last success note showed (the Save button turns into a tick only after a real save). */
+export let lastOk = 0;
 
 /** Light tap on phones that support it. */
 export function buzz(ms = 8) {
@@ -61,7 +65,7 @@ export function FeedbackHost() {
     <>
       {!online && <div className="offline" role="status"><span className="pulseDot gold" />You’re offline. Entries can’t be saved until the connection is back.</div>}
       <div className="toasts" aria-live="polite">
-        {toasts.map((t) => <div key={t.id} className={`toast ${t.tone ?? ''}`}><Icon name={t.tone === 'warn' ? 'clock' : 'checkin'} size={18} />{t.text}{t.action && <button className="toastAct" onClick={() => { t.action!.run(); setToasts((x) => x.filter((y) => y.id !== t.id)); }}>{t.action.label}</button>}</div>)}
+        {toasts.map((t) => <div key={t.id} className={`toast ${t.tone ?? ''}`}><Icon name={t.tone === 'warn' ? 'clock' : 'checkin'} size={18} />{t.text}{t.action && <button className="toastAct" onClick={() => { t.action!.run(); setToasts((x) => x.filter((y) => y.id !== t.id)); }}>{t.action.label}</button>}<i className="toastTimer" style={{ animationDuration: `${t.action ? 6000 : 2600}ms` }} aria-hidden="true" /></div>)}
       </div>
       {a && (
         <div className="sheetBack" onMouseDown={(e) => { if (e.target === e.currentTarget) answer(false); }}>

@@ -4,7 +4,7 @@ import { useNewZohoDeliveries } from '../lib/newDeliveries';
 import { fmt } from '../components/ui';
 import { ZohoOpen } from '../components/Zoho';
 import { useAddEntry } from '../components/AddEntry';
-import { canEdit } from '../lib/access';
+import { canEdit, canSee } from '../lib/access';
 import { api } from '../lib/api';
 import { addDays, niceDate } from '../lib/dates';
 import { openFixFor } from '../lib/fixLink';
@@ -28,7 +28,7 @@ const SECTIONS: { screen: Screen; label: string; icon: string }[] = [
 /** Records on the phone (design C): a green "this week" card, then six coloured cards. The one last opened stays green. */
 const TONE: Record<string, string> = { 'rec-deliveries': 'green', 'rec-transfers': 'purple', 'rec-issued': 'orange', 'rec-returns': 'blue', dashboard: 'ink', reports: 'amber' };
 export function PhoneRecordsHub() {
-  const { go, recent, docsToday, day, balances, site } = useData();
+  const { go, recent, docsToday, day, balances, site, user } = useData();
   const newDel = useNewZohoDeliveries();
   const [last] = useState(() => { try { return sessionStorage.getItem(LAST); } catch { return null; } });
   const from = weekStart(day);
@@ -57,7 +57,7 @@ export function PhoneRecordsHub() {
         </div>
       </section>
       <div className="pHubGrid pHubC">
-        {SECTIONS.map((s, i) => (
+        {SECTIONS.filter((s) => canSee(user, s.screen)).map((s, i) => (
           <button key={s.screen} className={`pHubRow ${TONE[s.screen]} ${last === s.screen ? 'on' : ''}`} style={{ animationDelay: `${i * 45}ms` }} onClick={() => open(s.screen)}>
             <span className="pHubIc"><Icon name={s.icon} size={20} /></span>
             <span className="pHubT"><b>{s.label}</b><small>{sub[s.screen]}</small></span>

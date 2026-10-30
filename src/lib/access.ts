@@ -50,6 +50,8 @@ export function canSee(u: User, s: Screen): boolean {
   // Stock take opens read only (view and download); the other write pages stay closed.
   if (!canEdit(u) && WRITE.includes(s) && s !== 'stocktake') return false;
   if (!u.pages) return true;
+  // On the phone everyone may open Records; each card in it still follows the pages they are allowed.
+  if (s === 'records' && typeof matchMedia !== 'undefined' && matchMedia('(max-width: 767px)').matches) return true;
   // The low stock list behind "Review all" opens for anyone who sees the dashboard.
   if (s === 'dashboard' && u.pages.includes('home')) return true;
   const page = PAGES.find((p) => p.screens.includes(s));

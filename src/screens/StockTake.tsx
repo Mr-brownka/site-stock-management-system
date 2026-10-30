@@ -202,7 +202,7 @@ export function StockTake() {
         <div className="pStLast"><small>Last count</small><b>{last ? (ago <= 0 ? 'Today' : ago === 1 ? 'Yesterday' : `${ago} days ago`) : 'No count yet'}{last && <small> · {dShort(last.count_date)}</small>}</b></div>
         <div className="pTiles pStTiles">
           {editable && <button className="pTileB pStGo" disabled={!sheet?.length} onClick={startTyping}><span className="pTIc"><Icon name="clip" size={20} /></span><b>{hasDraft ? 'Continue the count' : 'Count now'}</b><small>{sheet ? `${sheet.length} items` : 'Loading…'}</small></button>}
-          <button className="pTileB" onClick={() => setSub('live')}><span className="pTIc"><Icon name="box" size={20} /></span><b>Live balances</b><small>Download or email</small></button>
+          <button className={`pTileB pStLive ${editable ? '' : 'wide'}`} onClick={() => setSub('live')}><span className="pTIc"><Icon name={editable ? 'box' : 'download'} size={20} /></span><b>{editable ? 'Live balances' : 'Download live balances'}</b><small>{editable ? 'Download or email' : 'Excel or PDF, as of now'}</small></button>
         </div>
         {editable && list && !list.length && <div className="pNote">The admin lists this store’s items first. Then you can count here.</div>}
         {editable && hasDraft && <div className="pNote">An unfinished count is saved on this device. <button className="pLink" onClick={dropDraft}>Discard it</button></div>}

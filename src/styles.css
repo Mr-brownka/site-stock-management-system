@@ -4299,3 +4299,41 @@ html:has(.sheetBack, .consDetail.open, .evPage, .celeb, .mSheetBack, .cmdBack, .
     width: calc(100vw / .95) !important; max-width: none !important; height: calc(100dvh / .95) !important; }
   [role="dialog"], .sheet, .dayAsk, .dirPick, .evCard, .incSheet, .ppCard, .stTakeView, .dpPop { max-height: calc(100dvh / .95 - 24px); }
 }
+
+/* ═════ Laptop motion (1, 2, 3, 5, 7, 8, 9) ═════ */
+@media (min-width: 768px) {
+  /* 1 · the menu highlight glides, with a gold edge */
+  .rail.r2 .railInk { box-shadow: inset 3px 0 0 var(--accent), 0 6px 18px rgba(0,0,0,.22) !important; transition: top .45s cubic-bezier(.3,1.25,.4,1), height .3s ease, opacity .2s !important; }
+  /* 2 · a new page eases in (no lasting transform, so pop-ups are never affected) */
+  .shellMain > .screen > * { animation: dPageIn .32s cubic-bezier(.2,.8,.2,1) backwards; }
+  /* 5 · the row under the mouse lifts a little and a gold edge slides in */
+  .recRow:not(.recTh), .balRow:not(.th), .consRow, .incRow2, .cinRow, .stTakeRow:not(.th), .fxPaper, .sumTr { position: relative; transition: transform .16s ease, box-shadow .16s ease, background .16s ease; }
+  .recRow:not(.recTh)::before, .balRow:not(.th)::before, .consRow::before, .incRow2::before, .cinRow::before, .stTakeRow:not(.th)::before, .sumTr::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); transform: scaleY(0); transition: transform .2s cubic-bezier(.3,1.3,.4,1); pointer-events: none; z-index: 1; }
+  .recRow:not(.recTh):hover, .balRow:not(.th):hover, .consRow:hover, .incRow2:hover, .cinRow:hover, .stTakeRow:not(.th):hover, .sumTr:hover { transform: translateY(-1px); box-shadow: 0 8px 18px -12px rgba(0,0,0,.35); background: #FFFBF3; z-index: 2; }
+  .recRow:not(.recTh):hover::before, .balRow:not(.th):hover::before, .consRow:hover::before, .incRow2:hover::before, .cinRow:hover::before, .stTakeRow:not(.th):hover::before, .sumTr:hover::before { transform: scaleY(1); }
+}
+@keyframes dPageIn { from { opacity: 0; transform: translateY(10px); } }
+/* 7 · the note's thin gold line runs down while Undo is still possible */
+.toast { position: relative; overflow: hidden; }
+.toastTimer { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: var(--accent); transform-origin: left; animation: toastRun linear forwards; opacity: .9; }
+.toast.warn .toastTimer { background: #F08A2C; }
+@keyframes toastRun { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+/* 8 · Save → spinner → tick */
+button.isBusy, button.isDone { position: relative; color: transparent !important; }
+button.isBusy > *, button.isDone > * { opacity: 0; }
+button.isBusy::after { content: ''; position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; border: 2.5px solid rgba(27,33,32,.22); border-top-color: #1B2120; animation: pSpin .7s linear infinite; }
+button.btn.dark.isBusy::after, button.evGo.isBusy::after { border-color: rgba(255,255,255,.3); border-top-color: #fff; }
+button.isDone::after { content: '✓'; position: absolute; inset: 0; display: grid; place-items: center; color: #1B2120; font-size: 20px; font-weight: 800; animation: dTickIn .35s cubic-bezier(.3,1.5,.4,1) both; }
+button.btn.dark.isDone::after, button.evGo.isDone::after { color: #fff; }
+@keyframes dTickIn { from { transform: scale(.3); opacity: 0; } }
+@keyframes pSpin { to { transform: rotate(360deg); } }
+/* 9 · a new Zoho order slides in with a soft gold glow */
+.incRow2.fresh { animation: dLiveIn .55s cubic-bezier(.3,1.2,.4,1) both, dLiveGlow 4s ease both; }
+.incRow2.fresh .irV::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: #E0731A; vertical-align: middle; animation: dDotP 1.2s ease-in-out 3; }
+@keyframes dLiveIn { from { opacity: 0; transform: translateY(-14px); } }
+@keyframes dLiveGlow { 0%, 40% { background: #FFF1DC; } 100% { background: transparent; } }
+@keyframes dDotP { 50% { box-shadow: 0 0 0 6px rgba(224,115,26,0); } 0% { box-shadow: 0 0 0 0 rgba(224,115,26,.5); } }
+@media (prefers-reduced-motion: reduce) {
+  .shellMain > .screen > *, .incRow2.fresh, .toastTimer, button.isDone::after { animation: none !important; }
+  .recRow, .balRow, .consRow, .incRow2, .cinRow, .stTakeRow, .sumTr { transition: none !important; transform: none !important; }
+}
