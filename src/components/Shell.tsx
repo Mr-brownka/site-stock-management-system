@@ -155,7 +155,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
             <div className="railUserMenu" role="menu" onMouseLeave={() => setUserMenu(false)}>
               {user.role === 'admin' && <button className="railLink" role="menuitem" onClick={() => { setUserMenu(false); openAdmin(); }}><Icon name="user" /><span className="rlText">Admin</span></button>}
               <ZohoStatusLine compact />
-              {user.role === 'admin' && <StartTraining user={user} label="Training mode" />}
+              {(user.role === 'admin' || user.role === 'store') && <StartTraining user={user} label="Training mode" />}
               <button className="railLink" role="menuitem" onClick={() => { setUserMenu(false); setPwOpen(true); }}><Icon name="lock" /><span className="rlText">Change password</span></button>
               <button className="railLink signOut" role="menuitem" onClick={signOut}><Icon name="out" /><span className="rlText">Sign out</span></button>
             </div>
@@ -260,7 +260,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
                 <div className="mList">
                   {user.role === 'admin' && <button className="railLink" onClick={() => { setSheet(null); openAdmin(); }}><Icon name="user" /><span className="rlText">Admin</span></button>}
                   <ZohoStatusLine compact />
-                  {user.role === 'admin' && <StartTraining user={user} label="Training mode" />}
+                  {(user.role === 'admin' || user.role === 'store') && <StartTraining user={user} label="Training mode" />}
                   <button className="railLink" onClick={() => { setSheet(null); setPwOpen(true); }}><Icon name="lock" /><span className="rlText">Change password</span></button>
                   <button className="railLink signOut" onClick={signOut}><Icon name="out" /><span className="rlText">Sign out</span></button>
                 </div>
