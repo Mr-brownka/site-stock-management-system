@@ -14,7 +14,6 @@ import { DatePick } from './DatePick';
 import { continueEvening, EveningFlow, stageFor } from './EveningFlow';
 import { Icon, PulseDot, Ring, useMinutesToClose } from './fx';
 import { CommandPalette } from './CommandPalette';
-import { Welcome } from '../screens/Welcome';
 import { noteVisit, Tour } from './Tour';
 import { StartTraining } from './Training';
 import { UnfinishedCard } from './Unfinished';
@@ -100,13 +99,8 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
   };
   const toggleRail = () => { const v = !mini; setMini(v); try { localStorage.setItem('ssms-rail', v ? 'mini' : 'full'); } catch { /* ignore */ } };
 
-  // A store with no stock take yet starts on the welcome page.
-  // New store members stay on the welcome page until the training days are done and the store has stock
-  // (a store with no stock unlocks its first stock take after training).
-  // No training days any more: a new store keeper lands on the real dashboard and the guide shows them around.
-  const onboarding = api.mode !== 'training' && user.role !== 'admin' && !balances.length;
-  if (onboarding && screen !== 'stocktake') return <><ZohoAutoSync /><Welcome /></>;
-  if (screen === 'welcome' || (!balances.length && (screen === 'home' || screen === 'dashboard'))) return <><ZohoAutoSync /><Welcome /></>;
+  // No first stock take needed to start: every store goes straight into the system.
+  // Balances build up from Zoho deliveries and entries; a stock take later sets them to the count.
   const done = STEPS.filter((s) => s.key !== 'deliveries' && stepState(s.key) !== 'todo').length; // the three evening steps
   const urgent = !submission && min < 60;
   const trail = crumbs(screen);
