@@ -19,7 +19,7 @@ const ago = (iso?: string) => { if (!iso) return ''; const m = Math.round((Date.
 
 let memo: Incoming | null = (() => { try { return JSON.parse(localStorage.getItem(KEY) ?? 'null'); } catch { return null; } })();
 
-function useIncoming() {
+export function useIncoming() {
   const [data, setData] = useState<Incoming | null>(memo);
   const [busy, setBusy] = useState(false);
   const load = useCallback(async (force = false) => {
@@ -39,7 +39,7 @@ function useIncoming() {
 /** When it's due: red if the date has passed, amber if it's today. */
 /** When it's due, in words. Nothing is "late" inside its own week: Yesterday, Today, Tomorrow, Monday, Friday…
  *  Only after its week has ended (then it sits in Pending deliveries) is it marked late. */
-function due(o: IncomingOrder, today: string) {
+export function due(o: IncomingOrder, today: string) {
   if (!o.expected) return { t: 'No date', k: '' };
   const mon = (x: string) => { const t = new Date(x + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() - ((t.getUTCDay() + 6) % 7)); return t.toISOString().slice(0, 10); };
   if (mon(o.expected) < mon(today)) return { t: `Due ${short(o.expected)}`, k: 'late' };
@@ -56,7 +56,7 @@ function PoTag({ po }: { po: string }) { return <span className="incPo"><ZohoBoo
 const REASONS = ['Order cancelled', 'Supplier won’t bring the rest', 'Came on another PO', 'Other'];
 
 /** "Not coming": why, then remove. Only hides it here; Zoho is not changed. */
-function RemoveSheet({ o, onClose, onDone }: { o: IncomingOrder; onClose: () => void; onDone: (reason: string) => Promise<void> }) {
+export function RemoveSheet({ o, onClose, onDone }: { o: IncomingOrder; onClose: () => void; onDone: (reason: string) => Promise<void> }) {
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   useEffect(() => {
@@ -79,7 +79,7 @@ function RemoveSheet({ o, onClose, onDone }: { o: IncomingOrder; onClose: () => 
 }
 
 /** One order: ordered, received and still to come per item, each delivery so far, and Open in Zoho Books. */
-function OrderView({ o, onClose, onNot }: { o: IncomingOrder; onClose: () => void; onNot?: () => void }) {
+export function OrderView({ o, onClose, onNot }: { o: IncomingOrder; onClose: () => void; onNot?: () => void }) {
   const anyIn = o.lines.some((l) => l.received > 0);
   return (
     <>

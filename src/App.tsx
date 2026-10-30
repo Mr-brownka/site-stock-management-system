@@ -21,6 +21,12 @@ import { bootDone, bootGreet, forgetVisitor } from './lib/boot';
 import { recordScreen } from './lib/nav';
 import { canSee, firstAllowed } from './lib/access';
 import { toast } from './components/feedback';
+import { useIsPhone } from './components/Ring';
+import { PhoneHome } from './phone/PhoneHome';
+import { PhoneRecList, PhoneRecordsHub } from './phone/PhoneRecords';
+import { PhoneItems } from './phone/PhoneItems';
+import { PhoneIncoming } from './phone/PhoneIncoming';
+import { PhoneMe } from './phone/PhoneMe';
 
 // Screens used less often load on demand, so the first download is smaller.
 const Admin = lazyPage(() => import('./screens/Admin').then((m) => ({ default: m.Admin })));
@@ -39,11 +45,16 @@ const PageSkeleton = () => (
   </div>
 );
 
+/** On a phone, some pages have their own phone design. */
+const pick = (Desk: React.ComponentType, Phone: React.ComponentType) => function Pick() { return useIsPhone() ? <Phone /> : <Desk />; };
+const DeskBalances = () => <Balances />;
+const DeskDashboard = () => <DashboardJump />;
 const SCREENS: Record<Screen, React.ComponentType> = {
-  home: Home, deliveries: Deliveries, issued: Issued, returns: Returns, transfers: Transfers,
-  submitted: Submitted, dashboard: DashboardJump, stocktake: StockTake, corrections: Corrections, reports: Reports, welcome: Home,
-  'rec-deliveries': () => <Records recKey="deliveries" />, 'rec-issued': () => <Records recKey="issued" />,
-  'rec-returns': () => <Records recKey="returns" />, 'rec-transfers': () => <Records recKey="transfers" />, consumption: Consumption, balances: Balances, records: RecordsHub, incoming: ComingIn,
+  home: pick(Home, PhoneHome), deliveries: Deliveries, issued: Issued, returns: Returns, transfers: Transfers,
+  submitted: Submitted, dashboard: pick(DeskDashboard, PhoneItems), stocktake: StockTake, corrections: Corrections, reports: Reports, welcome: Home,
+  'rec-deliveries': pick(() => <Records recKey="deliveries" />, () => <PhoneRecList recKey="deliveries" />), 'rec-issued': pick(() => <Records recKey="issued" />, () => <PhoneRecList recKey="issued" />),
+  'rec-returns': pick(() => <Records recKey="returns" />, () => <PhoneRecList recKey="returns" />), 'rec-transfers': pick(() => <Records recKey="transfers" />, () => <PhoneRecList recKey="transfers" />),
+  consumption: Consumption, balances: pick(DeskBalances, PhoneItems), records: pick(RecordsHub, PhoneRecordsHub), incoming: pick(ComingIn, PhoneIncoming), me: pick(Home, PhoneMe),
 };
 
 const fromHash = (): Screen => {

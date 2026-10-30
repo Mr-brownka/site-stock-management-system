@@ -34,7 +34,9 @@ const RECORDS: { screen: Screen; label: string; tone: string; entry: Screen }[] 
 ];
 const readRecOpen = () => { try { return localStorage.getItem('ssms-records') !== 'closed'; } catch { return true; } };
 // Screens that show the phone tab bar (not the step-by-step forms).
-const TABBAR: Screen[] = ['home', 'dashboard', 'corrections', 'submitted', 'reports', 'stocktake', 'rec-deliveries', 'rec-issued', 'rec-returns', 'rec-transfers', 'consumption', 'balances', 'records', 'incoming'];
+/** Phone pages with their own top bar (the shell's top bar hides there on phones). */
+const PHONE_OWN: Screen[] = ['home', 'records', 'rec-deliveries', 'rec-issued', 'rec-returns', 'rec-transfers', 'dashboard', 'balances', 'incoming', 'me'];
+const TABBAR: Screen[] = ['home', 'dashboard', 'corrections', 'submitted', 'reports', 'stocktake', 'rec-deliveries', 'rec-issued', 'rec-returns', 'rec-transfers', 'consumption', 'balances', 'records', 'incoming', 'me'];
 
 export function closeLabel(min: number): string {
   if (min <= 0) return 'Register closed at 6:00 pm';
@@ -108,7 +110,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
   const initials = user.name.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 
   return (
-    <div className={`shell ${TABBAR.includes(screen) ? 'hasTab' : ''} ${mini ? 'mini' : ''}`} style={mini ? undefined : ({ '--railW': `${railW}px` } as React.CSSProperties)}>
+    <div className={`shell ${TABBAR.includes(screen) ? 'hasTab' : ''} ${mini ? 'mini' : ''} ${PHONE_OWN.includes(screen) ? 'pOwn' : ''}`} style={mini ? undefined : ({ '--railW': `${railW}px` } as React.CSSProperties)}>
       <ZohoAutoSync />
       {pwOpen && <ChangePassword onClose={() => setPwOpen(false)} />}
       <aside className="rail r2" aria-label="Main menu">
@@ -223,19 +225,16 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
       {TABBAR.includes(screen) && (
         <nav className="tabbar" aria-label="Main menu">
           <button aria-current={CHECKIN.includes(screen) ? 'page' : undefined} onClick={() => { setSheet(null); go('home'); }}>
-            <span className="tbIcon"><Icon name="checkin" size={22} />{lowItems.length > 0 && <PulseDot />}</span>Dashboard
+            <span className="tbIcon"><Icon name="home" size={22} />{lowItems.length > 0 && <PulseDot />}</span>Home
           </button>
-          <button aria-current={RECORDS.some((r) => r.screen === screen) || screen === 'reports' || screen === 'records' ? 'page' : undefined} onClick={() => { setSheet(null); go('records'); }}>
+          <button aria-current={RECORDS.some((r) => r.screen === screen) || ['reports', 'records', 'dashboard', 'balances', 'consumption'].includes(screen) ? 'page' : undefined} onClick={() => { setSheet(null); go('records'); }}>
             <span className="tbIcon"><Icon name="list" size={22} />{newDel > 0 && <span className="newDot tb" aria-label={`${newDel} new deliveries from Zoho`} />}</span>Records
           </button>
 {canSee(user, 'stocktake') && (          <button aria-current={screen === 'stocktake' ? 'page' : undefined} onClick={() => { setSheet(null); go('stocktake'); }}>
-            <span className="tbIcon"><Icon name="box" size={22} /></span>Stock take
+            <span className="tbIcon"><Icon name="clip" size={22} /></span>Stock take
           </button>)}
-          {canEdit(user) && canSee(user, 'corrections') && (<button aria-current={screen === 'corrections' ? 'page' : undefined} onClick={() => { setSheet(null); go('corrections'); }}>
-            <span className="tbIcon"><Icon name="fix" size={22} /></span>Fix
-          </button>)}
-          <button aria-current={screen === 'balances' || screen === 'consumption' || sheet === 'more' ? 'page' : undefined} onClick={() => setSheet(sheet === 'more' ? null : 'more')}>
-            <span className="tbIcon"><span className="tbAv">{initials}</span>{toFinish > 0 && <span className="tbBadge" aria-label={`${toFinish} to finish`}>{toFinish}</span>}</span>More
+          <button aria-current={screen === 'me' || screen === 'corrections' ? 'page' : undefined} onClick={() => { setSheet(null); go('me'); }}>
+            <span className="tbIcon"><span className="tbAv">{initials}</span>{toFinish > 0 && <span className="tbBadge" aria-label={`${toFinish} to finish`}>{toFinish}</span>}</span>Me
           </button>
         </nav>
       )}
