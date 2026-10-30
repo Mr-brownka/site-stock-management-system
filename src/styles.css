@@ -4376,3 +4376,13 @@ button.btn.dark.isDone::after, button.evGo.isDone::after { color: #fff; }
 @keyframes dhShine { 0%, 55% { transform: translateX(-130%); } 80%, 100% { transform: translateX(260%); } }
 @keyframes dhRise { from { opacity: 0; transform: translateY(16px) scale(.97); } }
 @media (prefers-reduced-motion: reduce) { .dashHero .dhOrb, .dashHero .startBtn::after, .dashHero .kpi3 { animation: none !important; } }
+
+/* Returned items (design A): ref · date · what came back · from · items */
+.retRow { display: grid !important; grid-template-columns: 110px 130px minmax(0, 1fr) 190px 90px !important; gap: 14px; align-items: center; }
+.retTh { padding: 12px 18px; font-size: 11.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #75807C; background: #FAFBFA; border-bottom: 1px solid #E3E6E4; }
+.retTh .r, .retRow .r { text-align: right; }
+.retChips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.retChip { padding: 4px 10px; border-radius: 8px; background: #E6EDFB; color: #2D5BD0; font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+.retFrom { display: inline-flex; padding: 3px 10px; border-radius: 99px; background: #F1F3F2; color: #69736F; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.retFrom.loose { background: #FFF1DC; color: #8A5000; }
+@media (max-width: 760px) { .retRow { grid-template-columns: minmax(0, 1fr) auto !important; } .retRow > :nth-child(1), .retRow > :nth-child(4) { display: none; } }

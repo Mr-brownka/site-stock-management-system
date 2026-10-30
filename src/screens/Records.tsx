@@ -133,6 +133,8 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
 
       {all === null ? <div className="recEmpty">Loading…</div> : key === 'issued' && !open ? (
         <IssuedTable rows={shown} all={all} onOpen={setOpenId} />
+      ) : key === 'returns' && !open ? (
+        <ReturnsTable rows={shown} all={all} onOpen={setOpenId} label={periodLabel} />
       ) : !open ? (
         <section className="recTable" aria-label={C.title}>
           <div className="recRow recTh" ref={cols.headRef} style={cols.style(src)}>
@@ -243,6 +245,41 @@ function Detail({ row, cfg, onClose, onFix }: { row: Row; cfg: (typeof CFG)[RecK
           <div key={l.id} className={`recLine ${showSub ? 'sub' : ''}`}><span className="muted">{i + 1}</span><b>{it?.name ?? 'Item'}</b><span className="num mono">{fmt(l.qty)}</span><span className="muted">{it?.unit}</span>{showSub && <span>{l.subphase ?? '—'}</span>}</div>
         ); })}
       </div>
+    </section>
+  );
+}
+
+/** Returned items (design A): one row per return — what came back, and from which register. No empty Card / Who / Gemba columns. */
+function ReturnsTable({ rows, all, onOpen, label }: { rows: Row[]; all: Doc[]; onOpen: (id: string) => void; label: string }) {
+  const { itemById } = useData();
+  const lineDoc = useMemo(() => { const m = new Map<number, Doc>(); all.forEach((d) => { if (d.kind === 'issue') d.lines.forEach((l) => m.set(l.id, d)); }); return m; }, [all]);
+  const cards = useMemo(() => new Map(all.filter((d) => d.kind === 'issue' && d.ref_no).map((d) => [d.ref_no!.trim(), d])), [all]);
+  const fromOf = (d: Doc): { text: string; loose: boolean } => {
+    const src = d.lines.map((l) => (l.return_of != null ? lineDoc.get(l.return_of) : undefined)).find(Boolean)
+      ?? (d.ref_no && d.ref_no !== 'No card' ? cards.get(d.ref_no.trim()) : undefined);
+    if (src) return { text: src.ref_no ? `Card ${src.ref_no}` : `Register · ${niceDate(src.doc_date).split(' ').slice(1, 3).join(' ')}`, loose: false };
+    if (d.ref_no && d.ref_no !== 'No card') return { text: `Card ${d.ref_no}`, loose: false };
+    return { text: 'Not on the register', loose: true };
+  };
+  const loose = rows.filter((r) => fromOf(r.doc).loose).length;
+  const lines = rows.reduce((a, r) => a + r.doc.lines.length, 0);
+  return (
+    <section className="recTable retTable" aria-label="Returned items">
+      <div className="retRow retTh"><span>Ref</span><span>Date</span><span>What came back</span><span>From</span><span className="r">Items</span></div>
+      {!rows.length && <div className="recEmpty">No returned items {label.toLowerCase().startsWith('all') ? 'yet' : `in ${label.toLowerCase()}`}.</div>}
+      {rows.map((r) => {
+        const f = fromOf(r.doc);
+        return (
+          <button key={r.doc.id} className="recRow retRow" onClick={() => onOpen(r.doc.id)}>
+            <b className="recRef">{r.ref}</b>
+            <span>{niceDate(r.doc.doc_date)}</span>
+            <span className="retChips">{r.doc.lines.map((l) => { const it = itemById.get(l.item_id); return <span key={l.id} className="retChip">{it?.name ?? 'Item'} +{fmt(Number(l.qty))} {it?.unit ?? ''}</span>; })}</span>
+            <span><span className={`retFrom ${f.loose ? 'loose' : ''}`}>{f.text}</span></span>
+            <b className="mono r">{r.doc.lines.length} item{r.doc.lines.length === 1 ? '' : 's'}</b>
+          </button>
+        );
+      })}
+      {rows.length > 0 && <div className="recFoot">{rows.length} return{rows.length === 1 ? '' : 's'} · {lines} item{lines === 1 ? '' : 's'} back in store{loose ? ` · ${loose} not on any register` : ''} · {label.toLowerCase()}</div>}
     </section>
   );
 }
