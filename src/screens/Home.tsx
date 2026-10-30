@@ -270,6 +270,9 @@ export function Home() {
 
   return (
     <div className="page home">
+      {/* The dashboard top (design A): the greeting, Start and the four figures in one deep-green band. */}
+      <div className={`dashHero ${catchUp || locked ? 'plain' : ''}`}>
+        <i className="dhOrb a" aria-hidden="true" /><i className="dhOrb b" aria-hidden="true" />
       <header className="pageHead enter">
         <div className="phText">
           {catchUp ? <>
@@ -291,6 +294,23 @@ export function Home() {
       </header>
 
 
+      <section className="kpis k3 k2 kStrip" aria-label="Key figures">
+        <button className="kpi3 green enter" style={{ animationDelay: '.05s' }} onClick={() => go('balances')}>
+          <Ring p={balances.length ? inStore / balances.length : 0} label={`${balances.length ? Math.round((inStore / balances.length) * 100) : 0}%`} tone="green" />
+          <span className="k3Txt"><b className="k3L">Balances</b><span className="k3N"><Num value={inStore} /><small>in store</small></span><span className="k3F">{movedToday ? `${movedToday} changed today` : 'Open balances'} <Icon name="arrow" size={12} /></span></span>
+        </button>
+        <button className="kpi3 amber enter" onClick={() => go('consumption')}>
+          <span className="k3Txt"><b className="k3L">Consumption</b><span className="k3N">{weekUse.top ? <><Num value={weekUse.top.used} /><small>{weekUse.top.it?.unit} this week</small></> : '0'}</span><span className="k3F">{weekUse.top ? `${weekUse.top.it?.name ?? 'Item'} most` : 'Nothing used yet'} <Icon name="arrow" size={12} /></span></span>
+          <span className="k3Bars" aria-hidden="true">{weekBars.map((v, i) => <i key={i} className={i === todayIdx ? 'on' : ''} style={{ height: `${Math.max(8, (v / (Math.max(...weekBars) || 1)) * 100)}%` }} />)}</span>
+        </button>
+        {inc && <button className="kpi3 blue enter" onClick={() => go('incoming')}>
+          <span className="k3Txt"><b className="k3L">Coming in</b><span className="k3N"><Num value={inc.week} /><small>order{inc.week === 1 ? '' : 's'} this week</small></span><span className={`k3F ${inc.late ? 'late' : ''}`}>{inc.late ? `${inc.late} pending` : 'None pending'}{inc.today ? ` · ${inc.today} today` : ''} <Icon name="arrow" size={12} /></span></span>
+        </button>}
+        <button className="kpi3 ink enter" onClick={() => go('stocktake')}>
+          <span className="k3Txt"><b className="k3L">Last stock take</b><span className="k3N">{lastTake == null ? '–' : <><Num value={lastTake} /><small>day{lastTake === 1 ? '' : 's'} ago</small></>}</span><span className={`k3F ${lastTake != null && lastTake > 14 ? 'late' : ''}`}>{lastTake == null ? 'None yet' : lastTake > 14 ? 'Time for a count' : 'Count is recent'} <Icon name="arrow" size={12} /></span></span>
+        </button>
+      </section>
+      </div>
       {/* Missed days: the question lives inside the day itself, no separate reminder box. */}
       {!viewer && (locked || catchUp) && (
         <DayStrip days={[
@@ -312,22 +332,6 @@ export function Home() {
       )}
       <GetStarted />
       {phoneA}
-      <section className="kpis k3 k2 kStrip" aria-label="Key figures">
-        <button className="kpi3 green enter" style={{ animationDelay: '.05s' }} onClick={() => go('balances')}>
-          <Ring p={balances.length ? inStore / balances.length : 0} label={`${balances.length ? Math.round((inStore / balances.length) * 100) : 0}%`} tone="green" />
-          <span className="k3Txt"><b className="k3L">Balances</b><span className="k3N"><Num value={inStore} /><small>in store</small></span><span className="k3F">{movedToday ? `${movedToday} changed today` : 'Open balances'} <Icon name="arrow" size={12} /></span></span>
-        </button>
-        <button className="kpi3 amber enter" onClick={() => go('consumption')}>
-          <span className="k3Txt"><b className="k3L">Consumption</b><span className="k3N">{weekUse.top ? <><Num value={weekUse.top.used} /><small>{weekUse.top.it?.unit} this week</small></> : '0'}</span><span className="k3F">{weekUse.top ? `${weekUse.top.it?.name ?? 'Item'} most` : 'Nothing used yet'} <Icon name="arrow" size={12} /></span></span>
-          <span className="k3Bars" aria-hidden="true">{weekBars.map((v, i) => <i key={i} className={i === todayIdx ? 'on' : ''} style={{ height: `${Math.max(8, (v / (Math.max(...weekBars) || 1)) * 100)}%` }} />)}</span>
-        </button>
-        {inc && <button className="kpi3 blue enter" onClick={() => go('incoming')}>
-          <span className="k3Txt"><b className="k3L">Coming in</b><span className="k3N"><Num value={inc.week} /><small>order{inc.week === 1 ? '' : 's'} this week</small></span><span className={`k3F ${inc.late ? 'late' : ''}`}>{inc.late ? `${inc.late} pending` : 'None pending'}{inc.today ? ` · ${inc.today} today` : ''} <Icon name="arrow" size={12} /></span></span>
-        </button>}
-        <button className="kpi3 ink enter" onClick={() => go('stocktake')}>
-          <span className="k3Txt"><b className="k3L">Last stock take</b><span className="k3N">{lastTake == null ? '–' : <><Num value={lastTake} /><small>day{lastTake === 1 ? '' : 's'} ago</small></>}</span><span className={`k3F ${lastTake != null && lastTake > 14 ? 'late' : ''}`}>{lastTake == null ? 'None yet' : lastTake > 14 ? 'Time for a count' : 'Count is recent'} <Icon name="arrow" size={12} /></span></span>
-        </button>
-      </section>
 
       {phoneLow}
       {!locked && <button className="phASum" onClick={() => go('submitted')}><Icon name="chart" size={16} />{catchUp ? `${wd}’s summary` : 'Today’s summary'}<Icon name="arrow" size={16} /></button>}

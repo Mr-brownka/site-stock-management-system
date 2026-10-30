@@ -4337,3 +4337,42 @@ button.btn.dark.isDone::after, button.evGo.isDone::after { color: #fff; }
   .shellMain > .screen > *, .incRow2.fresh, .toastTimer, button.isDone::after { animation: none !important; }
   .recRow, .balRow, .consRow, .incRow2, .cinRow, .stTakeRow, .sumTr { transition: none !important; transform: none !important; }
 }
+
+/* ═════ Laptop dashboard (design A · glass hero): greeting, Start and the four figures in one deep-green band ═════ */
+@media (min-width: 768px) {
+  .dashHero:not(.plain) { position: relative; overflow: hidden; isolation: isolate; border-radius: 24px; padding: 24px 26px 22px; margin-bottom: 18px;
+    background: linear-gradient(135deg, #0F2C25 0%, #174236 58%, #1E4D41 100%); color: #fff; box-shadow: 0 24px 50px -30px rgba(15,44,37,.6); animation: dPageIn .4s cubic-bezier(.2,.8,.2,1) backwards; }
+  .dashHero:not(.plain) .dhOrb { position: absolute; z-index: -1; border-radius: 50%; filter: blur(14px); pointer-events: none; }
+  .dashHero:not(.plain) .dhOrb.a { left: 38%; top: -140px; width: 380px; height: 380px; background: radial-gradient(circle, rgba(252,167,45,.36), transparent 65%); animation: dhDrift 14s ease-in-out infinite; }
+  .dashHero:not(.plain) .dhOrb.b { right: -80px; bottom: -170px; width: 340px; height: 340px; background: radial-gradient(circle, rgba(127,211,166,.26), transparent 65%); animation: dhDrift2 18s ease-in-out infinite; }
+  .dashHero:not(.plain) > .pageHead { margin: 0 0 20px !important; padding: 0 !important; background: none !important; border: 0 !important; }
+  .dashHero:not(.plain) .phKicker { color: #FCA72D !important; }
+  .dashHero:not(.plain) .pageHead h1 { color: #fff !important; }
+  .dashHero:not(.plain) .phLead { color: #C9D8D2 !important; }
+  .dashHero:not(.plain) .phSum { background: rgba(255,255,255,.06) !important; color: #fff !important; border: 1px solid rgba(255,255,255,.24) !important; }
+  .dashHero:not(.plain) .phSum .ic, .dashHero:not(.plain) .phSum svg { color: #fff; }
+  /* the Start button: a light sweeps across it every few seconds until the day is done */
+  .dashHero:not(.plain) .startBtn { position: relative; overflow: hidden; }
+  .dashHero:not(.plain) .startBtn:not(.done)::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,.7) 50%, transparent 70%); transform: translateX(-130%); animation: dhShine 4.5s 1s ease-in-out infinite; pointer-events: none; }
+  /* the four figures: frosted cards that rise in one after another (their numbers count up) */
+  .dashHero:not(.plain) .kpis.kStrip { display: grid !important; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px !important; background: none !important; border: 0 !important; box-shadow: none !important; overflow: visible; }
+  .dashHero:not(.plain) .kpis.kStrip .kpi3 { border-radius: 16px !important; padding: 14px 16px !important; color: #fff; background: rgba(255,255,255,.08) !important; border: 1px solid rgba(255,255,255,.15) !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.14) !important; backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%);
+    animation: dhRise .6s cubic-bezier(.2,.8,.2,1) backwards !important; transition: transform .2s, background .2s, border-color .2s; }
+  .dashHero:not(.plain) .kpis.kStrip .kpi3 + .kpi3 { border-left: 1px solid rgba(255,255,255,.15) !important; }
+  .dashHero:not(.plain) .kpis.kStrip .kpi3:nth-child(1) { animation-delay: .08s !important; } .dashHero:not(.plain) .kpis.kStrip .kpi3:nth-child(2) { animation-delay: .16s !important; }
+  .dashHero:not(.plain) .kpis.kStrip .kpi3:nth-child(3) { animation-delay: .24s !important; } .dashHero:not(.plain) .kpis.kStrip .kpi3:nth-child(4) { animation-delay: .32s !important; }
+  .dashHero:not(.plain) .kpis.kStrip .kpi3:hover { transform: translateY(-2px); background: rgba(255,255,255,.13) !important; border-color: rgba(252,167,45,.45) !important; }
+  .dashHero:not(.plain) .kpis.kStrip .k3L { color: #C9D8D2 !important; }
+  .dashHero:not(.plain) .kpis.kStrip .k3N { color: #fff !important; }
+  .dashHero:not(.plain) .kpis.kStrip .k3N small, .dashHero:not(.plain) .kpis.kStrip .k3F { color: #9FB6AE !important; }
+  .dashHero:not(.plain) .kpis.kStrip .k3F.late { color: #FFB36B !important; }
+  .dashHero:not(.plain) .kpis.kStrip .ring circle:first-child { stroke: rgba(255,255,255,.14); }
+  .dashHero:not(.plain) .kpis.kStrip .ring b { color: #fff; }
+  .dashHero:not(.plain) .kpis.kStrip .k3Bars i { background: #FCA72D; }
+}
+@keyframes dhDrift { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(180px, 40px) scale(1.25); } }
+@keyframes dhDrift2 { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-140px, -30px); } }
+@keyframes dhShine { 0%, 55% { transform: translateX(-130%); } 80%, 100% { transform: translateX(260%); } }
+@keyframes dhRise { from { opacity: 0; transform: translateY(16px) scale(.97); } }
+@media (prefers-reduced-motion: reduce) { .dashHero .dhOrb, .dashHero .startBtn::after, .dashHero .kpi3 { animation: none !important; } }

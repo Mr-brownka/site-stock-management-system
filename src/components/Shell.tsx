@@ -139,7 +139,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
         <nav className="railNav r2Nav" ref={navRef}>
           <span className="railInk" aria-hidden="true" style={ink} />
           {([
-            { s: 'home', l: 'Dashboard', i: 'home', on: CHECKIN.includes(screen) },
+            { s: 'home', l: 'Dashboard', i: 'home', on: screen === 'home' || screen === 'welcome' },
             { s: 'stocktake', l: 'Stock take', i: 'clip', on: screen === 'stocktake' },
             { s: 'dashboard', l: 'Items', i: 'box', on: screen === 'dashboard' || screen === 'balances' || screen === 'consumption' },
             { s: 'rec-deliveries', l: 'Deliveries', i: 'truck', on: screen === 'rec-deliveries' || screen === 'deliveries' },
