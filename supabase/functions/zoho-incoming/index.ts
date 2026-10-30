@@ -191,10 +191,12 @@ Deno.serve(async (req) => {
       const p = await getPo(String(row.purchaseorder_id));
       if (!ours(p)) continue;
       const o = toOrder(p!);
+      const partly = o.lines.some((l) => l.received > 0);
       o.lines = o.lines.filter((l) => l.received < l.ordered);
       if (!o.lines.length) continue;
-      // Not delivered in the week it was due: it moves to Pending deliveries, marked late.
+      // Not delivered in the week it was due (late), or part of it already came: it goes to Pending deliveries.
       if (o.expected! < wk) { o.late = true; part.push(o); }
+      else if (partly) part.push(o);
       else (o.expected! <= wkEnd ? thisWeek : nextWeek).push(o);
     }
     const inPending = new Set(part.map((o) => o.id));
