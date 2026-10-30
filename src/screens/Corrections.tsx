@@ -98,6 +98,7 @@ export function Corrections() {
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState<string | null>(null);
+  const [mineTab, setMineTab] = useState<'waiting' | 'done'>('waiting');
   const findRef = useRef<HTMLInputElement>(null);
 
   const loadMine = () => api.myCorrections().then(setMine).catch(() => setMine([]));
@@ -188,19 +189,25 @@ export function Corrections() {
   const head = view === 'fix' && openDoc
     ? { title: `${paperTitle(openDoc)} · ${niceDate(openDoc.doc_date)}`, lead: `${sysRef(openDoc)} · tap any box to change it, the date too` }
     : view === 'recount' ? { title: 'Recount an item', lead: 'When the shelf doesn’t match the app and no single entry is to blame.' }
-      : view === 'mine' ? { title: 'My requests', lead: 'Everything you sent to the admin, and what they decided.' }
-        : { title: 'Fix an error', lead: 'Pick the day, then the paper that is wrong.' };
+      : view === 'mine' ? { title: 'My fixes', lead: 'Everything you sent to the admin, and what they decided.' }
+        : { title: 'Fix an error', lead: 'Search for the paper, or pick the day.' };
 
   return (
     <div className="page fxPage">
       {view === 'find' || (wanted && openDoc?.id === wanted.id) ? <BackPill /> : <BackPill label="Fix an error" onClick={toFind} />}
       <header className="pageHead enter">
         <div className="phText"><h1>{head.title}</h1><span className="phLead">{head.lead}</span></div>
+        {view === 'find' && <button className="fxMineLink" onClick={() => setView('mine')}>My fixes{waiting > 0 && <span className="mono">{waiting}</span>}<Icon name="chevR" size={16} /></button>}
       </header>
 
       {view === 'find' && (
         <div className="fxHome enter">
           <div className="fxHomeMain">
+            <label className={`fxSearch fxFirst ${s ? 'on' : ''}`}>
+              <Icon name="search" size={18} />
+              <input ref={findRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search: card no., note, vendor or item" aria-label="Search all entries" />
+              {q && <button className="fxClear" onClick={() => { setQ(''); findRef.current?.focus(); }} aria-label="Clear">×</button>}
+            </label>
             {!s && (
               <>
                 <div className="fxDays" role="tablist" aria-label="Pick the day" ref={(el) => { if (el && !el.dataset.done) { el.dataset.done = '1'; el.scrollLeft = el.scrollWidth; } }}>
@@ -233,11 +240,6 @@ export function Corrections() {
                 </div>
               </>
             )}
-            <label className={`fxSearch fxOr ${s ? 'on' : ''}`}>
-              <Icon name="search" size={18} />
-              <input ref={findRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Or search: card no., note, vendor, item…" aria-label="Search all entries" />
-              {q && <button className="fxClear" onClick={() => { setQ(''); findRef.current?.focus(); }} aria-label="Clear">×</button>}
-            </label>
             {s && (
               <>
                 <div className="fxKinds">
@@ -330,8 +332,12 @@ export function Corrections() {
 
       {view === 'mine' && (
         <section className="panel fxReqs enter">
-          {!mine.length && <div className="pad muted">No requests yet.</div>}
-          {mine.map((m) => {
+          <div className="fxMineTabs" role="tablist">
+            <button role="tab" aria-selected={mineTab === 'waiting'} onClick={() => setMineTab('waiting')}>Waiting · {mine.filter((m) => m.status === 'pending').length}</button>
+            <button role="tab" aria-selected={mineTab === 'done'} onClick={() => setMineTab('done')}>Done · {mine.filter((m) => m.status !== 'pending').length}</button>
+          </div>
+          {!mine.filter((m) => (mineTab === 'waiting') === (m.status === 'pending')).length && <div className="pad muted">{mineTab === 'waiting' ? 'Nothing waiting for the admin.' : 'Nothing decided yet.'}</div>}
+          {mine.filter((m) => (mineTab === 'waiting') === (m.status === 'pending')).map((m) => {
             const st = m.status === 'pending' ? 'Waiting for admin' : m.status === 'approved' ? 'Approved' : 'Not approved';
             const doc = m.document_id ? docById.get(m.document_id) : undefined;
             const more = m.kind === 'edit' ? describeEdit(m.changes, itemOf, doc?.kind) : [];
@@ -526,6 +532,10 @@ function PaperFix({ doc, sysRef, waiting, onSent, onDelete }: { doc: Doc; sysRef
         <small className="muted">Nothing changes until the admin approves. The before and after of every box are kept on record.</small>
         <button type="button" className="pfDelete" onClick={onDelete}><Icon name="trash" size={16} />Delete this entry instead</button>
       </aside>
+      <div className="pfBar" aria-hidden={!nChanges}>
+        <span>{nChanges ? (balAfter[0] ? <>{item(balAfter[0].id)?.name}: <b>{fmt(balAfter[0].now)} → {fmt(balAfter[0].now + balAfter[0].d)}</b>{balAfter.length > 1 ? ` +${balAfter.length - 1} more` : ''}</> : `${nChanges} change${nChanges === 1 ? '' : 's'}`) : 'Tap the box that is wrong'}</span>
+        <button className="btn accent" disabled={busy || !nChanges} onClick={send}>{busy ? 'Sending…' : 'Send the fix'}</button>
+      </div>
     </div>
   );
 }

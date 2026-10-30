@@ -35,8 +35,8 @@ const RECORDS: { screen: Screen; label: string; tone: string; entry: Screen }[] 
 const readRecOpen = () => { try { return localStorage.getItem('ssms-records') !== 'closed'; } catch { return true; } };
 // Screens that show the phone tab bar (not the step-by-step forms).
 /** Phone pages with their own top bar (the shell's top bar hides there on phones). */
-const PHONE_OWN: Screen[] = ['home', 'records', 'rec-deliveries', 'rec-issued', 'rec-returns', 'rec-transfers', 'dashboard', 'incoming', 'me'];
-const TABBAR: Screen[] = ['home', 'dashboard', 'corrections', 'submitted', 'reports', 'stocktake', 'rec-deliveries', 'rec-issued', 'rec-returns', 'rec-transfers', 'consumption', 'balances', 'records', 'incoming', 'me'];
+const PHONE_OWN: Screen[] = ['home', 'records', 'rec-deliveries', 'rec-issued', 'rec-returns', 'rec-transfers', 'dashboard', 'incoming', 'me', 'tofinish', 'stocktake'];
+const TABBAR: Screen[] = ['home', 'dashboard', 'corrections', 'submitted', 'reports', 'stocktake', 'rec-deliveries', 'rec-issued', 'rec-returns', 'rec-transfers', 'consumption', 'balances', 'records', 'incoming', 'me', 'tofinish'];
 
 export function closeLabel(min: number): string {
   if (min <= 0) return 'Register closed at 6:00 pm';
@@ -233,7 +233,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
 {canSee(user, 'stocktake') && (          <button aria-current={screen === 'stocktake' ? 'page' : undefined} onClick={() => { setSheet(null); go('stocktake'); }}>
             <span className="tbIcon"><Icon name="clip" size={22} /></span>Stock take
           </button>)}
-          <button aria-current={screen === 'me' || screen === 'corrections' ? 'page' : undefined} onClick={() => { setSheet(null); go('me'); }}>
+          <button aria-current={screen === 'me' || screen === 'tofinish' || screen === 'corrections' ? 'page' : undefined} onClick={() => { setSheet(null); go('me'); }}>
             <span className="tbIcon"><span className="tbAv">{initials}</span>{toFinish > 0 && <span className="tbBadge" aria-label={`${toFinish} to finish`}>{toFinish}</span>}</span>Me
           </button>
         </nav>

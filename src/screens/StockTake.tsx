@@ -11,6 +11,8 @@ import type { Item, StockTake as Take } from '../lib/types';
 import { Upload } from './Opening';
 import { BackPill } from '../components/BackPill';
 import { canEdit } from '../lib/access';
+import { useIsPhone } from '../components/Ring';
+import { Chips, Pill, PSearch, PTop, useSub } from '../phone/PhoneUI';
 
 type View = 'home' | 'enter' | 'upload';
 const nice = (d: string) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
@@ -77,6 +79,9 @@ export function StockTake() {
   const [saving, setSaving] = useState<Take | null>(null);
   const [savingLive, setSavingLive] = useState(false);
   const editable = canEdit(user);
+  const phone = useIsPhone();
+  const [sub, setSub] = useSub();
+  const [phHead, setPhHead] = useState(false);
   const [printing, setPrinting] = useState<{ items: Item[]; values?: Record<number, number>; take?: Take } | null>(null);
   const rowsRef = useRef<HTMLDivElement>(null);
   // A long count can be put down and picked up later on this device.
@@ -154,8 +159,128 @@ export function StockTake() {
     head={printing.take ? { date: printing.take.count_date, start: printing.take.start_time, end: printing.take.end_time, by: printing.take.counted_by } : undefined}
     title={printing.take?.is_first ? 'First stock take' : 'Stock take sheet'} /></div>, document.body);
 
+  // ───── Phone (design 3): two tiles, a list that shows the difference as you type, then fewer / more / match.
+  const dialogs = <>
+    {saving && <SaveTake take={saving} refName={refOf(saving)} onClose={() => setSaving(null)} />}
+    {savingLive && <SaveTake take={{ id: 'live', count_date: realToday, lines: [...balances].sort((a, b) => a.name.localeCompare(b.name)).map((b) => ({ item_id: b.item_id, qty: b.balance })) } as unknown as Take} refName="Live balances" live onClose={() => setSavingLive(false)} />}
+    {sharing && <ShareTake take={sharing} refName={refOf(sharing)} onClose={() => setSharing(null)} />}
+    {sharingLive && <ShareTake take={{ id: 'live', count_date: realToday, lines: balances.map((b) => ({ item_id: b.item_id, qty: b.balance })) } as unknown as Take} refName="the live stock take" live onClose={() => setSharingLive(false)} />}
+    {printLayer}
+  </>;
+  if (phone && view === 'home') {
+    const t = takes?.find((x) => x.id === sub);
+    if (t) return (
+      <div className="pPage pDetail">
+        {dialogs}
+        <PTop title={refOf(t)} back={() => setSub(null)} right={<Pill tone={t.is_first ? 'grey' : 'ok'}>{t.is_first ? 'Opening' : t.status === 'confirmed' ? 'Confirmed' : 'Recorded'}</Pill>} />
+        <section className="pDHead">
+          <small className="pKick">Stock take · {dShort(t.count_date)}{t.start_time || t.end_time ? ` · ${t.start_time ?? '–'}–${t.end_time ?? '–'}` : ''}</small>
+          <h2>{t.lines.length} items counted</h2>
+          <dl className="pKv">{[['Counted by', t.counted_by], ['Checked by', t.checked_by]].filter(([, v]) => v).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
+        </section>
+        <div className="pGh">Counts</div>
+        <div className="pLines">{sorted(t.lines.map((l) => itemById.get(l.item_id)).filter(Boolean) as Item[]).map((it) => <div key={it.id} className="pLine"><span>{it.name}</span><b className="mono">{fmt(t.lines.find((l) => l.item_id === it.id)?.qty ?? 0)}</b><small>{it.unit}</small></div>)}</div>
+        <footer className="pFoot pFoot2"><button className="pBtn ghost" onClick={() => setSaving(t)}><Icon name="download" size={18} />Excel / PDF</button>{editable && <button className="pBtn" onClick={() => setSharing(t)}><Icon name="mail" size={18} />Email it</button>}</footer>
+      </div>
+    );
+    if (sub === 'live') return (
+      <div className="pPage pGrey">
+        {dialogs}
+        <PTop title="Live balances" back={() => setSub(null)} />
+        <p className="pLead">What the system shows in {site || 'the store'} right now: {balances.length} items, in the stock take template.</p>
+        <section className="pSetCard">
+          <button className="pSetRow" onClick={() => { refresh().catch(() => undefined); setSavingLive(true); }}><span className="pSetIc"><Icon name="download" size={17} /></span><b>Download Excel or PDF</b><Icon name="chevR" size={17} /></button>
+          {editable && <button className="pSetRow" onClick={() => { refresh().catch(() => undefined); setSharingLive(true); }}><span className="pSetIc"><Icon name="mail" size={17} /></span><b>Email it</b><Icon name="chevR" size={17} /></button>}
+          {editable && <button className="pSetRow" disabled={!sheet?.length} onClick={() => sheet && print({ items: sorted(sheet) })}><span className="pSetIc"><Icon name="print" size={17} /></span><b>Print a blank count sheet</b><Icon name="chevR" size={17} /></button>}
+        </section>
+      </div>
+    );
+    return (
+      <div className="pPage pGrey pStHome">
+        {dialogs}
+        <PTop title={first ? 'First stock take' : 'Stock take'} back={false} />
+        <div className="pStLast"><small>Last count</small><b>{last ? (ago <= 0 ? 'Today' : ago === 1 ? 'Yesterday' : `${ago} days ago`) : 'No count yet'}{last && <small> · {dShort(last.count_date)}</small>}</b></div>
+        <div className="pTiles pStTiles">
+          {editable && <button className="pTileB pStGo" disabled={!sheet?.length} onClick={startTyping}><span className="pTIc"><Icon name="clip" size={20} /></span><b>{hasDraft ? 'Continue the count' : 'Count now'}</b><small>{sheet ? `${sheet.length} items` : 'Loading…'}</small></button>}
+          <button className="pTileB" onClick={() => setSub('live')}><span className="pTIc"><Icon name="box" size={20} /></span><b>Live balances</b><small>Download or email</small></button>
+        </div>
+        {editable && list && !list.length && <div className="pNote">The admin lists this store’s items first. Then you can count here.</div>}
+        {editable && hasDraft && <div className="pNote">An unfinished count is saved on this device. <button className="pLink" onClick={dropDraft}>Discard it</button></div>}
+        {editable && <button className="pUpload" onClick={() => setView('upload')}><Icon name="upload" size={16} />Have the count in Excel? Upload the file</button>}
+        <div className="pSetH">Past counts</div>
+        <section className="pSetCard">
+          {takes === null && <div className="pEmpty">Loading…</div>}
+          {takes && !takes.length && <div className="pEmpty">No stock takes yet.</div>}
+          {takes && [...takes].reverse().map((t) => (
+            <button key={t.id} className="pSetRow pTakeRow" onClick={() => setSub(t.id)}>
+              <span className="pRowT"><b>{t.count_date === realToday ? 'Today' : dShort(t.count_date)}{t.end_time ? `, ${t.end_time}` : ''}</b><small>{refOf(t)} · {t.lines.length} items{t.counted_by ? ` · ${t.counted_by}` : ''}</small></span>
+              {t.is_first ? <Pill tone="grey">Opening</Pill> : <Pill tone="ok">{t.status === 'confirmed' ? 'Confirmed' : 'Recorded'}</Pill>}<Icon name="chevR" size={17} />
+            </button>
+          ))}
+        </section>
+      </div>
+    );
+  }
+  if (phone && view === 'enter' && reviewing) {
+    const counted = ordered.filter((it) => (qty[it.id] ?? '') !== '');
+    const fewer = first ? [] : counted.filter((it) => Number(qty[it.id]) < balanceOf(it.id));
+    const more = first ? [] : counted.filter((it) => Number(qty[it.id]) > balanceOf(it.id));
+    const grp = (title: string, tone: string, xs: Item[]) => xs.length > 0 && <>
+      <div className={`pGh ${tone}`}>{title}</div>
+      <div className="pLines">{xs.map((it) => <div key={it.id} className="pLine"><span>{it.name}</span><small className="mono pWas">{fmt(balanceOf(it.id))} →</small><b className="mono">{fmt(Number(qty[it.id]))}</b><small>{it.unit}</small></div>)}</div>
+    </>;
+    return (
+      <div className="pPage pDetail">
+        <PTop title="Check before saving" back={() => setReviewing(false)} />
+        <div className="pStStats">
+          {first ? <><div><b className="mono">{entered}</b><small>counted</small></div><div><b className="mono">{blanks.length}</b><small>left blank</small></div></>
+            : <><div className="red"><b className="mono">{fewer.length}</b><small>fewer</small></div><div className="green"><b className="mono">{more.length}</b><small>more</small></div><div><b className="mono">{counted.length - fewer.length - more.length}</b><small>match</small></div></>}
+        </div>
+        {grp('Fewer than the system', 'red', fewer)}
+        {grp('More than the system', 'green', more)}
+        {blanks.length > 0 && <div className="pNote">{blanks.length} left blank: {blanks.slice(0, 3).map((b) => b.name).join(', ')}{blanks.length > 3 ? ` and ${blanks.length - 3} more` : ''}. {first ? 'They start at zero.' : 'They keep their balance.'}</div>}
+        {needWeek && <label className="pField"><span>Which week of the project is this?</span><input inputMode="numeric" value={week} placeholder="e.g. 46" onChange={(e) => setWeek(e.target.value.replace(/\D/g, ''))} /></label>}
+        <p className="pLead">{first ? 'Every balance starts from this count.' : 'Saving sets each counted item’s balance to your count.'}</p>
+        <footer className="pFoot"><button className="pBtn" disabled={busy} onClick={save}>{busy ? 'Saving…' : first ? 'Save · start the balances' : 'Save · set balances to the count'}</button></footer>
+      </div>
+    );
+  }
+  if (phone && view === 'enter') return (
+    <div className="pPage pStEnter">
+      <PTop title={first ? 'First stock take' : 'New count'} back={() => (imported ? (setImported(null), setView('home')) : keepForLater())} right={<small className="pTopNote mono">{entered}/{ordered.length}</small>} />
+      <button className="pStHeadBtn" onClick={() => setPhHead((v) => !v)}><span>{dShort(head.date)}{head.start ? ` · ${head.start}` : ''}{head.by ? ` · ${head.by}` : ''}</span><b>{phHead ? 'Done' : 'Edit'}</b></button>
+      {phHead && <section className="pStHead">
+        <div className="field"><span>Date of the count</span><DateRange single value={{ from: head.date, to: head.date }} max={day} onChange={(r) => setHead({ ...head, date: r?.from ?? day })} /></div>
+        <div className="pStTimes"><TimeBoxes label="Start" value={head.start} onChange={(v) => setHead({ ...head, start: v })} /><TimeBoxes label="End" value={head.end} onChange={(v) => setHead({ ...head, end: v })} /></div>
+        <label className="field"><span>Counted by</span><input className="input" value={head.by} onChange={(e) => setHead({ ...head, by: e.target.value })} /></label>
+      </section>}
+      <i className="pStProg"><i style={{ width: `${(entered / Math.max(1, ordered.length)) * 100}%` }} /></i>
+      <PSearch value={q} onChange={setQ} placeholder="Jump to an item" />
+      <Chips value={onlyBlank ? 'blank' : 'all'} onChange={(k) => setOnlyBlank(k === 'blank')} items={[['all', `All ${ordered.length}`], ['blank', `Not counted ${blanks.length}`]]} />
+      {!first && <div className="pStHint">The difference shows as you type: <b className="green">✓</b> matches · <b className="red">−2</b> fewer · <b className="green">+4</b> more</div>}
+      <div className="pStRows" ref={rowsRef}>
+        {shown.map((it) => {
+          const v = qty[it.id] ?? ''; const sys = balanceOf(it.id); const lc = lastCount.get(it.id);
+          const d = v === '' || first ? null : Number(v) - sys;
+          return (
+            <label key={it.id} className={`pStRow ${v !== '' ? 'filled' : ''}`}>
+              <span className="pStName"><b>{it.name}</b><small>{it.unit} · system {fmt(sys)}{lc ? ` · last ${fmt(lc.qty)}` : ''}</small></span>
+              <span className={`pStDiff ${d == null ? '' : d === 0 ? 'green' : d < 0 ? 'red' : 'green'}`}>{d == null ? '' : d === 0 ? '✓' : `${d > 0 ? '+' : '−'}${fmt(Math.abs(d))}`}</span>
+              <input className="stIn pStIn mono" inputMode="decimal" value={v} placeholder="" aria-label={`${it.name} count`}
+                onChange={(e) => setQty({ ...qty, [it.id]: e.target.value.replace(/[^0-9.]/g, '') })}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); nextRow(e.currentTarget); } }} />
+            </label>
+          );
+        })}
+        {!shown.length && <div className="pEmpty">{onlyBlank ? 'Everything has a number.' : 'No item matches.'}</div>}
+      </div>
+      <footer className="pFoot"><button className="pBtn" disabled={!entered} onClick={() => setReviewing(true)}>{entered ? `Review ${entered} counted` : 'Type a count to review'}</button></footer>
+    </div>
+  );
+
   if (view === 'upload') return (
     <div className="entryPage">
+      {phone && <PTop title="Upload the count" back={() => setView('home')} />}
       <header className="entryHead enter">
         <BackPill label="Stock take" onClick={() => setView('home')} />
         <div className="entryTitle"><div><h1>New stock take · from a file</h1><p>Upload the count. The system matches each line to {site || 'the store'}’s item list, then you check it before saving.</p></div></div>
