@@ -24,7 +24,7 @@ export function noteVisit(u: User, screen: string) {
   if (!seen.has(screen)) { seen.add(screen); write(k, [...seen].join(',')); window.dispatchEvent(new Event('ssms-guide')); }
 }
 
-type Step = { sel: string[]; kicker: string; title: string; text: string; screen?: Screen };
+type Step = { sel: string[]; kicker: string; title: string; text: string; screen?: Screen; /** Also lit softly, e.g. the menu entry to get here. */ also?: string[] };
 const STORE_STEPS: Step[] = [
   { sel: [], kicker: 'Welcome', title: 'SiteStock keeps the store’s balance true', text: 'Deliveries come in from Zoho on their own. You record what goes out and what comes back. Each evening you submit the day, and every balance is up to date. This takes 2 minutes.' },
   { sel: ['.kStrip'], kicker: 'The store at a glance', title: 'Balances, consumption, orders on the way', text: 'What is in the store now, what was used this week, what Zoho says is coming and when the store was last counted. Tap any of them to open it.' },
@@ -38,9 +38,10 @@ const STORE_STEPS: Step[] = [
 /** Procurement and site managers: two moves, from 30 Oct 2026 (earlier sign-ins don't count). */
 const viewerSteps = (site: string): Step[] => [
   { screen: 'home', sel: ['.kpi3.green'], kicker: 'Stock balances', title: 'View stock balances here', text: 'What is in the store right now. Tap it to see every item and its balance.' },
-  { screen: 'stocktake', sel: ['.stLiveBtn'], kicker: 'Stock take', title: `Import ${site || 'the site'}’s stock take here`, text: 'Press Print live balances to download today’s stock take as Excel or PDF.' },
+  { screen: 'stocktake', sel: ['.stLiveBtn'], also: ['.railLink[title="Stock take"]', '.tabbar button[aria-current="page"]'], kicker: 'Stock take', title: `Import ${site || 'the site'}’s stock take here`, text: 'Press Print live balances to download today’s stock take as Excel or PDF.' },
 ];
 const VIEWER_FROM = '2026-10-30';
+const RESET = ['daniel.macharia@people.ostock.co.ke'];
 
 function target(s: Step): HTMLElement | null {
   for (const q of s.sel) {
@@ -54,9 +55,11 @@ export function Tour() {
   const { user, go, site, realToday } = useData();
   const viewer = user.role === 'procurement' || user.role === 'site_manager';
   const STEPS = useMemo(() => (viewer ? viewerSteps(site) : STORE_STEPS), [viewer, site]);
-  const doneKey = viewer ? 'tourViewer' : 'tour';
+  // A tour that was played on the wrong account is reset by adding the address here (it shows once more).
+  const doneKey = viewer ? (RESET.includes(user.email) ? 'tourViewer2' : 'tourViewer') : 'tour';
   const [i, setI] = useState<number | null>(null);
   const [rect, setRect] = useState<DOMRect | null>(null);
+  const [alsoRect, setAlsoRect] = useState<DOMRect | null>(null);
   const isStore = user.role === 'store';
   const start = useCallback(() => { go('home'); setTimeout(() => setI(0), 250); }, [go]);
   useEffect(() => { openTour = start; return () => { openTour = () => undefined; }; }, [start]);
@@ -68,14 +71,18 @@ export function Tour() {
     return () => clearTimeout(t);
   }, [isStore, viewer, user, realToday, doneKey]);
 
-  const end = (how: 'done' | 'skipped') => { write(key(user, doneKey), how); setI(null); setRect(null); window.dispatchEvent(new Event('ssms-guide')); };
+  const end = (how: 'done' | 'skipped') => { write(key(user, doneKey), how); setI(null); setRect(null); setAlsoRect(null); window.dispatchEvent(new Event('ssms-guide')); };
   const step = i == null ? null : STEPS[i];
   const goRef = useRef(go); goRef.current = go;
   useLayoutEffect(() => {
     if (!step) return;
     if (step.screen) goRef.current(step.screen);
     let el: HTMLElement | null = null, tries = 0, alive = true;
-    const put = () => { if (el) setRect(el.getBoundingClientRect()); };
+    const put = () => {
+      if (el) setRect(el.getBoundingClientRect());
+      const a = step.also?.map((q) => document.querySelector<HTMLElement>(q)).find((x) => x && x.getBoundingClientRect().width > 0);
+      setAlsoRect(a ? a.getBoundingClientRect() : null);
+    };
     // The page may still be opening: look for the part to light for up to 3 seconds.
     const find = () => {
       if (!alive) return;
@@ -114,6 +121,7 @@ export function Tour() {
   return createPortal(
     <div className="tour" role="dialog" aria-modal="true" aria-labelledby="tourT">
       {hole ? <div className="tourHole" style={hole} /> : <div className="tourDim" />}
+      {alsoRect && <div className="tourAlso" aria-hidden="true" style={{ left: alsoRect.left / z - 4, top: alsoRect.top / z - 4, width: alsoRect.width / z + 8, height: alsoRect.height / z + 8 }} />}
       <div className={`tourCard ${hole ? '' : 'center'}`} style={card}>
         <span className="tourKick">Step {i + 1} of {STEPS.length} · {step.kicker}</span>
         <b id="tourT">{i === 0 && !viewer ? `Welcome, ${user.name.split(' ')[0]}. ` : ''}{step.title}</b>

@@ -4189,3 +4189,5 @@ button.adAcc:hover { border-color: currentColor; }
   .sumTh > span:nth-child(3), .sumTh > span:nth-child(4), .sumTr > .mono.in, .sumTr > .mono.out { display: none !important; }
   .sumTr .sumBig { font-size: 16px; }
 }
+.tourAlso { position: fixed; border-radius: 12px; border: 2px solid rgba(252,167,45,.85); background: rgba(252,167,45,.14); pointer-events: none; animation: tourAlso 1.6s ease-in-out infinite; }
+@keyframes tourAlso { 50% { box-shadow: 0 0 0 5px rgba(252,167,45,.22); } }
