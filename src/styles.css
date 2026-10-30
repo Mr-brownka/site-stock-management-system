@@ -4201,3 +4201,18 @@ button.adAcc:hover { border-color: currentColor; }
 .stCellHead > span:last-child { color: var(--ink); }
 @media (max-width: 900px) { .stCellHead.second { display: none; } }
 @media (max-width: 640px) { .stGrid3 .stCell { grid-template-columns: minmax(0, 1fr) 58px 62px 84px !important; } .stGrid3 .stTick, .stGrid3 .stUnit, .stCellHead > span:nth-child(1), .stCellHead > span:nth-child(3) { display: none; } }
+
+/* Today's summary: a smaller status card */
+.sumDay { padding: 16px 18px; gap: 12px; border-radius: 18px; }
+.sumDayHead > .sdT > b { font-size: 20px; }
+.sumDay .ring b { font-size: 15px; }
+@media (max-width: 767px) { .sumDay { padding: 14px 16px; } .sumDayT { font-size: 11.5px; } }
+
+/* Phone: Balances laid out exactly like Consumption (name · bar · qty), no sort box, no table head. */
+@media (max-width: 767px) {
+  .balPage .balSort, .balPage .balRow.th { display: none !important; }
+  .balPage .phActions > .btn { width: auto !important; flex: 0 0 auto !important; margin-left: auto; }
+  .balPage .balRow { grid-template-columns: minmax(0, 1fr) 54px auto !important; gap: 10px; }
+  .balPage .balRow > :nth-child(2) { display: block !important; }
+  .balPage .balRow > :nth-child(4), .balPage .balRow > :nth-child(5), .balPage .balRow > :nth-child(6) { display: none !important; }
+}

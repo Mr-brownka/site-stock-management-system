@@ -25,6 +25,8 @@ export function recordScreen(s: Screen) {
   if (stack.length > 40) stack.shift();
 }
 export function backTarget(cur: Screen): Screen {
+  // Pages opened from the dashboard tiles always go back to the dashboard.
+  if (cur === 'balances' || cur === 'consumption' || cur === 'incoming') return 'home';
   for (let i = stack.length - 1; i >= 0; i--) {
     const s = stack[i];
     if (s !== cur && !ENTRY.includes(s) && s !== 'welcome') return s === 'dashboard' ? 'home' : s;

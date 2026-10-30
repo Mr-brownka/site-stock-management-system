@@ -7,7 +7,6 @@ import { fmt } from '../components/ui';
 import { toast } from '../components/feedback';
 import { api } from '../lib/api';
 import { longDate, niceDate, weekdayName } from '../lib/dates';
-import { signal } from '../lib/signals';
 import { STEPS, useData } from '../lib/store';
 import { delta, type AlertInfo, type Doc } from '../lib/types';
 import { openItems } from './Dashboard';
@@ -71,15 +70,13 @@ export function Submitted() {
         </div>
         <span className="abGrow" />
         <button className="btn ghost sm" onClick={() => window.print()}><Icon name="print" size={16} />Print</button>
-        {submission
-          ? <button className="sumSend" onClick={send}><ChatMark />Send to Site Manager</button>
-          : <button className="btn accent sm" onClick={() => { signal('proc'); go('home'); }}>{done3 ? 'Continue' : 'Start'}<Icon name="arrow" size={16} /></button>}
+        {submission && <button className="sumSend" onClick={send}><ChatMark />Send to Site Manager</button>}
       </header>
 
       <div className="sumGrid">
         <aside className="sumDay enter">
           <div className="sumDayHead">
-            <Ring p={submission ? 1 : done3 / 3} size={72} stroke={9} label={submission ? '✓' : `${done3}/3`} tone={submission ? 'green' : 'amber'} dark />
+            <Ring p={submission ? 1 : done3 / 3} size={54} stroke={7} label={submission ? '✓' : `${done3}/3`} tone={submission ? 'green' : 'amber'} dark />
             <span className="sdT">
               <small className={submission ? 'ok' : ''}>{submission ? `Submitted ${at}` : 'Not submitted yet'}</small>
               <b>{niceDate(day)}</b>

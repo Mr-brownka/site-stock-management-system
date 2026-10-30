@@ -42,7 +42,7 @@ export function PhoneHome() {
   const openItems = (f: string) => { try { sessionStorage.setItem('ssms-pitems', f); } catch { /* ignore */ } go('dashboard'); };
 
   const tiles = [
-    { k: 'bal', icon: 'box', n: String(inStore), t: 'Balances', s: 'in store', run: () => openItems('all') },
+    { k: 'bal', icon: 'box', n: String(inStore), t: 'Balances', s: 'in store', run: () => go('balances') },
     { k: 'con', icon: 'bars', n: String(used), t: 'Consumption', s: `item${used === 1 ? '' : 's'} used this week`, run: () => go('consumption') },
     { k: 'inc', icon: 'truck', n: inc ? String(inc.week) : '–', t: 'Incoming deliveries', s: inc ? 'this week' : 'Zoho not connected', run: () => go('incoming') },
     { k: 'st', icon: 'clip', n: lastTake == null ? '–' : String(lastTake), t: 'Last stock take', s: lastTake == null ? 'none yet' : `day${lastTake === 1 ? '' : 's'} ago`, run: () => go('stocktake') },

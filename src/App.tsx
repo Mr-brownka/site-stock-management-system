@@ -47,14 +47,13 @@ const PageSkeleton = () => (
 
 /** On a phone, some pages have their own phone design. */
 const pick = (Desk: React.ComponentType, Phone: React.ComponentType) => function Pick() { return useIsPhone() ? <Phone /> : <Desk />; };
-const DeskBalances = () => <Balances />;
 const DeskDashboard = () => <DashboardJump />;
 const SCREENS: Record<Screen, React.ComponentType> = {
   home: pick(Home, PhoneHome), deliveries: Deliveries, issued: Issued, returns: Returns, transfers: Transfers,
   submitted: Submitted, dashboard: pick(DeskDashboard, PhoneItems), stocktake: StockTake, corrections: Corrections, reports: Reports, welcome: Home,
   'rec-deliveries': pick(() => <Records recKey="deliveries" />, () => <PhoneRecList recKey="deliveries" />), 'rec-issued': pick(() => <Records recKey="issued" />, () => <PhoneRecList recKey="issued" />),
   'rec-returns': pick(() => <Records recKey="returns" />, () => <PhoneRecList recKey="returns" />), 'rec-transfers': pick(() => <Records recKey="transfers" />, () => <PhoneRecList recKey="transfers" />),
-  consumption: Consumption, balances: pick(DeskBalances, PhoneItems), records: pick(RecordsHub, PhoneRecordsHub), incoming: pick(ComingIn, PhoneIncoming), me: pick(Home, PhoneMe),
+  consumption: Consumption, balances: Balances, records: pick(RecordsHub, PhoneRecordsHub), incoming: pick(ComingIn, PhoneIncoming), me: pick(Home, PhoneMe),
 };
 
 const fromHash = (): Screen => {

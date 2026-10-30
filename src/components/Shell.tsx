@@ -35,7 +35,7 @@ const RECORDS: { screen: Screen; label: string; tone: string; entry: Screen }[] 
 const readRecOpen = () => { try { return localStorage.getItem('ssms-records') !== 'closed'; } catch { return true; } };
 // Screens that show the phone tab bar (not the step-by-step forms).
 /** Phone pages with their own top bar (the shell's top bar hides there on phones). */
-const PHONE_OWN: Screen[] = ['home', 'records', 'rec-deliveries', 'rec-issued', 'rec-returns', 'rec-transfers', 'dashboard', 'balances', 'incoming', 'me'];
+const PHONE_OWN: Screen[] = ['home', 'records', 'rec-deliveries', 'rec-issued', 'rec-returns', 'rec-transfers', 'dashboard', 'incoming', 'me'];
 const TABBAR: Screen[] = ['home', 'dashboard', 'corrections', 'submitted', 'reports', 'stocktake', 'rec-deliveries', 'rec-issued', 'rec-returns', 'rec-transfers', 'consumption', 'balances', 'records', 'incoming', 'me'];
 
 export function closeLabel(min: number): string {
@@ -224,10 +224,10 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
 
       {TABBAR.includes(screen) && (
         <nav className="tabbar" aria-label="Main menu">
-          <button aria-current={CHECKIN.includes(screen) ? 'page' : undefined} onClick={() => { setSheet(null); go('home'); }}>
+          <button aria-current={CHECKIN.includes(screen) || ['balances', 'consumption', 'incoming'].includes(screen) ? 'page' : undefined} onClick={() => { setSheet(null); go('home'); }}>
             <span className="tbIcon"><Icon name="home" size={22} />{lowItems.length > 0 && <PulseDot />}</span>Home
           </button>
-          <button aria-current={RECORDS.some((r) => r.screen === screen) || ['reports', 'records', 'dashboard', 'balances', 'consumption'].includes(screen) ? 'page' : undefined} onClick={() => { setSheet(null); go('records'); }}>
+          <button aria-current={RECORDS.some((r) => r.screen === screen) || ['reports', 'records', 'dashboard'].includes(screen) ? 'page' : undefined} onClick={() => { setSheet(null); go('records'); }}>
             <span className="tbIcon"><Icon name="list" size={22} />{newDel > 0 && <span className="newDot tb" aria-label={`${newDel} new deliveries from Zoho`} />}</span>Records
           </button>
 {canSee(user, 'stocktake') && (          <button aria-current={screen === 'stocktake' ? 'page' : undefined} onClick={() => { setSheet(null); go('stocktake'); }}>
