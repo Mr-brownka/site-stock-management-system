@@ -71,7 +71,7 @@ export function Tour() {
     return () => clearTimeout(t);
   }, [isStore, viewer, user, realToday, doneKey]);
 
-  const end = (how: 'done' | 'skipped') => { write(key(user, doneKey), how); setI(null); setRect(null); setAlsoRect(null); window.dispatchEvent(new Event('ssms-guide')); };
+  const end = (how: 'done' | 'skipped') => { write(key(user, doneKey), how); setI(null); setRect(null); setAlsoRect(null); if (viewer) goRef.current('home'); window.dispatchEvent(new Event('ssms-guide')); };
   const step = i == null ? null : STEPS[i];
   const goRef = useRef(go); goRef.current = go;
   useLayoutEffect(() => {
