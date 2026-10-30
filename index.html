@@ -88,7 +88,7 @@
       // Greet a returning person by name straight away (saved on the last visit).
       try {
         var last = JSON.parse(localStorage.getItem('ssms-last') || 'null');
-        if (last && last.name) document.getElementById('bootHello').textContent = 'Welcome back, ' + last.name + (last.site ? ' · ' + last.site : '');
+        if (last && last.name) document.getElementById('bootHello').textContent = 'Welcome back, ' + last.name;
       } catch (e) {}
       // Keep the bar moving while the app code downloads, so it never looks stuck.
       (function () { var w = 6, bar = document.getElementById('bootBar'); window.__bootCreep = setInterval(function () { if (w < 28) { w += (28 - w) * 0.12; bar.style.width = w + '%'; } }, 300); })();

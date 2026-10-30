@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '../components/fx';
 import { useNewZohoDeliveries } from '../lib/newDeliveries';
 import { fmt } from '../components/ui';
-import { ZohoOpen } from '../components/Zoho';
+import { useZohoDeliveries, ZohoOpen } from '../components/Zoho';
 import { useAddEntry } from '../components/AddEntry';
 import { canEdit, canSee } from '../lib/access';
 import { api } from '../lib/api';
@@ -84,6 +84,7 @@ export function PhoneRecList({ recKey: key }: { recKey: RecKey }) {
   const [more, setMore] = useState(40);
   const [openId, setOpen] = useSub();
   const { add, modal } = useAddEntry();
+  const zohoOnly = useZohoDeliveries();
   useEffect(() => { api.documents('2000-01-01', day).then(setAll).catch(() => setAll([])); }, [day]);
   const name = (id: number) => itemById.get(id)?.name ?? 'Item';
   const unit = (id: number) => itemById.get(id)?.unit ?? '';
@@ -152,7 +153,10 @@ export function PhoneRecList({ recKey: key }: { recKey: RecKey }) {
   return (
     <div className="pPage pList">
       {modal}
-      <PTop title={TITLE[key]} back="records" right={<button className="pIconBtn" onClick={() => { setFind((v) => !v); if (find) setQ(''); }} aria-label="Search" aria-pressed={find}><Icon name={find ? 'close' : 'search'} size={19} /></button>} />
+      <PTop title={TITLE[key]} back="records" right={<>
+        <button className="pIconBtn" onClick={() => { setFind((v) => !v); if (find) setQ(''); }} aria-label="Search" aria-pressed={find}><Icon name={find ? 'close' : 'search'} size={19} /></button>
+        {canEdit(user) && !(key === 'deliveries' && zohoOnly) && <button className="pAddBtn" onClick={() => add(key)}><Icon name="plus" size={18} />{key === 'issued' ? 'Today' : 'New'}</button>}
+      </>} />
       {find && <PSearch value={q} onChange={setQ} placeholder={`Search ${TITLE[key].toLowerCase()}`} />}
       <Chips value={period} onChange={(p) => { setPeriod(p); setMore(40); }} items={[['week', 'This week'], ['month', 'This month'], ['all', 'All']]} />
       {all === null && <Skel rows={5} card />}

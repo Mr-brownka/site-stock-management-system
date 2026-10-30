@@ -98,7 +98,8 @@ export function bootGreet(name: string, site?: string) {
   let back = false;
   try { back = JSON.parse(localStorage.getItem('ssms-last') || 'null')?.name === first; } catch { /* ignore */ }
   const h = document.getElementById('bootHello');
-  if (h) h.textContent = `${back ? 'Welcome back' : 'Welcome'}, ${first}${site ? ` · ${site}` : ''}`;
+  void site; // no site on the welcome: not everyone has one (procurement)
+  if (h) h.textContent = `${back ? 'Welcome back' : 'Welcome'}, ${first}`;
 }
 export function forgetVisitor() {
   try { localStorage.removeItem('ssms-last'); } catch { /* ignore */ }

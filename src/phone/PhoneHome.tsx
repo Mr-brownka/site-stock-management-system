@@ -41,10 +41,10 @@ export function PhoneHome() {
   const first = user.name.split(' ')[0];
 
   const tiles = [
-    { k: 'bal', icon: 'box', n: inStore as number | string, t: 'Balances', s: 'in store', run: () => go('balances') },
-    { k: 'con', icon: 'bars', n: used as number | string, t: 'Consumption', s: `item${used === 1 ? '' : 's'} used this week`, run: () => go('consumption') },
-    { k: 'inc', icon: 'truck', n: inc ? inc.week : '–', t: 'Incoming deliveries', s: inc ? 'this week' : 'Zoho not connected', run: () => go('incoming') },
-    { k: 'st', icon: 'clip', n: lastTake == null ? '–' : lastTake, t: 'Last stock take', s: lastTake == null ? 'none yet' : `day${lastTake === 1 ? '' : 's'} ago`, run: () => go('stocktake') },
+    { k: 'bal', icon: 'box', n: inStore as number | string, t: 'Balances', s: 'items', run: () => go('balances') },
+    { k: 'con', icon: 'bars', n: used as number | string, t: 'Consumption', s: `item${used === 1 ? '' : 's'} used`, run: () => go('consumption') },
+    { k: 'inc', icon: 'truck', n: inc ? inc.week : '–', t: 'Incoming deliveries', s: inc ? `order${inc.week === 1 ? '' : 's'}` : '', run: () => go('incoming') },
+    { k: 'st', icon: 'clip', n: lastTake == null ? '–' : lastTake, t: 'Last stock take', s: lastTake == null ? '' : `day${lastTake === 1 ? '' : 's'} ago`, run: () => go('stocktake') },
   ];
   return (
     <div className="pPage pGrey pHome">
@@ -62,8 +62,8 @@ export function PhoneHome() {
         {tiles.map((t) => (
           <button key={t.k} className={`pTileB ${t.k}`} onClick={t.run}>
             <span className="pTIc"><Icon name={t.icon} size={18} /></span>
-            <b className="mono">{typeof t.n === 'number' ? <FlipNum value={t.n} /> : t.n}</b>
-            <small>{t.t} · {t.s}</small>
+            <b className="pTName">{t.t}</b>
+            <small className="mono pTNum">{typeof t.n === 'number' ? <FlipNum value={t.n} /> : t.n} {t.s}</small>
           </button>
         ))}
       </div>
