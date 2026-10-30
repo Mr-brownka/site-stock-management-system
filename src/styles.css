@@ -4291,3 +4291,11 @@ html:has(.sheetBack, .consDetail.open, .evPage, .celeb, .mSheetBack, .cmdBack, .
 .tabbar.glassBar button { transition: transform .2s; }
 .tabbar.glassBar button:active { transform: scale(.92); }
 @media (prefers-reduced-motion: reduce) { .tbGlass { transition: none; } }
+
+/* Laptops (page zoom .95): pop-up backdrops cover the whole screen, so every pop-up sits in the true middle */
+@media (min-width: 768px) {
+  .sheetBack, .cmdBack, .dayAskBack, .evBack, .incBack, .ppBack, .mSheetBack, .consScrim, .adScrim, .celeb {
+    position: fixed !important; left: 0 !important; top: 0 !important; right: auto !important; bottom: auto !important;
+    width: calc(100vw / .95) !important; max-width: none !important; height: calc(100dvh / .95) !important; }
+  [role="dialog"], .sheet, .dayAsk, .dirPick, .evCard, .incSheet, .ppCard, .stTakeView, .dpPop { max-height: calc(100dvh / .95 - 24px); }
+}

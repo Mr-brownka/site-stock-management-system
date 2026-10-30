@@ -16,7 +16,7 @@ import { useIsPhone } from './Ring';
    only after one has been saved in this check-in does it ask about "another".
    Start → "Were materials issued today?" → card → "Another card?" → "Anything returned?" → returns
    → "Any project transfer today?" → transfer → "Another transfer?" → "Submit the day?" → back on the dashboard. */
-export type Stage = 'issued' | 'askCard' | 'askNoCard' | 'askReturns' | 'returns' | 'askTransfer' | 'transfers' | 'askMoreTransfer' | 'askSubmit';
+export type Stage = 'issued' | 'askCard' | 'askNoCard' | 'askReturns' | 'askMoreReturns' | 'returns' | 'askTransfer' | 'transfers' | 'askMoreTransfer' | 'askSubmit';
 type Flow = { day: string; stage: Stage; saved?: Partial<Record<StepKey, number>> } | null;
 
 const KEY = 'ostock-evening';
@@ -54,15 +54,17 @@ export function continueEvening(day: string, go: (s: Screen) => void) {
 export function entrySaved(step: StepKey, day: string, go: (s: Screen) => void) {
   const st = stageFor(day);
   if (st && ENTRY[st] === step) {
-    to_(day, step === 'issued' ? 'askCard' : step === 'returns' ? 'askTransfer' : 'askMoreTransfer', step);
+    to_(day, step === 'issued' ? 'askReturns' : step === 'returns' ? 'askMoreReturns' : 'askMoreTransfer', step);
     signal('flow-again', step); // the page behind the question shows a clean form
     return;
   }
+  // One register a day: once it is saved, the next step is the returns, even when the check-in wasn't started.
+  if (step === 'issued') { set({ day, stage: 'askReturns', saved: { issued: 1 } }); return; }
   openRecords(go, step);
 }
 
 const ORDER: { key: StepKey; label: string }[] = [{ key: 'issued', label: 'Issued' }, { key: 'returns', label: 'Returns' }, { key: 'transfers', label: 'Transfers' }, { key: 'deliveries', label: 'Submit' }];
-const at = (s: Stage) => (s === 'issued' || s === 'askCard' || s === 'askNoCard' ? 0 : s === 'askReturns' || s === 'returns' ? 1 : s === 'askSubmit' ? 3 : 2);
+const at = (s: Stage) => (s === 'issued' || s === 'askCard' || s === 'askNoCard' ? 0 : s === 'askReturns' || s === 'askMoreReturns' || s === 'returns' ? 1 : s === 'askSubmit' ? 3 : 2);
 
 /** The questions, shown over whatever page the person is on. */
 export function EveningFlow({ screen }: { screen: Screen }) {
@@ -79,8 +81,8 @@ export function EveningFlow({ screen }: { screen: Screen }) {
     const step = stage && ENTRY[stage];
     if (!step || was !== SCREEN[step as 'issued'] || screen === was) return;
     // Back on the question: "another" only if one was saved in this check-in.
-    if (step === 'issued') to_(day, savedIn(day, 'issued') ? 'askCard' : 'askNoCard');
-    else if (step === 'returns') to_(day, 'askReturns');
+    if (step === 'issued') to_(day, savedIn(day, 'issued') ? 'askReturns' : 'askNoCard');
+    else if (step === 'returns') to_(day, savedIn(day, 'returns') ? 'askMoreReturns' : 'askReturns');
     else to_(day, savedIn(day, 'transfers') ? 'askMoreTransfer' : 'askTransfer');
   }, [screen, stage, day]);
   // A day already submitted needs no evening flow.
@@ -126,12 +128,16 @@ export function EveningFlow({ screen }: { screen: Screen }) {
     body = <Ask phone={phone} tone="out" kicker="Issued items" icon="card" title={first && !before ? (phone ? `Did the store give out anything ${wd}?` : `Anything issued ${wd}?`) : 'Anything else issued?'} sub="Answer from the issuance register."
       yes={{ label: 'Yes', long: 'Yes, open the register', hint: '', run: () => enter('issued') }}
       no={{ label: 'No', long: first && !before ? 'No, nothing went out' : 'No, that’s all', hint: '', run: () => { if (first && !before) none('issued'); to('askReturns'); } }} />;
+  } else if (stage === 'askMoreReturns') {
+    body = <Ask phone={phone} tone="back" kicker="Returns" icon="back" title="Were there other returns?" sub="Another lot brought back to the store."
+      yes={{ label: 'Yes', long: 'Yes, enter another return', hint: '', run: () => enter('returns') }}
+      no={{ label: 'No', long: 'No, that’s all', hint: '', run: () => to('askTransfer') }} />;
   } else if (stage === 'askReturns') {
     body = <Ask phone={phone} tone="back" kicker="Returns" icon="back" title={phone ? `Did anything come back to the store ${wd}?` : `Anything returned ${wd}?`} sub="Leftovers brought back from site."
       yes={{ label: 'Yes', long: 'Yes, enter the returns', hint: '', run: () => enter('returns') }}
       no={{ label: 'No', long: 'No, nothing came back', hint: '', run: () => { none('returns'); to('askTransfer'); } }} />;
   } else if (stage === 'askTransfer' || stage === 'askMoreTransfer') {
-    const more = stage === 'askMoreTransfer' || count('transfers') > 0;
+    const more = stage === 'askMoreTransfer';
     body = <Ask phone={phone} tone="trf" kicker="Project transfers" icon="swap" title={more ? 'Another transfer?' : phone ? `Did anything move between projects ${wd}?` : `Any transfer ${wd}?`} sub="Sent to, or received from, another site." 
       yes2={[{ label: 'Yes, sent', hint: '', run: () => enter('transfers', 'out') }, { label: 'Yes, received', hint: '', run: () => enter('transfers', 'in') }]}
       no={{ label: 'No', long: more ? 'No, that’s all' : 'No transfers', hint: '', run: () => { if (!more) none('transfers'); to('askSubmit'); } }} />;
