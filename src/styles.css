@@ -4172,3 +4172,20 @@ button.adAcc:hover { border-color: currentColor; }
 .zohoWord { height: 18px; padding: 0 5px; border-radius: 5px; background: #E8F0FE; color: #1A56C4; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; }
 .zohoOpenBtn { display: inline-flex; align-items: center; gap: 7px; }
 .zohoOpenBtn .zbMark { flex: none; }
+
+/* Today's summary (design A): Morning and Now lead in big dark numbers; In and Out step back, small and grey. */
+.sumTh, .sumTr { grid-template-columns: minmax(0, 2.2fr) 150px 110px 110px minmax(150px, 1fr) !important; column-gap: 20px !important; }
+.sumTh > span { color: #A3ABA7; } .sumTh > span:first-child { color: var(--muted); } .sumTh > span.key { color: var(--ink); }
+.sumTr > .mono.in, .sumTr > .mono.out { font-size: 13px; }
+.sumTr .in { color: #7FAF93 !important; } .sumTr .out { color: #D9A07A !important; }
+.sumTr > .mono:empty::before { color: #C9CFCB; }
+.sumBig { font-size: 19px; font-weight: 700; color: var(--ink); }
+.sumBig.now { font-weight: 800; }
+.sumTr.low .sumBig.now { color: #D92D20; }
+@media (max-width: 860px) {
+  .sumTh { display: grid !important; }
+  .sumTh, .sumTr { grid-template-columns: minmax(0, 1fr) 76px 76px !important; grid-template-areas: none !important; column-gap: 12px !important; padding: 10px 14px !important; }
+  .sumTr > * { grid-area: auto !important; }
+  .sumTh > span:nth-child(3), .sumTh > span:nth-child(4), .sumTr > .mono.in, .sumTr > .mono.out { display: none !important; }
+  .sumTr .sumBig { font-size: 16px; }
+}

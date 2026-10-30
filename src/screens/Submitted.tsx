@@ -106,17 +106,17 @@ export function Submitted() {
             <div className="t-ink"><span>Items moved</span><b>{rows.length}<small>of {balances.length}</small></b></div>
           </div>
           <div className="sumTable panel">
-            <div className="sumTh"><span>Item</span><span>Morning</span><span>In</span><span>Out</span><span>Now</span></div>
+            <div className="sumTh"><span>Item</span><span className="key">Morning</span><span>In</span><span>Out</span><span className="key">Now</span></div>
             {!rows.length && <div className="pad muted">No stock moved {submission ? 'that day' : 'yet today'}.</div>}
             {rows.map((r) => {
               const dl = r.low ? daysLeft(r.b) : null;
               return (
                 <button key={r.b.item_id} className={`sumTr ${r.low ? 'low' : ''}`} onClick={() => openItems(go, { tab: 'bal', item: r.b.item_id })}>
                   <span className="sumItem"><b>{r.b.name}</b> <small>{unit(r.b.item_id)}</small>{r.low && <em>{r.b.balance <= 0 ? 'Finished' : dl != null ? `${dl} day${dl === 1 ? '' : 's'} left` : 'Low'}</em>}</span>
-                  <span className="mono mute">{fmt(r.from)}</span>
+                  <b className="mono sumBig">{fmt(r.from)}</b>
                   <span className="mono in">{r.inn ? `+${fmt(r.inn)}` : ''}</span>
                   <span className="mono out">{r.out ? `−${fmt(r.out)}` : ''}</span>
-                  <span className="sumNow"><b className="mono">{fmt(r.b.balance)}</b><i><i style={{ width: `${Math.min(100, (Math.max(0, r.b.balance) / Math.max(r.from, r.b.balance, 1)) * 100)}%` }} /></i></span>
+                  <b className="mono sumBig now">{fmt(r.b.balance)}</b>
                 </button>
               );
             })}
