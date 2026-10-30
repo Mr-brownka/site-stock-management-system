@@ -4234,3 +4234,32 @@ button.adAcc:hover { border-color: currentColor; }
   .pfBar .btn { flex: none; width: auto; padding: 0 18px; }
   .pfSideCard > .btn.accent { display: none; }
 }
+
+/* Phone: the check-in questions as a full page (design A) */
+.evPage { position: fixed !important; inset: 0 !important; margin: 0 !important; width: 100vw !important; height: 100dvh !important; max-width: none !important; max-height: none !important; border-radius: 0 !important; z-index: 300; background: #fff; display: flex; flex-direction: column; padding-bottom: env(safe-area-inset-bottom); animation: evPIn .32s cubic-bezier(.2,.8,.2,1) both; color: #1B2120; }
+@keyframes evPIn { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+.evPTop { display: flex; align-items: center; gap: 8px; min-height: 56px; padding: 0 16px 0 6px; border-bottom: 1px solid #E4E7E5; }
+.evPTop button { width: 44px; height: 44px; border: 0; background: none; display: grid; place-items: center; color: inherit; }
+.evPTop b { flex: 1; font-size: 18px; font-weight: 800; }
+.evPTop small { color: #69736F; font-weight: 700; font-size: 13.5px; }
+.evPBars { display: flex; gap: 6px; padding: 14px 20px 0; }
+.evPBars i { flex: 1; height: 5px; border-radius: 9px; background: #ECEEEB; transition: background .3s; }
+.evPBars i.done { background: #1F7A4D; } .evPBars i.now { background: #FCA72D; }
+.evPBody { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow-y: auto; animation: evPStep .3s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes evPStep { from { transform: translateX(28px); opacity: 0; } to { transform: none; opacity: 1; } }
+.evPAsk { flex: 1; display: flex; flex-direction: column; align-items: flex-start; padding: 40px 22px 0; gap: 0; }
+.evPIc { width: 60px; height: 60px; border-radius: 18px; display: grid; place-items: center; background: #FDEFE3; color: #E0731A; margin-bottom: 18px; }
+.evPIc.back { background: #E6EDFB; color: #2D5BD0; } .evPIc.trf { background: #EFE8FB; color: #7A4FD6; }
+.evPKick { color: #8A5000; font-weight: 800; letter-spacing: .1em; font-size: 12px; text-transform: uppercase; }
+.evPAsk h2 { margin: 6px 0 0; font-size: 30px; line-height: 1.15; font-weight: 800; letter-spacing: -.01em; }
+.evPSub { margin: 10px 0 0; color: #69736F; font-size: 15.5px; }
+.evPGrow { flex: 1; min-height: 24px; }
+.evPChoices { width: 100%; display: flex; flex-direction: column; gap: 10px; padding-bottom: 6px; }
+.evPYes, .evPNo { min-height: 58px; border-radius: 16px; border: 0; font: inherit; font-weight: 800; font-size: 17px; display: flex; align-items: center; justify-content: center; gap: 10px; transition: transform .12s; }
+.evPYes { background: #0F2C25; color: #fff; } .evPNo { background: #F4F5F3; color: #1B2120; }
+.evPYes:active, .evPNo:active { transform: scale(.97); }
+.evPQuit { border: 0; background: none; font: inherit; color: #69736F; padding: 14px 0 18px; font-size: 14.5px; }
+.evPBody.lg .evAsk { padding: 28px 20px 0; flex: 1; display: flex; flex-direction: column; gap: 12px; }
+.evPBody.lg .evAsk h2 { font-size: 28px; font-weight: 800; margin: 0; }
+.evPBody.lg .evGo { margin-top: auto; min-height: 58px; border-radius: 16px; }
+@media (prefers-reduced-motion: reduce) { .evPage, .evPBody { animation: none; } }

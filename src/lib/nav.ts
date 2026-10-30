@@ -11,7 +11,7 @@ const PARENT: Partial<Record<Screen, Screen>> = {
 export const SCREEN_LABEL: Record<Screen, string> = {
   home: 'Dashboard', dashboard: 'Dashboard', welcome: 'Dashboard', submitted: 'Today’s summary', stocktake: 'Stock take', corrections: 'Fix an error', reports: 'Reports',
   deliveries: 'New delivery', issued: 'Issuance register', returns: 'New return', transfers: 'New transfer',
-  'rec-deliveries': 'Deliveries', 'rec-issued': 'Issued items', 'rec-returns': 'Returned items', 'rec-transfers': 'Project transfers', consumption: 'Consumption', balances: 'Balances', records: 'Records', incoming: 'Coming in', me: 'Me', tofinish: 'To finish',
+  'rec-deliveries': 'Deliveries', 'rec-issued': 'Issued items', 'rec-returns': 'Returned items', 'rec-transfers': 'Project transfers', consumption: 'Consumption', balances: 'Balances', records: 'Records', incoming: 'Coming in', me: 'Me', tofinish: 'To finish', low: 'Running low',
 };
 
 export function recordScreen(s: Screen) {
@@ -26,7 +26,7 @@ export function recordScreen(s: Screen) {
 }
 export function backTarget(cur: Screen): Screen {
   // Pages opened from the dashboard tiles always go back to the dashboard.
-  if (cur === 'balances' || cur === 'consumption' || cur === 'incoming') return 'home';
+  if (cur === 'balances' || cur === 'consumption' || cur === 'incoming' || cur === 'low') return 'home';
   for (let i = stack.length - 1; i >= 0; i--) {
     const s = stack[i];
     if (s !== cur && !ENTRY.includes(s) && s !== 'welcome') return s === 'dashboard' ? 'home' : s;

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from '../components/feedback';
 import { fmt } from '../components/ui';
 import { due, OrderView, RemoveSheet, useIncoming } from '../components/Incoming';
@@ -21,6 +21,12 @@ export function PhoneIncoming() {
   const [openId, setOpen] = useSub();
   const [removing, setRemoving] = useState<IncomingOrder | null>(null);
   const [gone, setGone] = useState<IncomingDismissed[]>([]);
+  // Pull down from the top to check Zoho again: the Zoho logo follows the finger, then spins while it checks.
+  const [pull, setPull] = useState(0);
+  const start = useRef<number | null>(null);
+  const onStart = (e: React.TouchEvent) => { start.current = window.scrollY <= 0 ? e.touches[0].clientY : null; };
+  const onMove = (e: React.TouchEvent) => { if (start.current == null) return; const d = e.touches[0].clientY - start.current; setPull(d > 0 ? Math.min(90, d * 0.5) : 0); };
+  const onEnd = () => { if (pull >= 60 && !busy) refresh(); start.current = null; setPull(0); };
   const loadGone = useCallback(() => api.dismissedIncoming().then(setGone).catch(() => undefined), []);
   useEffect(() => { loadGone(); }, [loadGone]);
   const today = data?.today ?? new Date().toISOString().slice(0, 10);
@@ -62,7 +68,10 @@ export function PhoneIncoming() {
     });
   } else groups.push({ label: '', today: false, list: part });
   return (
-    <div className="pPage pList">
+    <div className="pPage pList pPull" onTouchStart={onStart} onTouchMove={onMove} onTouchEnd={onEnd}>
+      <div className={`pPullIc ${busy ? 'spin' : ''}`} style={{ height: busy ? 56 : pull, opacity: busy ? 1 : Math.min(1, pull / 60) }} aria-hidden="true">
+        <span style={{ transform: busy ? undefined : `rotate(${pull * 4}deg)` }}><ZohoBooksMark size={22} /></span><small>{busy ? 'Checking Zoho…' : pull >= 60 ? 'Let go to check Zoho' : 'Pull to check Zoho'}</small>
+      </div>
       <PTop title="Incoming deliveries" back="home" right={zohoBtn} />
       <Chips value={tab} onChange={setTab} items={[['this', `This week · ${week.length}`], ['part', `Pending · ${part.length}`]]} />
       {data?.error && <div className="pNote">Zoho didn’t answer just now. Showing the last check.</div>}

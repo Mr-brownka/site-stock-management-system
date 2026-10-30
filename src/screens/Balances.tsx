@@ -7,6 +7,8 @@ import { Icon } from '../components/fx';
 import { fmt } from '../components/ui';
 import { toast } from '../components/feedback';
 import { BackPill } from '../components/BackPill';
+import { useIsPhone } from '../components/Ring';
+import { PSearchHead } from '../phone/PhoneUI';
 import { ItemSheet } from '../components/ItemSheet';
 import { PopNav, usePopKeys } from '../components/ListPop';
 
@@ -19,6 +21,9 @@ export function Balances() {
   const [f, setF] = useState<F>(() => { try { const v = sessionStorage.getItem('ssms-bal-filter') as F | null; sessionStorage.removeItem('ssms-bal-filter'); return v ?? 'all'; } catch { return 'all'; } });
   const [sort, setSort] = useState<S>('name');
   const [q, setQ] = useState('');
+  const phone = useIsPhone();
+  const { avgUse } = useData();
+  const topUsed = useMemo(() => [...avgUse.entries()].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([id]) => balances.find((b) => b.item_id === id)?.name).filter(Boolean) as string[], [avgUse, balances]);
   const [sel, setSel] = useState<number | null>(() => { try { const v = sessionStorage.getItem('ssms-bal-item'); sessionStorage.removeItem('ssms-bal-item'); return v ? Number(v) : null; } catch { return null; } });
   const [sheet, setSheet] = useState(false);
   /** The picked item opens as a pop-up (a sheet on phones). Opened from Consumption, it starts open. */
@@ -53,8 +58,8 @@ export function Balances() {
   };
 
   return (
-    <div className="page consPage balPage">
-      <BackPill />
+    <div className={`page consPage balPage ${phone ? 'hasPHead' : ''}`}>
+      {phone ? <PSearchHead title="Balances" value={q} onChange={setQ} placeholder={`Which item? ${balances.length} in store`} chips={topUsed} onEnter={() => { if (rows[0]) { setSel(rows[0].item_id); setPhoneOpen(true); } }} /> : <BackPill />}
       <header className="pageHead enter">
         <div className="phText"><h1>Balances</h1><span className="phLead">What is in the store right now, and how long it lasts.</span></div>
         <div className="phActions">

@@ -200,3 +200,118 @@
 .pField input { height: 50px; border-radius: 12px; border: 1px solid var(--pLine); padding: 0 14px; font-size: 16px; }
 .pNote { margin: 12px 16px 0; }
 .pStGo b, .pStGo { color: #fff !important; }
+
+/* Balances / Consumption: search is the page header (design B) */
+.pSHead { background: #0F2C25; color: #fff; padding: 6px 16px 14px; margin: 0 calc(-1 * var(--padX, 16px)) 12px; }
+.pSHeadTop { display: flex; align-items: center; gap: 4px; min-height: 50px; margin-left: -10px; }
+.pSHeadTop h1 { margin: 0; font-size: 20px; font-weight: 800; color: #fff; }
+.pSHeadTop .pBack { color: #fff; }
+.pSHeadBox { margin-top: 6px; height: 54px; border-radius: 14px; background: #fff; display: flex; align-items: center; gap: 10px; padding: 0 12px 0 14px; color: #E0731A; animation: pGlow8 8s ease-in-out 1; }
+.pSHeadBox input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; font-size: 16px; color: #1B2120; height: 50px; }
+.pSHeadBox input::placeholder { color: #69736F; }
+.pSHeadBox button { border: 0; background: none; color: #69736F; width: 32px; height: 32px; display: grid; place-items: center; }
+@keyframes pGlow8 { 0%, 100% { box-shadow: 0 0 0 0 rgba(252,167,45,0); } 50% { box-shadow: 0 0 0 5px rgba(252,167,45,.55), 0 0 26px 4px rgba(252,167,45,.35); } }
+.pSHeadChips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.pSHeadChips small { width: 100%; color: #B9CBC4; font-weight: 800; letter-spacing: .1em; font-size: 11px; text-transform: uppercase; }
+.pSHeadChips button { height: 34px; padding: 0 13px; border-radius: 99px; border: 1px solid rgba(255,255,255,.22); background: rgba(255,255,255,.08); color: #fff; font: inherit; font-size: 14px; font-weight: 600; }
+.pSHeadChips button.on { background: #FCA72D; color: #1B2120; border-color: #FCA72D; }
+@media (max-width: 767px) {
+  .hasPHead > .pageHead .phText, .hasPHead .consBar { display: none !important; }
+  .hasPHead > .pageHead { padding-top: 0; }
+  .hasPHead { padding-top: 0 !important; }
+}
+@media (prefers-reduced-motion: reduce) { .pSHeadBox { animation: none; } }
+
+/* Running low (design B): day rings */
+.pLowChips { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 16px 10px; }
+.pLowList { display: flex; flex-direction: column; gap: 10px; padding: 0 16px; }
+.pLowCard { border: 0; background: #fff; border-radius: 18px; padding: 12px 14px; display: flex; align-items: center; gap: 14px; text-align: left; box-shadow: 0 1px 2px rgba(0,0,0,.05); color: var(--pMut); animation: pRise .45s cubic-bezier(.2,.8,.2,1) both; }
+.pLowCard svg { flex: none; }
+.pLowCard text { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 14px; }
+.pLowCard .pRing { animation: pRingIn .9s cubic-bezier(.2,.8,.2,1) both; }
+.pLowCard.red .pRing { stroke: #C8322A; } .pLowCard.red text, .pLowCard.red em { fill: #C8322A; color: #C8322A; }
+.pLowCard.amb .pRing { stroke: #E0731A; } .pLowCard.amb text, .pLowCard.amb em { fill: #E0731A; color: #E0731A; }
+.pLowCard.ink .pRing { stroke: #1B2120; } .pLowCard.ink text { fill: #1B2120; } .pLowCard.ink em { color: #1B2120; }
+.pLowT { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pLowT b { font-size: 16px; color: var(--pInk); }
+.pLowT small { font-size: 13px; }
+.pLowT em { font-style: normal; font-weight: 700; font-size: 13.5px; margin-top: 2px; }
+.pLowFoot { background: transparent; border: 0; }
+.pLowFoot .alertBtn { width: 100%; min-height: 54px; border-radius: 14px; }
+.pLowFoot .alertLast { text-align: center; margin-top: 6px; }
+@keyframes pRingIn { from { stroke-dasharray: 0 200; } }
+
+/* Records (design C): week card + coloured cards */
+.pWeekCard { margin: 10px 16px 0; border-radius: 20px; background: linear-gradient(135deg, #0F2C25, #1E4D41); color: #fff; padding: 16px; animation: pRise .45s cubic-bezier(.2,.8,.2,1) both; }
+.pWeekCard > small { color: #B9CBC4; font-weight: 800; letter-spacing: .1em; font-size: 11.5px; text-transform: uppercase; }
+.pWeekCard > div { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 10px; }
+.pWeekCard span { display: flex; flex-direction: column; }
+.pWeekCard b { font-size: 28px; font-weight: 700; }
+.pWeekCard span small { color: #C9D8D2; font-size: 13px; }
+.pWeekCard .in b { color: #7FD3A6; } .pWeekCard .out b { color: #FFB36B; } .pWeekCard .back b { color: #9DB8FF; }
+.pHubC { gap: 10px; }
+.pHubRow { position: relative; border: 0; background: #fff; border-radius: 16px; padding: 12px; display: flex; align-items: center; gap: 10px; text-align: left; min-height: 72px; box-shadow: 0 1px 2px rgba(0,0,0,.05); animation: pRise .45s cubic-bezier(.2,.8,.2,1) both; transition: background .2s, transform .12s; }
+.pHubRow .pHubIc { width: 40px; height: 40px; margin: 0; border-radius: 12px; flex: none; }
+.pHubT { min-width: 0; display: flex; flex-direction: column; }
+.pHubT b { font-size: 14.5px; line-height: 1.2; font-weight: 800; color: var(--pInk); }
+.pHubT small { color: var(--pMut); font-size: 12.5px; }
+.pHubRow.green .pHubIc { background: #E3F2EA; color: #1F7A4D; } .pHubRow.purple .pHubIc { background: #EFE8FB; color: #7A4FD6; }
+.pHubRow.orange .pHubIc { background: #FDEFE3; color: #E0731A; } .pHubRow.blue .pHubIc { background: #E6EDFB; color: #2D5BD0; }
+.pHubRow.ink .pHubIc { background: #ECEEEB; color: #1B2120; } .pHubRow.amber .pHubIc { background: #FFF1DC; color: #8A5000; }
+.pHubRow.on { background: #0F2C25; } .pHubRow.on .pHubT b { color: #fff; } .pHubRow.on .pHubT small { color: #B9CBC4; }
+.pHubRow.on .pHubIc { background: rgba(255,255,255,.14) !important; color: #fff !important; }
+.pNewDot { position: absolute; top: 12px; right: 12px; width: 9px; height: 9px; border-radius: 50%; background: #E0731A; box-shadow: 0 0 0 3px #FDEFE3; }
+
+/* All items (design B): coloured initial, a 7-day line, the number */
+.pItemRows { display: flex; flex-direction: column; }
+.pItemRow { border: 0; border-top: 1px solid #EEF0EE; background: #fff; display: flex; align-items: center; gap: 12px; padding: 11px 16px; text-align: left; width: 100%; animation: pRise .4s cubic-bezier(.2,.8,.2,1) both; }
+.pAvI { width: 40px; height: 40px; border-radius: 12px; flex: none; display: grid; place-items: center; font-weight: 800; font-size: 16px; }
+.pItemRow.ok .pAvI { background: #E3F2EA; color: #1F7A4D; } .pItemRow.low .pAvI { background: #FDEFE3; color: #E0731A; } .pItemRow.out .pAvI { background: #FBE3E1; color: #C8322A; }
+.pItemT { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pItemT b { font-size: 15.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pItemT small { color: var(--pMut); font-size: 12.5px; }
+.pSpark path { fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: pDraw .9s .15s cubic-bezier(.4,0,.2,1) forwards; }
+.pItemRow.ok .pSpark path { stroke: #1F7A4D; } .pItemRow.low .pSpark path { stroke: #E0731A; } .pItemRow.out .pSpark path { stroke: #C8322A; }
+.pItemN { width: 56px; text-align: right; font-size: 17px; font-weight: 700; }
+.pItemRow.out .pItemN, .pItemRow.low .pItemN { color: #C8322A; }
+@keyframes pDraw { to { stroke-dashoffset: 0; } }
+
+/* ───── Motion (all of it quick, and off for anyone who turns motion down) ───── */
+@keyframes pRise { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes pPageIn { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+@keyframes pDetailIn { from { opacity: .4; transform: translateX(36px); } to { opacity: 1; transform: none; } }
+@keyframes pFill { from { width: 0; } }
+@keyframes pShine { from { transform: translateX(-120%); } to { transform: translateX(240%); } }
+@keyframes pRip { from { transform: scale(0); opacity: .32; } to { transform: scale(1); opacity: 0; } }
+@keyframes pSpin { to { transform: rotate(360deg); } }
+.pPage { animation: pPageIn .28s cubic-bezier(.2,.8,.2,1) both; }
+.pPage.pDetail { animation-name: pDetailIn; }
+.pTileB, .pHubCard, .pCard, .pStrip, .pCheck, .pSetCard { animation: pRise .45s cubic-bezier(.2,.8,.2,1) both; }
+.pTiles > :nth-child(1) { animation-delay: .06s; } .pTiles > :nth-child(2) { animation-delay: .12s; } .pTiles > :nth-child(3) { animation-delay: .18s; } .pTiles > :nth-child(4) { animation-delay: .24s; }
+.pHome .pStrip { animation-delay: .3s; } .pHome .pStrip.sum { animation-delay: .36s; }
+.pCards > :nth-child(2) { animation-delay: .04s; } .pCards > :nth-child(3) { animation-delay: .08s; } .pCards > :nth-child(4) { animation-delay: .12s; } .pCards > :nth-child(5) { animation-delay: .16s; } .pCards > :nth-child(n+6) { animation-delay: .2s; }
+.pCheckBar i { animation: pFill .9s .25s cubic-bezier(.2,.8,.2,1) both; }
+.pCheck { position: relative; overflow: hidden; }
+.pCheck::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,.8) 50%, transparent 70%); transform: translateX(-120%); animation: pShine 1.1s .6s ease-in-out 1; pointer-events: none; }
+.pCard, .pTileB, .pHubRow, .pRow, .pSetRow, .pItemRow, .pLowCard, .pStrip, .pCheck, .pBtn { position: relative; overflow: hidden; transition: transform .12s ease; }
+.pCard:active, .pTileB:active, .pHubRow:active, .pLowCard:active, .pStrip:active, .pCheck:active, .pBtn:active:not(:disabled) { transform: scale(.97); }
+.pRipple { position: absolute; border-radius: 50%; background: #FCA72D; pointer-events: none; animation: pRip .6s ease-out forwards; }
+.pPull { position: relative; }
+.pPullIc { overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 2px; color: var(--pMut); font-size: 12.5px; transition: height .2s; }
+.pPullIc > span { width: 36px; height: 36px; border-radius: 50%; background: #fff; box-shadow: 0 4px 14px rgba(0,0,0,.12); display: grid; place-items: center; }
+.pPullIc.spin > span { animation: pSpin .8s linear infinite; }
+/* day submitted */
+.celeb { position: fixed; inset: 0; z-index: 400; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: rgba(255,255,255,.86); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); animation: celebIn .25s ease both; }
+.celeb b { font-size: 24px; font-weight: 800; color: #1B2120; animation: pRise .4s .25s both; }
+.celeb > i { position: absolute; left: 50%; top: 46%; width: 9px; height: 14px; border-radius: 2px; animation: celebBit 1.4s cubic-bezier(.2,.7,.3,1) both; }
+.celebTick { width: 96px; height: 96px; border-radius: 50%; background: #E3F2EA; display: grid; place-items: center; animation: celebPop .5s cubic-bezier(.3,1.5,.4,1) both; }
+.celebTick path { fill: none; stroke: #1F7A4D; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: pDraw .45s .25s ease forwards; }
+@keyframes celebIn { from { opacity: 0; } }
+@keyframes celebPop { from { transform: scale(0); } }
+@keyframes celebBit { 0% { opacity: 0; transform: translate(0, 0) rotate(0); } 15% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--x), calc(var(--y) + 260px)) rotate(320deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .pPage, .pTileB, .pHubCard, .pCard, .pStrip, .pCheck, .pSetCard, .pHubRow, .pItemRow, .pLowCard, .pWeekCard, .pCheckBar i, .pSHeadBox, .celeb, .celeb *, .pLowCard .pRing { animation: none !important; }
+  .pCheck::after, .pRipple { display: none; }
+  .pSpark path { stroke-dashoffset: 0; animation: none; }
+}
+.pLowFoot .alertBtn { margin: 0 !important; } .pLowFoot { padding: 12px 16px; }

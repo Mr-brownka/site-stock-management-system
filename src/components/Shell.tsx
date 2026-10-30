@@ -6,6 +6,7 @@ import { longDate, weekdayName } from '../lib/dates';
 import { signal, useSignal } from '../lib/signals';
 import { ComexLogo, SiteLogo } from './Brand';
 import { ZohoAutoSync, ZohoStatusLine } from './Zoho';
+import { Celebrate } from '../phone/Celebrate';
 import { markDeliveriesSeen, useNewZohoDeliveries } from '../lib/newDeliveries';
 import { canEdit, canSee, roleLabel } from '../lib/access';
 import { ChangePassword } from './ChangePassword';
@@ -35,8 +36,8 @@ const RECORDS: { screen: Screen; label: string; tone: string; entry: Screen }[] 
 const readRecOpen = () => { try { return localStorage.getItem('ssms-records') !== 'closed'; } catch { return true; } };
 // Screens that show the phone tab bar (not the step-by-step forms).
 /** Phone pages with their own top bar (the shell's top bar hides there on phones). */
-const PHONE_OWN: Screen[] = ['home', 'records', 'rec-deliveries', 'rec-issued', 'rec-returns', 'rec-transfers', 'dashboard', 'incoming', 'me', 'tofinish', 'stocktake'];
-const TABBAR: Screen[] = ['home', 'dashboard', 'corrections', 'submitted', 'reports', 'stocktake', 'rec-deliveries', 'rec-issued', 'rec-returns', 'rec-transfers', 'consumption', 'balances', 'records', 'incoming', 'me', 'tofinish'];
+const PHONE_OWN: Screen[] = ['home', 'records', 'rec-deliveries', 'rec-issued', 'rec-returns', 'rec-transfers', 'dashboard', 'incoming', 'me', 'tofinish', 'stocktake', 'consumption', 'balances', 'low'];
+const TABBAR: Screen[] = ['home', 'dashboard', 'corrections', 'submitted', 'reports', 'stocktake', 'rec-deliveries', 'rec-issued', 'rec-returns', 'rec-transfers', 'consumption', 'balances', 'records', 'incoming', 'me', 'tofinish', 'low'];
 
 export function closeLabel(min: number): string {
   if (min <= 0) return 'Register closed at 6:00 pm';
@@ -112,6 +113,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
   return (
     <div className={`shell ${TABBAR.includes(screen) ? 'hasTab' : ''} ${mini ? 'mini' : ''} ${PHONE_OWN.includes(screen) ? 'pOwn' : ''}`} style={mini ? undefined : ({ '--railW': `${railW}px` } as React.CSSProperties)}>
       <ZohoAutoSync />
+      <Celebrate />
       {pwOpen && <ChangePassword onClose={() => setPwOpen(false)} />}
       <aside className="rail r2" aria-label="Main menu">
         <div className="r2Top">
@@ -224,7 +226,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
 
       {TABBAR.includes(screen) && (
         <nav className="tabbar" aria-label="Main menu">
-          <button aria-current={CHECKIN.includes(screen) || ['balances', 'consumption', 'incoming'].includes(screen) ? 'page' : undefined} onClick={() => { setSheet(null); go('home'); }}>
+          <button aria-current={CHECKIN.includes(screen) || ['balances', 'consumption', 'incoming', 'low'].includes(screen) ? 'page' : undefined} onClick={() => { setSheet(null); go('home'); }}>
             <span className="tbIcon"><Icon name="home" size={22} />{lowItems.length > 0 && <PulseDot />}</span>Home
           </button>
           <button aria-current={RECORDS.some((r) => r.screen === screen) || ['reports', 'records', 'dashboard'].includes(screen) ? 'page' : undefined} onClick={() => { setSheet(null); go('records'); }}>

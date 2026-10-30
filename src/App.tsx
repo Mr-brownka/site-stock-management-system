@@ -27,6 +27,7 @@ import { PhoneRecList, PhoneRecordsHub } from './phone/PhoneRecords';
 import { PhoneItems } from './phone/PhoneItems';
 import { PhoneIncoming } from './phone/PhoneIncoming';
 import { PhoneMe, PhoneToFinish } from './phone/PhoneMe';
+import { PhoneLow } from './phone/PhoneLow';
 
 // Screens used less often load on demand, so the first download is smaller.
 const Admin = lazyPage(() => import('./screens/Admin').then((m) => ({ default: m.Admin })));
@@ -53,7 +54,7 @@ const SCREENS: Record<Screen, React.ComponentType> = {
   submitted: Submitted, dashboard: pick(DeskDashboard, PhoneItems), stocktake: StockTake, corrections: Corrections, reports: Reports, welcome: Home,
   'rec-deliveries': pick(() => <Records recKey="deliveries" />, () => <PhoneRecList recKey="deliveries" />), 'rec-issued': pick(() => <Records recKey="issued" />, () => <PhoneRecList recKey="issued" />),
   'rec-returns': pick(() => <Records recKey="returns" />, () => <PhoneRecList recKey="returns" />), 'rec-transfers': pick(() => <Records recKey="transfers" />, () => <PhoneRecList recKey="transfers" />),
-  consumption: Consumption, balances: Balances, records: pick(RecordsHub, PhoneRecordsHub), incoming: pick(ComingIn, PhoneIncoming), me: pick(Home, PhoneMe), tofinish: PhoneToFinish,
+  consumption: Consumption, balances: Balances, records: pick(RecordsHub, PhoneRecordsHub), incoming: pick(ComingIn, PhoneIncoming), me: pick(Home, PhoneMe), tofinish: PhoneToFinish, low: pick(() => { try { sessionStorage.setItem('ssms-bal-filter', 'low'); } catch { /* ignore */ } return <Balances />; }, PhoneLow),
 };
 
 const fromHash = (): Screen => {

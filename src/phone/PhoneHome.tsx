@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Icon, greeting } from '../components/fx';
+import { Icon, Num, greeting } from '../components/fx';
 import { continueEvening, startEvening, useFlow } from '../components/EveningFlow';
 import { useIncomingCounts } from '../components/Incoming';
 import { GetStarted } from '../components/Tour';
@@ -39,13 +39,12 @@ export function PhoneHome() {
   const nIn = docsToday.filter((d) => IN.includes(d.kind)).length, nOut = docsToday.filter((d) => OUT.includes(d.kind)).length;
   const out = lowItems.filter((b) => b.balance <= 0).length;
   const first = user.name.split(' ')[0];
-  const openItems = (f: string) => { try { sessionStorage.setItem('ssms-pitems', f); } catch { /* ignore */ } go('dashboard'); };
 
   const tiles = [
-    { k: 'bal', icon: 'box', n: String(inStore), t: 'Balances', s: 'in store', run: () => go('balances') },
-    { k: 'con', icon: 'bars', n: String(used), t: 'Consumption', s: `item${used === 1 ? '' : 's'} used this week`, run: () => go('consumption') },
-    { k: 'inc', icon: 'truck', n: inc ? String(inc.week) : '–', t: 'Incoming deliveries', s: inc ? 'this week' : 'Zoho not connected', run: () => go('incoming') },
-    { k: 'st', icon: 'clip', n: lastTake == null ? '–' : String(lastTake), t: 'Last stock take', s: lastTake == null ? 'none yet' : `day${lastTake === 1 ? '' : 's'} ago`, run: () => go('stocktake') },
+    { k: 'bal', icon: 'box', n: inStore as number | string, t: 'Balances', s: 'in store', run: () => go('balances') },
+    { k: 'con', icon: 'bars', n: used as number | string, t: 'Consumption', s: `item${used === 1 ? '' : 's'} used this week`, run: () => go('consumption') },
+    { k: 'inc', icon: 'truck', n: inc ? inc.week : '–', t: 'Incoming deliveries', s: inc ? 'this week' : 'Zoho not connected', run: () => go('incoming') },
+    { k: 'st', icon: 'clip', n: lastTake == null ? '–' : lastTake, t: 'Last stock take', s: lastTake == null ? 'none yet' : `day${lastTake === 1 ? '' : 's'} ago`, run: () => go('stocktake') },
   ];
   return (
     <div className="pPage pGrey pHome">
@@ -63,12 +62,12 @@ export function PhoneHome() {
         {tiles.map((t) => (
           <button key={t.k} className={`pTileB ${t.k}`} onClick={t.run}>
             <span className="pTIc"><Icon name={t.icon} size={18} /></span>
-            <b className="mono">{t.n}</b>
+            <b className="mono">{typeof t.n === 'number' ? <Num value={t.n} /> : t.n}</b>
             <small>{t.t} · {t.s}</small>
           </button>
         ))}
       </div>
-      <button className={`pStrip ${lowItems.length ? 'low' : 'good'}`} onClick={() => openItems('low')}>
+      <button className={`pStrip ${lowItems.length ? 'low' : 'good'}`} onClick={() => go('low')}>
         <span className="pSIc"><Icon name="warn" size={17} /></span>
         <b>{lowItems.length ? (out === lowItems.length ? 'Finished' : 'Running low') : 'Nothing running low'}</b>
         <small>{lowItems.length ? `${lowItems.length} item${lowItems.length === 1 ? '' : 's'}` : 'All good'}</small><Icon name="chevR" size={18} />

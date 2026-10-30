@@ -8,6 +8,8 @@ import { Icon } from '../components/fx';
 import { fmt } from '../components/ui';
 import { toast } from '../components/feedback';
 import { BackPill } from '../components/BackPill';
+import { useIsPhone } from '../components/Ring';
+import { PSearchHead } from '../phone/PhoneUI';
 import { DateRange } from '../components/DateRange';
 import { PopNav, usePopKeys } from '../components/ListPop';
 
@@ -31,6 +33,7 @@ export function Consumption() {
   // Floors are gone: the register doesn't record where things went, so a split by floor would be wrong.
   const floor: string | null = null;
   const [q, setQ] = useState('');
+  const phone = useIsPhone();
   const [sel, setSel] = useState<number | null>(null);
   /** Opened from Balances: this item's pop-up opens once the period has loaded. */
   const [want, setWant] = useState<number | null>(() => { try { const v = sessionStorage.getItem('ssms-cons-item'); sessionStorage.removeItem('ssms-cons-item'); return v ? Number(v) : null; } catch { return null; } });
@@ -84,8 +87,8 @@ export function Consumption() {
   };
 
   return (
-    <div className="page consPage">
-      <BackPill />
+    <div className={`page consPage ${phone ? 'hasPHead' : ''}`}>
+      {phone ? <PSearchHead title="Consumption" value={q} onChange={setQ} placeholder={`Which item? ${rows.length} used`} chips={[...rows].sort((a, b) => b.u.used - a.u.used).slice(0, 3).map((r) => r.name)} onEnter={() => { if (shown[0]) { setSel(shown[0].id); setPhoneOpen(true); } }} /> : <BackPill />}
       <header className="pageHead enter">
         <div className="phText"><h1>Consumption</h1><span className="phLead">What the site used {periodText}: issued minus what came back. Click an item to see its days.</span></div>
         <div className="phActions">

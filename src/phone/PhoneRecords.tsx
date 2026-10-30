@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Icon } from '../components/fx';
+import { Icon, Num } from '../components/fx';
+import { useNewZohoDeliveries } from '../lib/newDeliveries';
 import { fmt } from '../components/ui';
 import { ZohoOpen } from '../components/Zoho';
 import { useAddEntry } from '../components/AddEntry';
@@ -24,13 +25,17 @@ const SECTIONS: { screen: Screen; label: string; icon: string }[] = [
   { screen: 'reports', label: 'Reports', icon: 'bars' },
 ];
 
-/** Records on the phone: six big cards. The one last opened stays green. */
+/** Records on the phone (design C): a green "this week" card, then six coloured cards. The one last opened stays green. */
+const TONE: Record<string, string> = { 'rec-deliveries': 'green', 'rec-transfers': 'purple', 'rec-issued': 'orange', 'rec-returns': 'blue', dashboard: 'ink', reports: 'amber' };
 export function PhoneRecordsHub() {
   const { go, recent, docsToday, day, balances, site } = useData();
+  const newDel = useNewZohoDeliveries();
   const [last] = useState(() => { try { return sessionStorage.getItem(LAST); } catch { return null; } });
   const from = weekStart(day);
   const all = useMemo(() => { const m = new Map<string, Doc>(); [...recent, ...docsToday].forEach((d) => m.set(d.id, d)); return [...m.values()]; }, [recent, docsToday]);
-  const week = (kinds: Doc['kind'][]) => all.filter((d) => kinds.includes(d.kind) && d.doc_date >= from && d.doc_date <= day).length;
+  const wk = all.filter((d) => d.doc_date >= from && d.doc_date <= day);
+  const week = (kinds: Doc['kind'][]) => wk.filter((d) => kinds.includes(d.kind)).length;
+  const lines = (kinds: Doc['kind'][]) => wk.filter((d) => kinds.includes(d.kind)).reduce((a, d) => a + d.lines.length, 0);
   const sub: Record<string, string> = {
     'rec-deliveries': `${week(['delivery'])} this week`,
     'rec-transfers': `${week(['transfer_in', 'transfer_out'])} this week`,
@@ -41,13 +46,22 @@ export function PhoneRecordsHub() {
   };
   const open = (s: Screen) => { try { sessionStorage.setItem(LAST, s); } catch { /* ignore */ } go(s); };
   return (
-    <div className="pPage pRecHub">
-      <header className="pHello"><span><small>{site || 'Store'} · {shortDay(day)}</small><b className="big">Records</b><small>Everything the store has entered</small></span></header>
-      <div className="pHubGrid">
-        {SECTIONS.map((s) => (
-          <button key={s.screen} className={`pHubCard ${last === s.screen ? 'on' : ''}`} onClick={() => open(s.screen)}>
-            <span className="pHubIc"><Icon name={s.icon} size={22} /></span>
-            <b>{s.label}</b><small>{sub[s.screen]}</small>
+    <div className="pPage pGrey pRecHub">
+      <header className="pHello"><span><small>{site || 'Store'} · {shortDay(day)}</small><b className="big">Records</b></span></header>
+      <section className="pWeekCard">
+        <small>This week at {site || 'the store'}</small>
+        <div>
+          <span className="in"><b className="mono"><Num value={lines(['delivery', 'transfer_in'])} /></b><small>items came in</small></span>
+          <span className="out"><b className="mono"><Num value={lines(['issue', 'transfer_out'])} /></b><small>went out</small></span>
+          <span className="back"><b className="mono"><Num value={lines(['return'])} /></b><small>came back</small></span>
+        </div>
+      </section>
+      <div className="pHubGrid pHubC">
+        {SECTIONS.map((s, i) => (
+          <button key={s.screen} className={`pHubRow ${TONE[s.screen]} ${last === s.screen ? 'on' : ''}`} style={{ animationDelay: `${i * 45}ms` }} onClick={() => open(s.screen)}>
+            <span className="pHubIc"><Icon name={s.icon} size={20} /></span>
+            <span className="pHubT"><b>{s.label}</b><small>{sub[s.screen]}</small></span>
+            {s.screen === 'rec-deliveries' && newDel > 0 && <i className="pNewDot" aria-label={`${newDel} new from Zoho`} />}
           </button>
         ))}
       </div>

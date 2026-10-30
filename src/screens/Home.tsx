@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Icon, Num, Ring as StepRing, greeting, useMinutesToClose } from '../components/fx';
-import { useSignal } from '../lib/signals';
+import { signal, useSignal } from '../lib/signals';
 import { closeLabel } from '../components/Shell';
 import { api, progressStore } from '../lib/api';
 import { fmt } from '../components/ui';
@@ -126,6 +126,7 @@ export function Home() {
         return;
       }
       await refresh();
+      signal('celebrate', 'Day submitted');
       go('submitted');
     } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   };

@@ -10,6 +10,7 @@ import { signal } from '../lib/signals';
 import { Icon } from './fx';
 import { toast } from './feedback';
 import { useZohoDeliveries } from './Zoho';
+import { useIsPhone } from './Ring';
 
 /* The evening check-in, one question at a time. Each step starts with a "were there any?" question;
    only after one has been saved in this check-in does it ask about "another".
@@ -69,6 +70,7 @@ export function EveningFlow({ screen }: { screen: Screen }) {
   const zoho = useZohoDeliveries();
   const stage = useFlow(day);
   const [busy, setBusy] = useState(false);
+  const phone = useIsPhone();
 
   // Leaving an entry page without saving (Cancel, back): ask the question again instead of losing the place.
   const prev = useRef(screen);
@@ -108,7 +110,7 @@ export function EveningFlow({ screen }: { screen: Screen }) {
           const n = await progressStore.recordTrainingDay(real);
           toast(weekday(real) === 'Sun' ? 'Practice saved · Sundays don’t count as a training day' : n >= TRAINING_DAYS ? 'Training complete!' : `Training day ${n} of ${TRAINING_DAYS} done`);
         } catch { /* recorded next time */ }
-      } else toast(`${day === today() ? 'Today' : weekdayName(day)} submitted · balances are final`);
+      } else { toast(`${day === today() ? 'Today' : weekdayName(day)} submitted · balances are final`); signal('celebrate', `${day === today() ? 'Today' : weekdayName(day)} submitted`); }
       set(null);
       await refresh();
       if (catchUp) { await refreshPending(); endCatchUp(); }
@@ -121,18 +123,18 @@ export function EveningFlow({ screen }: { screen: Screen }) {
   if (stage === 'askCard' || stage === 'askNoCard') {
     const first = stage === 'askNoCard';
     const before = count('issued'); // already entered during the day
-    body = <Ask kicker="Issued items" icon="card" title={first && !before ? `Anything issued ${wd}?` : 'Anything else issued?'}
-      yes={{ label: 'Yes', hint: '', run: () => enter('issued') }}
-      no={{ label: 'No', hint: '', run: () => { if (first && !before) none('issued'); to('askReturns'); } }} />;
+    body = <Ask phone={phone} tone="out" kicker="Issued items" icon="card" title={first && !before ? (phone ? `Did the store give out anything ${wd}?` : `Anything issued ${wd}?`) : 'Anything else issued?'} sub="Answer from the issuance register."
+      yes={{ label: 'Yes', long: 'Yes, open the register', hint: '', run: () => enter('issued') }}
+      no={{ label: 'No', long: first && !before ? 'No, nothing went out' : 'No, that’s all', hint: '', run: () => { if (first && !before) none('issued'); to('askReturns'); } }} />;
   } else if (stage === 'askReturns') {
-    body = <Ask kicker="Returns" icon="back" title={`Anything returned ${wd}?`}
-      yes={{ label: 'Yes', hint: '', run: () => enter('returns') }}
-      no={{ label: 'No', hint: '', run: () => { none('returns'); to('askTransfer'); } }} />;
+    body = <Ask phone={phone} tone="back" kicker="Returns" icon="back" title={phone ? `Did anything come back to the store ${wd}?` : `Anything returned ${wd}?`} sub="Leftovers brought back from site."
+      yes={{ label: 'Yes', long: 'Yes, enter the returns', hint: '', run: () => enter('returns') }}
+      no={{ label: 'No', long: 'No, nothing came back', hint: '', run: () => { none('returns'); to('askTransfer'); } }} />;
   } else if (stage === 'askTransfer' || stage === 'askMoreTransfer') {
     const more = stage === 'askMoreTransfer' || count('transfers') > 0;
-    body = <Ask kicker="Project transfers" icon="swap" title={more ? 'Another transfer?' : `Any transfer ${wd}?`}
+    body = <Ask phone={phone} tone="trf" kicker="Project transfers" icon="swap" title={more ? 'Another transfer?' : phone ? `Did anything move between projects ${wd}?` : `Any transfer ${wd}?`} sub="Sent to, or received from, another site." 
       yes2={[{ label: 'Yes, sent', hint: '', run: () => enter('transfers', 'out') }, { label: 'Yes, received', hint: '', run: () => enter('transfers', 'in') }]}
-      no={{ label: 'No', hint: '', run: () => { if (!more) none('transfers'); to('askSubmit'); } }} />;
+      no={{ label: 'No', long: more ? 'No, that’s all' : 'No transfers', hint: '', run: () => { if (!more) none('transfers'); to('askSubmit'); } }} />;
   } else {
     size = 'lg';
     const rows = STEPS.map((s) => ({ s, n: count(s.key) }));
@@ -153,6 +155,14 @@ export function EveningFlow({ screen }: { screen: Screen }) {
     );
   }
 
+  if (phone) return createPortal(
+    <div className="evPage" role="dialog" aria-modal="true" aria-labelledby="evTitle">
+      <header className="evPTop"><button onClick={quit} aria-label="Stop for now"><Icon name="chevL" size={24} /></button><b>{day === today() ? 'Tonight’s check-in' : `${weekdayName(day)}’s check-in`}</b><small>{at(stage) + 1} of 4</small></header>
+      <div className="evPBars" aria-hidden="true">{ORDER.map((o, i) => <i key={o.key} className={i < at(stage) ? 'done' : i === at(stage) ? 'now' : ''} />)}</div>
+      <div className={`evPBody ${size}`} key={stage}>{body}</div>
+      <button className="evPQuit" onClick={quit}>Stop for now</button>
+    </div>, document.body);
+
   return createPortal(
     <div className="sheetBack dayAskBack evBack">
       <section className={`evCard ${size}`} role="dialog" aria-modal="true" aria-labelledby="evTitle" key={stage}>
@@ -165,8 +175,8 @@ export function EveningFlow({ screen }: { screen: Screen }) {
     </div>, document.body);
 }
 
-type Choice = { label: string; hint: string; run: () => void };
-function Ask({ kicker, icon, title, yes, yes2, no }: { kicker: string; icon: string; title: string; yes?: Choice; yes2?: Choice[]; no: Choice }) {
+type Choice = { label: string; long?: string; hint: string; run: () => void };
+function Ask({ kicker, icon, title, yes, yes2, no, phone, sub, tone }: { kicker: string; icon: string; title: string; yes?: Choice; yes2?: Choice[]; no: Choice; phone?: boolean; sub?: string; tone?: string }) {
   // Laptops: Y / N.
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
@@ -177,6 +187,19 @@ function Ask({ kicker, icon, title, yes, yes2, no }: { kicker: string; icon: str
     document.addEventListener('keydown', k);
     return () => document.removeEventListener('keydown', k);
   }, [yes, no]);
+  if (phone) return (
+    <div className="evAsk evPAsk">
+      <span className={`evPIc ${tone ?? ''}`}><Icon name={icon} size={28} /></span>
+      <span className="evPKick">{kicker}</span>
+      <h2 id="evTitle">{title}</h2>
+      {sub && <p className="evPSub">{sub}</p>}
+      <span className="evPGrow" />
+      <div className="evPChoices">
+        {(yes2 ?? [yes!]).map((c) => <button key={c.label} className="evPYes" onClick={c.run}>{c.long ?? c.label}<Icon name="arrow" size={18} /></button>)}
+        <button className="evPNo" onClick={no.run}>{no.long ?? no.label}</button>
+      </div>
+    </div>
+  );
   return (
     <div className="evAsk">
       <span className="evKick"><Icon name={icon} size={14} />{kicker}</span>

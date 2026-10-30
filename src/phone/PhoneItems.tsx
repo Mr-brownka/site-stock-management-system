@@ -27,6 +27,16 @@ export function PhoneItems() {
     }));
     return m;
   }, [docs, from, day]);
+  const byDay = useMemo(() => {
+    const m = new Map<string, number>();
+    docs.forEach((d) => d.lines.forEach((l) => { const k = `${l.item_id}|${d.doc_date}`; m.set(k, (m.get(k) ?? 0) + delta(l.kind, Number(l.qty))); }));
+    return m;
+  }, [docs]);
+  const series = (id: number, now: number) => {
+    const out: number[] = []; let v = now;
+    for (let i = 0; i < 7; i++) { const d = new Date(Date.parse(day + 'T00:00:00Z') - i * 864e5).toISOString().slice(0, 10); out.unshift(v); v -= byDay.get(`${id}|${d}`) ?? 0; }
+    return out;
+  };
   const nLow = balances.filter(isLow).length;
   const list = balances.filter((b) => (f === 'low' ? isLow(b) : f === 'today' ? week.get(b.item_id)?.today : true) && (!q.trim() || b.name.toLowerCase().includes(q.trim().toLowerCase())))
     .sort((a, b) => (f === 'low' ? (daysLeft(a) ?? 1e9) - (daysLeft(b) ?? 1e9) : a.name.localeCompare(b.name)));
@@ -74,14 +84,18 @@ export function PhoneItems() {
       <PSearch value={q} onChange={setQ} placeholder={`Search ${balances.length} items`} />
       <Chips value={f} onChange={(v) => { setF(v); setMore(60); }} items={[['all', 'All'], ['low', `Low · ${nLow}`], ['today', 'Moved today']]} />
       {!list.length && <div className="pEmpty">{f === 'low' ? 'Nothing is low. All good.' : f === 'today' ? 'Nothing moved today.' : 'No items match.'}</div>}
-      <div className="pCards">
-        {list.slice(0, more).map((x) => {
-          const w = week.get(x.item_id);
+      <div className="pItemRows">
+        {list.slice(0, more).map((x, i) => {
+          const st = x.balance <= 0 ? 'out' : isLow(x) ? 'low' : 'ok';
+          const pts = series(x.item_id, x.balance);
+          const mx = Math.max(...pts, 1), mn = Math.min(...pts, 0);
+          const path = pts.map((v, j) => `${j ? 'L' : 'M'}${(j * 76 / (pts.length - 1)).toFixed(1)},${(28 - ((v - mn) / (mx - mn || 1)) * 24).toFixed(1)}`).join(' ');
           return (
-            <button key={x.item_id} className={`pCard item ${isLow(x) ? 'low' : ''}`} onClick={() => setOpen(String(x.item_id))}>
-              <span className="pCardMid"><b>{x.name}</b><b className="mono pBig">{fmt(x.balance)}</b></span>
-              <span className="pCardTop"><small>{x.unit}</small>{status(x)}</span>
-              {w && (w.inn || w.out) ? <span className="pCardChips">{w.inn ? <span>In {fmt(w.inn)} this week</span> : null}{w.out ? <span>Out {fmt(w.out)}</span> : null}</span> : null}
+            <button key={x.item_id} className={`pItemRow ${st}`} style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }} onClick={() => setOpen(String(x.item_id))}>
+              <span className="pAvI">{x.name.trim()[0]?.toUpperCase()}</span>
+              <span className="pItemT"><b>{x.name}</b><small>{x.unit} · {st === 'out' ? 'Finished' : st === 'low' ? 'Low' : 'Healthy'}</small></span>
+              <svg className="pSpark" width="78" height="30" viewBox="-1 0 80 30" aria-hidden="true"><path d={path} pathLength={1} /></svg>
+              <b className="mono pItemN">{fmt(x.balance)}</b>
             </button>
           );
         })}
