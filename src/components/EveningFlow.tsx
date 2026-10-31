@@ -138,7 +138,7 @@ export function EveningFlow({ screen }: { screen: Screen }) {
       no={{ label: 'No', long: 'No, nothing came back', hint: '', run: () => { none('returns'); to('askTransfer'); } }} />;
   } else if (stage === 'askTransfer' || stage === 'askMoreTransfer') {
     const more = stage === 'askMoreTransfer';
-    body = <Ask phone={phone} tone="trf" kicker="Project transfers" icon="swap" title={more ? 'Another transfer?' : phone ? `Did anything move between projects ${wd}?` : `Any transfer ${wd}?`} sub="Sent to, or received from, another site." 
+    body = <Ask phone={phone} tone="trf" kicker="Project transfers" icon="swap" title={more ? 'Another transfer?' : `Any project transfers ${wd}?`} sub="Sent to, or received from, another site." 
       yes2={[{ label: 'Yes, sent', hint: '', run: () => enter('transfers', 'out') }, { label: 'Yes, received', hint: '', run: () => enter('transfers', 'in') }]}
       no={{ label: 'No', long: more ? 'No, that’s all' : 'No transfers', hint: '', run: () => { if (!more) none('transfers'); to('askSubmit'); } }} />;
   } else {
