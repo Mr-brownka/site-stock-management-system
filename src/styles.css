@@ -4442,3 +4442,5 @@ select.adAccSel:hover { border-color: currentColor; }
 .dirPick2 .dirOpt .dirIc { width: 56px; height: 56px; border-radius: 16px; margin-bottom: 8px; }
 .dirPick2 .dirOpt b { font-size: 22px; font-family: var(--display); }
 .dirPick2 .dirOpt span:not(.dirIc) { font-size: 13.5px; color: #69736F; }
+.trfDir button:disabled { cursor: default; }
+.trfDir button:disabled:not(.on) { background: #F3F4F3; color: #B9BFBC; opacity: .7; }

@@ -70,8 +70,9 @@ function TransferForm({ done }: { done: () => void }) {
         </div>
         <div className="trfHead">
           <div className="trfDir" role="radiogroup" aria-label="Sent out or received">
-            <button type="button" role="radio" aria-checked={dir === 'out'} className={`out ${dir === 'out' ? 'on' : ''}`} onClick={() => setDir('out')}>↗ Sent out</button>
-            <button type="button" role="radio" aria-checked={dir === 'in'} className={`in ${dir === 'in' ? 'on' : ''}`} onClick={() => setDir('in')}>↙ Received</button>
+            {/* Chosen already (Sent or received?): the other way is greyed out and can't be picked here. */}
+            <button type="button" role="radio" aria-checked={dir === 'out'} className={`out ${dir === 'out' ? 'on' : ''}`} disabled={dir !== 'out'} title={dir !== 'out' ? 'You chose Received' : undefined}>↗ Sent out</button>
+            <button type="button" role="radio" aria-checked={dir === 'in'} className={`in ${dir === 'in' ? 'on' : ''}`} disabled={dir !== 'in'} title={dir !== 'in' ? 'You chose Sent' : undefined}>↙ Received</button>
           </div>
           <div className="trfBox wide"><small>{dir === 'out' ? 'To project' : 'From project'}</small>
             <Suggest bare showAll nav="site" label={dir === 'out' ? 'Sent to (project)' : 'Received from (project)'} value={site} onChange={setSite} options={sites} placeholder="Project name" autoFocus glow={!site} inputClass={`mirIn ${miss(!site.trim())}`} /></div>

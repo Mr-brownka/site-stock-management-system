@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, live } from '../lib/api';
 import { exitTraining, resetTraining, startTraining } from '../lib/training';
-import { guestCopiedAt, isShowcase, seeRealData, showcaseOff, startGuest, startShowcase } from '../lib/guest';
+import { guestCopiedAt, isShowcase, showcaseOff, startGuest, startShowcase } from '../lib/guest';
 import type { User } from '../lib/types';
 import { ask, toast } from './feedback';
 import { Icon } from './fx';
@@ -29,7 +29,11 @@ function ShowcaseBar() {
     <div className="trainBar guestBar" role="status">
       <span className="trainTag">DEMO</span>
       <span className="trainText"><span className="long">Example store to show how Ostock works. The figures are not real.</span><span className="short">Demo · example figures</span></span>
-      <span className="trainBtns"><button onClick={seeRealData}>See real data</button></span>
+      <span className="trainBtns"><button onClick={async () => {
+        if (!live || !(await ask({ title: 'Reset the demo?', body: <p>Everything entered in the demo is cleared and it starts again.</p>, yes: 'Reset demo' }))) return;
+        const u = await live.currentUser().catch(() => null);
+        if (u) await startShowcase(live, u).catch((e) => toast((e as Error).message, 'warn'));
+      }}>Reset</button></span>
     </div>
   );
 }
