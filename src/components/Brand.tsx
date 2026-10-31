@@ -39,8 +39,8 @@ export function ComexLogo({ dark = false, width = 176, hatOnly = false }: { dark
         <path d="M131.5 53 h4 v3.5 a2 2 0 0 1 -4 0 z" fill="#E58227" />
       </g>
       {!hatOnly && <>
-        <text x="90" y="61" textAnchor="middle" fontFamily="Montserrat, 'Segoe UI', sans-serif" fontSize="9" fontWeight="700" fill={ink} textLength="68" lengthAdjust="spacing">COMEX</text>
-        <text x="93" y="75" textAnchor="middle" fontFamily="Montserrat, 'Segoe UI', sans-serif" fontSize="10" fontWeight="700" fill="#FBB03B" textLength="134" lengthAdjust="spacing">BUILDERS LTD</text>
+        <text className="clT1" x="90" y="61" textAnchor="middle" fontFamily="Montserrat, 'Segoe UI', sans-serif" fontSize="9" fontWeight="700" fill={ink} textLength="68" lengthAdjust="spacing">COMEX</text>
+        <text className="clT2" x="93" y="75" textAnchor="middle" fontFamily="Montserrat, 'Segoe UI', sans-serif" fontSize="10" fontWeight="700" fill="#FBB03B" textLength="134" lengthAdjust="spacing">BUILDERS LTD</text>
       </>}
     </svg>
   );

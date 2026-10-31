@@ -6,7 +6,7 @@ import type { Incoming, IncomingDismissed, IncomingOrder } from '../lib/types';
 import { Icon } from './fx';
 import { fmt } from './ui';
 import { toast } from './feedback';
-import { ZohoBooksMark, ZohoOpen, openInZoho } from './Zoho';
+import { ZohoBooksMark, ZohoOpen, firstOpenToday, openInZoho } from './Zoho';
 import { useData } from '../lib/store';
 import { useIsPhone } from './Ring';
 import { BackPill } from './BackPill';
@@ -32,7 +32,9 @@ export function useIncoming() {
       else setData({ ...memo, error: r.error });
     } finally { setTimeout(() => setBusy(false), Math.max(0, 800 - (Date.now() - started))); }
   }, []);
-  useEffect(() => { load(); }, [load]);
+  // First opening of the day: ask the server (which checks Zoho if its copy is old). After that, opening or refreshing
+  // the page shows the last check; only the Zoho button asks again.
+  useEffect(() => { if (!memo || firstOpenToday('incoming')) load(); }, [load]);
   return { data, busy, refresh: () => load(true) };
 }
 
@@ -169,7 +171,6 @@ export function IncomingPanel() {
     setRemoving(null); await loadGone();
     toast(`${o.po} removed from incoming`, 'ok', { label: 'Undo', run: () => { api.restoreIncoming(o.id).then(loadGone).catch(() => undefined); } });
   };
-  const bringBack = async (g: IncomingDismissed) => { await api.restoreIncoming(g.po_id); await loadGone(); toast(`${g.po ?? 'Order'} is back in pending deliveries`); };
   const cols: { k: Tab; title: string; sub: string; list: IncomingOrder[]; part?: boolean; empty: string }[] = [
     { k: 'this', title: wkName(0), sub: data?.week ? `${short(data.week.from)} – ${short(data.week.to)}` : 'By expected date', list: data?.thisWeek ?? [], empty: `Nothing expected in ${wkName(0)}` },
     { k: 'part', title: 'Pending deliveries', sub: 'Not delivered in the week it was due, or part still owed', list: partList, part: true, empty: 'Nothing pending' },
@@ -270,7 +271,7 @@ export function IncomingPanel() {
               <div className="incGone">
                 <button type="button" className="incGoneBtn" onClick={() => setShowGone(!showGone)}>Removed: {gone.length} · {showGone ? 'Hide' : 'Show'}</button>
                 {showGone && gone.map((g) => (
-                  <div key={g.po_id} className="incGoneRow"><span><b>{g.po ?? 'Order'}</b>{g.vendor ? ` · ${g.vendor}` : ''}<small>{g.reason}</small></span><button type="button" className="btn link" onClick={() => bringBack(g)}>Bring back</button></div>
+                  <div key={g.po_id} className="incGoneRow"><span><b>{g.po ?? 'Order'}</b>{g.vendor ? ` · ${g.vendor}` : ''}<small>{g.reason}</small></span></div>
                 ))}
               </div>
             )}

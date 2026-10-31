@@ -237,7 +237,8 @@ export function Home() {
         <span className="lcLeg">{outCount > 0 && <span><b className="out">{outCount}</b> out of stock</span>}{lowOnly > 0 && <span><b className="low">{lowOnly}</b> running out</span>}</span>
       </span>
       <span className="lcList">{urgent.map((b) => <span key={b.item_id} className="lcItem"><span>{b.name}</span><b className={b.balance <= 0 ? 'out' : 'low'}>{b.balance <= 0 ? 'Finished' : `${fmt(b.balance)} ${b.unit}`}</b></span>)}</span>
-      <span className="lcGo">Review all {nLow}<Icon name="arrow" size={16} /></span>
+      {/* Stores open the list by tapping the card; no extra button. */}
+      {user.role !== 'store' && <span className="lcGo">Review all {nLow}<Icon name="arrow" size={16} /></span>}
     </button>
   );
   // Phone home (design A): today's papers first, in one dark card.

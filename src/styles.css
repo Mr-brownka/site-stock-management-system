@@ -4493,3 +4493,10 @@ select.adAccSel:hover { border-color: currentColor; }
   .cardRow { padding-bottom: 10px; border-bottom: 1px solid #EEF0EE; }
   .cardRow > .cardDel { grid-row: 1; grid-column: 3; }
 }
+/* Logo on opening: the hat drops in, then COMEX and BUILDERS LTD rise into place, and a soft glow passes once. */
+.comexLogo .clT1, .comexLogo .clT2 { opacity: 0; animation: clTextIn .55s cubic-bezier(.2,.8,.2,1) forwards; }
+.comexLogo .clT1 { animation-delay: .45s; } .comexLogo .clT2 { animation-delay: .62s; }
+@keyframes clTextIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+.comexBrand .comexLogo { animation: clGlow 1.6s .9s ease-out 1 both; }
+@keyframes clGlow { 0% { filter: drop-shadow(0 0 0 rgba(251,176,59,0)); } 40% { filter: drop-shadow(0 0 10px rgba(251,176,59,.55)); } 100% { filter: drop-shadow(0 0 0 rgba(251,176,59,0)); } }
+@media (prefers-reduced-motion: reduce) { .comexLogo .clT1, .comexLogo .clT2, .comexBrand .comexLogo { animation: none; opacity: 1; } }

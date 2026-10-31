@@ -72,6 +72,15 @@ export function useZohoConnect() {
 }
 
 /** Runs in the background: welcomes people back from Zoho's sign-in, and keeps deliveries coming in. */
+/** True the first time today this browser opens the app for this check (then remembered until tomorrow).
+ *  Opening or refreshing the page again the same day uses the last Zoho check, so the daily limit isn't used up. */
+export function firstOpenToday(what: string): boolean {
+  const k = `ostock-zoho-opened:${what}`;
+  const day = new Date(Date.now() + 3 * 3600_000).toISOString().slice(0, 10); // Nairobi
+  try { if (localStorage.getItem(k) === day) return false; localStorage.setItem(k, day); } catch { /* storage off: behave as first */ }
+  return true;
+}
+
 export function ZohoAutoSync() {
   const { refresh, refreshUnfinished } = useData();
   const running = useRef(false);
@@ -104,8 +113,9 @@ export function ZohoAutoSync() {
       else if (z === 'declined') toast('Zoho was not connected. You can try again any time.', 'warn');
       else toast(`Zoho: ${q.get('why') ?? 'something went wrong'}`, 'warn');
     }
-    // Check on opening (if the last check was more than 3 minutes ago), then every 5 minutes.
-    loadZoho().then((s) => { if (s?.connected && (!s.last_sync_at || Date.now() - new Date(s.last_sync_at).getTime() > 180_000)) sync(false); });
+    // Check on the first opening of the day only (a page refresh doesn't call Zoho), then every 5 minutes while open.
+    const first = firstOpenToday('sync');
+    loadZoho().then((s) => { if (first && s?.connected && (!s.last_sync_at || Date.now() - new Date(s.last_sync_at).getTime() > 180_000)) sync(false); });
     const t = setInterval(() => { if (shared?.connected && document.visibilityState === 'visible') sync(false); }, 300_000);
     return () => clearInterval(t);
   }, [sync]);
