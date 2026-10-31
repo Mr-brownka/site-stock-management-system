@@ -8,6 +8,8 @@ Deno.serve(async (req) => {
   const db = admin();
   const user = await caller(req, db);
   if (!user) return json({ error: 'Sign in to Bohari first.' }, 401);
+  const { data: me } = await db.from('profiles').select('guest').eq('id', user.id).maybeSingle();
+  if (me?.guest) return json({ error: 'Guest view: Zoho can’t be connected from a guest account.' }, 403);
   await db.from('zoho_states').delete().lt('created_at', new Date(Date.now() - 3600_000).toISOString());
   // Send them back to the address they started from (the live app), not a fixed domain.
   const origin = (req.headers.get('Origin') ?? '').replace(/\/+$/, '');

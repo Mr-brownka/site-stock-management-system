@@ -30,9 +30,14 @@ Deno.serve(async (req) => {
   const db: SupabaseClient = admin();
   const user = await caller(req, db);
   if (!user) return json({ error: 'Sign in first.' }, 401);
-  const { data: prof } = await db.from('profiles').select('site_id').eq('id', user.id).maybeSingle();
+  const { data: prof } = await db.from('profiles').select('site_id, guest').eq('id', user.id).maybeSingle();
   const siteId = prof?.site_id as string | undefined;
   if (!siteId) return json({ connected: false });
+  // A guest only ever sees the last check: never a new call to Zoho (it would use up the daily limit).
+  if (prof?.guest) {
+    const { data: last } = await db.from('zoho_incoming_cache').select('body').eq('site_id', siteId).maybeSingle();
+    return json(last?.body ?? { connected: true, thisWeek: [], nextWeek: [], part: [] });
+  }
   const { data: site } = await db.from('sites').select('name, zoho_project').eq('id', siteId).single();
   const mine = norm(site?.zoho_project || site?.name);
   // Any Zoho connection for this site will do (the store keeper's, or the admin's).

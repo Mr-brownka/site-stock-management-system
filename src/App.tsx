@@ -2,7 +2,7 @@ import type React from 'react';
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { lazyPage, PageGuard } from './components/Recover';
 import { AppShell } from './components/Shell';
-import { api } from './lib/api';
+import { api, live } from './lib/api';
 import { DataProvider, type Screen } from './lib/store';
 import type { User } from './lib/types';
 import { DashboardJump } from './screens/DashboardJump';
@@ -17,6 +17,7 @@ import { Submitted } from './screens/Submitted';
 import { RecordsHub } from './screens/RecordsHub';
 import { Transfers } from './screens/Transfers';
 import { exitTraining } from './lib/training';
+import { endGuest, startGuest } from './lib/guest';
 import { bootDone, bootGreet, forgetVisitor } from './lib/boot';
 import { recordScreen } from './lib/nav';
 import { canSee, firstAllowed } from './lib/access';
@@ -90,6 +91,7 @@ export function App() {
   const openAdmin = useCallback(() => { history.pushState(null, '', '/admin'); setAdminPath(true); window.scrollTo(0, 0); }, []);
   const signOut = useCallback(async () => {
     if (api.mode === 'training') { exitTraining(); return; }
+    if (api.mode === 'guest') { endGuest(); await live?.signOut().catch(() => undefined); forgetVisitor(); location.replace('/'); return; }
     await api.signOut();
     try { Object.keys(localStorage).filter((k) => k.startsWith('ssms-cache:')).forEach((k) => localStorage.removeItem(k)); } catch { /* ignore */ }
     forgetVisitor();
@@ -112,7 +114,10 @@ export function App() {
   useEffect(() => { if (user) bootGreet(user.name); else if (user === null) { const h = document.getElementById('bootHello'); if (h) h.textContent = ''; } }, [user]);
   useEffect(() => { if (user !== undefined && !storeScreen) bootDone(); }, [user, storeScreen]);
 
-  if (user === undefined) return null;
+  // A guest account opens on its own copy of the site (made now, kept in this browser).
+  const guestOpening = !!user && user.guest && api.mode === 'live';
+  useEffect(() => { if (guestOpening && live && user) startGuest(live, user).catch(() => { setUser(null); }); }, [guestOpening, user]);
+  if (user === undefined || guestOpening) return null;
   if (recovering) return <SetPassword onDone={() => { setRecovering(false); location.hash = ''; loadUser(); }} />;
   if (!user) {
     if (creating) {

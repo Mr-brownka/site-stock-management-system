@@ -112,7 +112,7 @@ function StoreMe() {
 
       <div className="pSetH">Account</div>
       <section className="pSetCard">
-        {(user.role === 'admin' || user.role === 'store') && api.mode !== 'training' && <Row icon="shield" label={training.busy ? 'Opening the practice store…' : 'Training mode'} onClick={training.go} />}
+        {(user.role === 'admin' || user.role === 'store') && api.mode !== 'training' && api.mode !== 'guest' && <Row icon="shield" label={training.busy ? 'Opening the practice store…' : 'Training mode'} onClick={training.go} />}
         <Row icon="lock" label="Change password" onClick={() => setPw(true)} />
       </section>
 

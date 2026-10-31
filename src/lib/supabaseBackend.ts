@@ -267,7 +267,7 @@ export function supabaseBackend(url: string, key: string): Backend {
       const { data } = await sb.auth.getSession();
       const u = data.session?.user;
       if (!u) return null;
-      const { data: p } = await sb.from('profiles').select('full_name, role, status, site_id, training_days, training_waived, access, pages, head_office').eq('id', u.id).maybeSingle();
+      const { data: p } = await sb.from('profiles').select('full_name, role, status, site_id, training_days, training_waived, access, pages, head_office, guest').eq('id', u.id).maybeSingle();
       // Pages and access come from the person's role (the admin sets them per role).
       const role = (p?.role ?? 'store') as User['role'];
       const { data: rp, error: rpe } = await sb.from('role_permissions').select('access, pages').eq('role', role).maybeSingle();
@@ -275,7 +275,7 @@ export function supabaseBackend(url: string, key: string): Backend {
       return {
         email: u.email ?? '', name: p?.full_name || (u.email ?? '').split('@')[0],
         role: (p?.role ?? 'store') as User['role'], status: (p?.status ?? 'pending') as User['status'], siteId: p?.site_id ?? null,
-        trainingDays: (p?.training_days as string[] | null) ?? [], trainingWaived: !!p?.training_waived,
+        trainingDays: (p?.training_days as string[] | null) ?? [], trainingWaived: !!p?.training_waived, guest: !!p?.guest,
         access: (p?.access ?? 'edit') as User['access'], roleAccess: ((rp?.access as Access | undefined) ?? def.access),
         pages: rpe ? ((p?.pages as string[] | null) ?? null) : rp ? ((rp.pages as string[] | null) ?? null) : def.pages, headOffice: !!p?.head_office,
       };

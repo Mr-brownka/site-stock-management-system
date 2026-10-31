@@ -101,6 +101,8 @@ export interface User {
   trainingDays?: string[];
   /** The admin let this person skip training. */
   trainingWaived?: boolean;
+  /** Guest account: uses a copy of the site in the browser; can never change the real store. */
+  guest?: boolean;
   access?: Access;
   /** What the person's role allows (from the admin's role settings). */
   roleAccess?: Access;
@@ -278,7 +280,7 @@ export interface AdminApi {
 }
 
 export interface Backend {
-  mode: 'live' | 'demo' | 'training';
+  mode: 'live' | 'demo' | 'training' | 'guest';
   currentUser(): Promise<User | null>;
   signIn(email: string, password: string): Promise<void>;
   signOut(): Promise<void>;

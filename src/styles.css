@@ -4424,3 +4424,7 @@ button.btn.dark.isDone::after, button.evGo.isDone::after { color: #fff; }
 .incDay:focus-visible { outline: 2px solid #2D5BD0; outline-offset: -2px; }
 @media (max-width: 1099px) { .incCalm { min-height: 0; padding: 14px 0 10px; } }
 @media (prefers-reduced-motion: reduce) { .incGlass, .incCalm { transition: none; animation: none; } }
+
+/* Guest account strip */
+.trainBar.guestBar { background: linear-gradient(90deg, #0F2C25, #1F5A47); box-shadow: 0 4px 16px rgba(15,44,37,.35); }
+.trainBar.guestBar .trainTag { background: #FCA72D; color: #1B2120; }

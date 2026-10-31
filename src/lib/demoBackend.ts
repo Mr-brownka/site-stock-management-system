@@ -3,7 +3,7 @@
 import ITEMS from '../data/items.json';
 import { addDays, today, weekday } from './dates';
 import { ROLE_DEFAULT } from './access';
-import { delta, type Role, type Access, type Backend, type Balance, type CorrectionRequest, type Doc, type DocInput, type Draft, type IncomingDismissed, type Field, type Item, type Line, type LineInput, type Profile, type SiteDoc, type SiteInfo, type StockTake, type Submission, type ZohoStatus } from './types';
+import { delta, type Role, type Access, type Backend, type Balance, type CorrectionRequest, type Doc, type DocInput, type Draft, type Incoming, type IncomingDismissed, type Field, type Item, type Line, type LineInput, type Profile, type SiteDoc, type SiteInfo, type StockTake, type Submission, type ZohoStatus } from './types';
 
 const KEY = 'ssms-demo-v4';
 const SITE = 'site-reveal';
@@ -15,7 +15,10 @@ export interface Store {
   issued?: Record<string, { password: string; set_at: string }>;
   rolePerms?: Partial<Record<Role, { access: Access; pages: string[] | null }>>;
   items?: Item[];
-  meta?: { company: string; site: string; user: { email: string; name: string; role: Role } };
+  meta?: { company: string; site: string; user: { email: string; name: string; role: Role; trainingWaived?: boolean } };
+  /** Guest copy: the site's incoming deliveries as they were when copied, and when that was. */
+  incoming?: Incoming;
+  copiedAt?: string;
   docs: Doc[];
   nextLine: number;
   submissions: Record<string, Submission>;
@@ -101,7 +104,7 @@ function load(key: string, make: () => Store): Store {
   return make();
 }
 
-export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'demo' | 'training'; zohoStatus?: () => Promise<ZohoStatus | null> } = {}): Backend {
+export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'demo' | 'training' | 'guest'; zohoStatus?: () => Promise<ZohoStatus | null> } = {}): Backend {
   const key = opts.key ?? KEY;
   // eslint-disable-next-line prefer-const
   let s = load(key, opts.seed ?? seed);
@@ -258,6 +261,7 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
     async restoreIncoming(poId) { s.dismissed = (s.dismissed ?? []).filter((x) => x.po_id !== poId); save(); },
     async zohoOpen() { return { url: 'https://books.zoho.com/app#/purchaseorders' }; },
     async incoming() {
+      if (s.incoming) return s.incoming;
       // Sample orders so the demo shows the panel; dates follow the real calendar.
       const t = today(); const dow = (new Date(t + 'T00:00:00Z').getUTCDay() + 6) % 7; const wk = addDays(t, -dow);
       const o = (id: string, po: string, vendor: string, expected: string | null, lines: [string, string, number, number][], lastIn?: string) =>
