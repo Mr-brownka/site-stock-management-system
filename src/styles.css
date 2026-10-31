@@ -3013,8 +3013,7 @@ button.tbChip.status:hover, button.tbMini:hover { filter: brightness(.96); }
 .sbT { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.1; text-align: left; }
 .sbT b { font-size: 15px; font-weight: 800; } .sbT small { font-size: 11px; font-weight: 600; opacity: .72; white-space: nowrap; }
 .startBtn.pulse { animation: startPulse 2.4s ease-out infinite; }
-.startBtn.done { background: var(--ok-soft, #DCEFE4); color: #145236; box-shadow: none; }
-.startBtn.done .ring circle:first-child { stroke: #BFE3CD; } .startBtn.done .ring .ringArc { stroke: var(--ok); }
+/* Day submitted keeps the same orange as Start. */
 
 /* The pop-up */
 .ppBack { display: grid; place-items: center; padding: 20px; background: rgba(15,20,19,.42); backdrop-filter: blur(2px); }
