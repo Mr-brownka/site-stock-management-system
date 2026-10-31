@@ -4435,3 +4435,10 @@ select.adAccSel.edit { background-color: #E7F4EC; color: #1F7A4D; } select.adAcc
 select.adAccSel.demo { background-color: #FFF1DC; color: #8A5A00; }
 select.adAccSel:hover { border-color: currentColor; }
 .mirAfter.chg { color: #C8322A; font-weight: 700; }
+
+/* Sent or received: two clean tiles, no small print */
+.dirPick2 > header h2 { font-size: 30px; }
+.dirPick2 .dirOpt { align-items: center; justify-content: center; text-align: center; gap: 4px; min-height: 168px; }
+.dirPick2 .dirOpt .dirIc { width: 56px; height: 56px; border-radius: 16px; margin-bottom: 8px; }
+.dirPick2 .dirOpt b { font-size: 22px; font-family: var(--display); }
+.dirPick2 .dirOpt span:not(.dirIc) { font-size: 13.5px; color: #69736F; }

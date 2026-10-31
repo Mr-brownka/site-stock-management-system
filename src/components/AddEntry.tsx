@@ -27,17 +27,17 @@ export function DirectionPick({ onPick, onClose }: { onPick: (d: 'in' | 'out') =
   }, [onClose]);
   return createPortal(
     <div className="sheetBack dayAskBack" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <section className="dirPick" role="dialog" aria-modal="true" aria-labelledby="dirTitle">
-        <header><span className="daKicker">New project transfer</span><h2 id="dirTitle">Which way did the stock go?</h2>
+      <section className="dirPick dirPick2" role="dialog" aria-modal="true" aria-labelledby="dirTitle">
+        <header><h2 id="dirTitle">Sent or received?</h2>
           <button className="iconBtn" onClick={onClose} aria-label="Close"><Icon name="close" /></button></header>
         <div className="dirOpts">
           <button className="dirOpt out" onClick={() => onPick('out')} autoFocus>
-            <span className="dirIc" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M7 17 17 7M9 7h8v8" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
-            <b>Sent to another project</b><small>Stock goes down</small>
+            <span className="dirIc" aria-hidden="true"><svg viewBox="0 0 24 24" width="30" height="30"><path d="M7 17 17 7M9 7h8v8" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
+            <b>Sent</b>
           </button>
           <button className="dirOpt in" onClick={() => onPick('in')}>
-            <span className="dirIc" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M17 7 7 17M15 17H7V9" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
-            <b>Received from another project</b><small>Stock goes up</small>
+            <span className="dirIc" aria-hidden="true"><svg viewBox="0 0 24 24" width="30" height="30"><path d="M17 7 7 17M15 17H7V9" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
+            <b>Received</b>
           </button>
         </div>
       </section>

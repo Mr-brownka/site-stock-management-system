@@ -5,7 +5,7 @@ import { api, progressStore } from '../lib/api';
 import { today, weekday, weekdayName } from '../lib/dates';
 import { TRAINING_DAYS } from '../lib/trainingPlan';
 import type { StepKey, StepState } from '../lib/types';
-import { openRecords, setPendingDir } from './AddEntry';
+import { DirectionPick, openRecords, setPendingDir } from './AddEntry';
 import { signal } from '../lib/signals';
 import { Icon } from './fx';
 import { toast } from './feedback';
@@ -90,6 +90,8 @@ export function EveningFlow({ screen }: { screen: Screen }) {
 
   if (!stage || ENTRY[stage]) return null;
   const to = (s: Stage) => to_(day, s);
+  // "Any project transfers?" is a plain Yes / No; Yes then asks Sent or Received.
+  const [dirAsk, setDirAsk] = useState(false);
   const enter = (step: 'issued' | 'returns' | 'transfers', dir?: 'in' | 'out') => {
     to_(day, step);
     if (dir) setPendingDir(dir);
@@ -138,9 +140,9 @@ export function EveningFlow({ screen }: { screen: Screen }) {
       no={{ label: 'No', long: 'No, nothing came back', hint: '', run: () => { none('returns'); to('askTransfer'); } }} />;
   } else if (stage === 'askTransfer' || stage === 'askMoreTransfer') {
     const more = stage === 'askMoreTransfer';
-    body = <Ask phone={phone} tone="trf" kicker="Project transfers" icon="swap" title={more ? 'Another transfer?' : `Any project transfers ${wd}?`} sub="Sent to, or received from, another site." 
-      yes2={[{ label: 'Yes, sent', hint: '', run: () => enter('transfers', 'out') }, { label: 'Yes, received', hint: '', run: () => enter('transfers', 'in') }]}
-      no={{ label: 'No', long: more ? 'No, that’s all' : 'No transfers', hint: '', run: () => { if (!more) none('transfers'); to('askSubmit'); } }} />;
+    body = <Ask phone={phone} tone="trf" kicker="Project transfers" icon="swap" title={more ? 'Another transfer?' : `Any project transfers ${wd}?`} 
+      yes={{ label: 'Yes', long: 'Yes', hint: '', run: () => setDirAsk(true) }}
+      no={{ label: 'No', long: 'No', hint: '', run: () => { if (!more) none('transfers'); to('askSubmit'); } }} />;
   } else {
     size = 'lg';
     const rows = STEPS.map((s) => ({ s, n: count(s.key) }));
@@ -160,6 +162,8 @@ export function EveningFlow({ screen }: { screen: Screen }) {
       </div>
     );
   }
+
+  if (dirAsk) return <DirectionPick onClose={() => setDirAsk(false)} onPick={(d) => { setDirAsk(false); enter('transfers', d); }} />;
 
   if (phone) return createPortal(
     <div className="evPage" role="dialog" aria-modal="true" aria-labelledby="evTitle">
