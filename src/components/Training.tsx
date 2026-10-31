@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, live } from '../lib/api';
 import { exitTraining, resetTraining, startTraining } from '../lib/training';
-import { guestCopiedAt, isShowcase, seeRealData, showcaseOff, SHOWCASE_ROLES, startGuest, startShowcase } from '../lib/guest';
+import { guestCopiedAt, isShowcase, seeRealData, showcaseOff, startGuest, startShowcase } from '../lib/guest';
 import type { User } from '../lib/types';
 import { ask, toast } from './feedback';
 import { Icon } from './fx';
@@ -38,7 +38,7 @@ function ShowcaseBar() {
 function BackToDemo() {
   const [user, setUser] = useState<User | null>(null);
   useEffect(() => { live?.currentUser().then(setUser).catch(() => undefined); }, []);
-  if (!user || !SHOWCASE_ROLES.includes(user.role) || !live) return null;
+  if (!user || user.access !== 'demo' || !live) return null;
   return (
     <div className="trainBar guestBar" role="status">
       <span className="trainTag">REAL</span>

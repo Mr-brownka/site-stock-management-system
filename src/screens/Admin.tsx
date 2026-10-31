@@ -727,6 +727,7 @@ function ShareDetails({ name, password, phone, onDone }: { name: string; passwor
 }
 
 type Perms = Partial<Record<Role, { access: Access; pages: string[] | null }>>;
+const ACCESS_LABEL: Record<Access, string> = { edit: 'Can edit', read: 'Read only', demo: 'Demo mode' };
 /** Roles & pages: what each role can do. Everyone in a role gets the same; change it here once. */
 function RolesPanel({ perms, people, onSaved, onClose }: { perms: Perms | null; people: Profile[]; onSaved: () => void; onClose: () => void }) {
   const roles = ROLES.filter((r) => r.key !== 'admin');
@@ -782,9 +783,9 @@ function AddPerson({ d, busy, act, perms, onClose, onMade }: { d: Data; busy: st
         <label className="field"><span>First name</span><input className="input" value={v.first} autoFocus onChange={(e) => setV({ ...v, first: e.target.value })} /></label>
         <label className="field"><span>Last name</span><input className="input" value={v.last} onChange={(e) => setV({ ...v, last: e.target.value })} /></label>
         <label className="field"><span>Phone (for WhatsApp)</span><input className="input" inputMode="tel" value={v.phone} placeholder="07…" onChange={(e) => setV({ ...v, phone: e.target.value })} /></label>
-        <label className="field"><span>Role</span><select className="select input" value={v.role} onChange={(e) => { const r = e.target.value as Role; setV({ ...v, role: r, access: r === 'store' ? v.access : 'read' }); }}>{ROLE_OPTS.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select></label>
+        <label className="field"><span>Role</span><select className="select input" value={v.role} onChange={(e) => { const r = e.target.value as Role; setV({ ...v, role: r, access: r === 'store' || v.access === 'demo' ? v.access : 'read' }); }}>{ROLE_OPTS.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select></label>
         <label className="field"><span>Site</span><select className="select input" value={v.site_id} onChange={(e) => setV({ ...v, site_id: e.target.value })}><option value="__ho">Head office (all sites)</option>{d.sites.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
-        {isStore && <label className="field"><span>Can they change things?</span><select className="select input" value={v.access} onChange={(e) => setV({ ...v, access: e.target.value as Access })}><option value="edit">Yes, can edit</option><option value="read">No, view only</option></select></label>}
+        {v.role !== 'admin' && <label className="field"><span>Access</span><select className="select input" value={v.access} onChange={(e) => setV({ ...v, access: e.target.value as Access })}>{isStore && <option value="edit">{ACCESS_LABEL.edit}</option>}<option value="read">{ACCESS_LABEL.read}</option><option value="demo">{ACCESS_LABEL.demo}</option></select></label>}
         <label className="field"><span>Password</span><span className="adInline"><input className="input mono" value={v.password} onChange={(e) => setV({ ...v, password: e.target.value })} /><button type="button" className="adBtn" onClick={() => setV({ ...v, password: newPassword() })} title="Make another">↻</button></span></label>
       </div>
       {v.role !== 'admin' && <small className="muted">{ROLE_LABEL[v.role]} get the same pages and access as everyone in that role ({(perms?.[v.role] ?? ROLE_DEFAULT[v.role]).access === 'edit' ? 'can edit' : 'view only'}, {pagesOf((perms?.[v.role] ?? ROLE_DEFAULT[v.role]).pages)}). Change it once for the whole role under “Roles & pages”.</small>}
@@ -793,7 +794,7 @@ function AddPerson({ d, busy, act, perms, onClose, onMade }: { d: Data; busy: st
         <button className="adBtn dark" disabled={!!busy || !v.first.trim() || !v.last.trim() || v.password.length < 6}
           onClick={() => act('addperson', async () => {
             const ho = v.site_id === '__ho';
-            await api.admin.createPerson({ full_name: full, password: v.password, role: v.role, head_office: ho, site_id: ho ? (d.sites[0]?.id ?? null) : v.site_id || null, access: isStore ? v.access : 'read', pages: null, phone: v.phone.trim() || null });
+            await api.admin.createPerson({ full_name: full, password: v.password, role: v.role, head_office: ho, site_id: ho ? (d.sites[0]?.id ?? null) : v.site_id || null, access: v.access === 'demo' ? 'demo' : isStore ? v.access : 'read', pages: null, phone: v.phone.trim() || null });
             onMade({ name: full, password: v.password, phone: v.phone.trim() || null });
           })}>Add {v.first.trim() || 'person'}</button>
       </span>
@@ -850,10 +851,18 @@ function People({ d, me, busy, act }: { d: Data; me: User; busy: string; act: Ac
                 <span className="adWhoS"><Av name={p.full_name} /><span><b>{p.full_name}</b><small>{p.email}{p.phone ? ` · ${p.phone}` : ''}</small></span></span>
                 <span>{p.role === 'admin' ? 'All sites' : p.head_office ? <span className="adHO">Head office</span> : name(p.site_id) || '—'}</span>
                 <span><span className={`adRole ${p.role}`}>{ROLE_LABEL[p.role]}</span></span>
-                <span>{p.role === 'admin' ? <span className="muted">Everything</span> : roleAcc(p.role) === 'read'
-                  ? <span className="adAcc read" title={`${ROLE_LABEL[p.role]} is view only (Roles & pages)`}>View only</span>
-                  : <button className={`adAcc ${p.access === 'read' ? 'read' : 'edit'}`} title="Tap to switch" disabled={!!busy || f === 'off'}
-                      onClick={() => act(p.id, () => api.admin.setProfile(p.id, { access: p.access === 'read' ? 'edit' : 'read' })).then(() => toast(`${p.full_name.split(' ')[0]} can ${p.access === 'read' ? 'edit now' : 'only view now'}`))}>{p.access === 'read' ? 'View only' : 'Can edit'}</button>}
+                <span>{p.role === 'admin' ? <span className="muted">Everything</span> : (() => {
+                  // Can edit / View only / Demo mode. A role that is view only can't be given Can edit one by one.
+                  const cur: Access = p.access === 'demo' ? 'demo' : roleAcc(p.role) === 'read' || p.access === 'read' ? 'read' : 'edit';
+                  return (
+                    <select className={`adAcc adAccSel ${cur}`} value={cur} disabled={!!busy || f === 'off'} aria-label={`${p.full_name}: access`}
+                      onChange={(e) => { const a = e.target.value as Access; act(p.id, () => api.admin.setProfile(p.id, { access: a })).then(() => toast(`${p.full_name.split(' ')[0]}: ${ACCESS_LABEL[a]}`)); }}>
+                      <option value="edit" disabled={roleAcc(p.role) === 'read'}>{ACCESS_LABEL.edit}</option>
+                      <option value="read">{ACCESS_LABEL.read}</option>
+                      <option value="demo">{ACCESS_LABEL.demo}</option>
+                    </select>
+                  );
+                })()}
 </span>
                 <span>{f === 'off' ? <span className="stPill idle">{p.status === 'removed' ? 'Removed' : 'Declined'}</span> : <span className="muted">{ago(p.decided_at ?? p.created_at)}</span>}</span>
                 <span className="muted">{ago(lastSeen(p.id))}</span>

@@ -46,7 +46,8 @@ Deno.serve(async (req) => {
     const pw = String(b.password ?? '');
     const role = ['admin', 'store', 'site_manager', 'procurement', 'accounts', 'coo', 'ceo', 'project_manager'].includes(String(b.role)) ? String(b.role) : 'store';
     // Pages and access come from the role; a store keeper can be made view only one by one.
-    const access = role === 'store' && b.access === 'read' ? 'read' : 'edit';
+    // Demo mode: anyone can be set to open on the example store instead of the real one.
+    const access = b.access === 'demo' ? 'demo' : role === 'store' && b.access === 'read' ? 'read' : 'edit';
     const pages = null;
     if (full.split(' ').length < 2) return json({ error: 'Type the first and last name.' });
     if (pw.length < 6) return json({ error: 'The password needs at least 6 characters.' });

@@ -15,7 +15,8 @@ function rng(seed: number) {
 
 type Act = { name: string; floors: string[]; sup: string[]; mats: [string, number, number][] };
 
-export function buildAstanaTraining(allItems: Item[], user: { email: string; name: string; role?: Profile['role'] }, today: string): Store {
+export function buildAstanaTraining(allItems: Item[], user: { email: string; name: string; role?: Profile['role'] }, today: string, flavor: 'astana' | 'reveal' = 'astana'): Store {
+  const F = flavor === 'reveal' ? REVEAL : null;
   const R = rng(20261017);
   const between = (a: number, b: number) => a + Math.floor(R() * (b - a + 1));
   const pick = <T,>(xs: T[]) => xs[Math.floor(R() * xs.length)];
@@ -59,13 +60,13 @@ export function buildAstanaTraining(allItems: Item[], user: { email: string; nam
     ['Helmet', 90], ['Reflective Jacket', 80], ['Safety Boots', 40], ['Leather Gloves', 120], ['Dust Mask', 300], ['Green Net', 10], ['First Aid Kit', 4], ['Sanitizer', 12],
     ['Wheelbarrow', 14], ['Spade', 22], ['Mattock', 10], ['Buckets', 40], ['Measuring Tape', 6], ['Plastic tank 3000 Ltrs', 2], ['Dr Fixit Waterproof cement', 30],
   ];
-  const openDoc = add({ kind: 'opening', doc_date: start, reason: 'First stock take', party: 'Mary Achieng' }, opening.map(([n, q]) => [n, q]), iso(start, '16:30'));
+  const openDoc = add({ kind: 'opening', doc_date: start, reason: 'First stock take', party: 'Mary Achieng' }, (F?.opening ?? opening).map(([n, q]) => [n, q]), iso(start, '16:30'));
 
   // ── Who and what ──
   const upper = ['7th floor', '8th floor', '9th floor'];
   const mid = ['4th floor', '5th floor', '6th floor'];
   const low = ['Ground floor', '1st floor', '2nd floor', '3rd floor'];
-  const acts: Act[] = [
+  const actsA: Act[] = [
     { name: 'Slab casting', floors: upper, sup: ['Otieno Okello'], mats: [['Cement', 18, 34], ['Ballast', 3, 6], ['River Sand', 2, 4], ['Binding Wire 16g X 25Kgs', 1, 1], ['Concrete Steel Nails 4"', 1, 2]] },
     { name: 'Steel fixing', floors: upper, sup: ['Otieno Okello'], mats: [['T12 Bars', 14, 30], ['T16 Bars', 6, 14], ['T10 Bars', 10, 22], ['Binding Wire 16g X 25Kgs', 1, 2]] },
     { name: 'Formwork', floors: upper, sup: ['Juma Hassan'], mats: [['Timber 4" x 2"', 16, 34], ['Marine board', 1, 4], ['Wire Nails 4"', 1, 1], ['Tie Rods', 4, 10], ['Anchor Nut for Tie Rods', 20, 40]] },
@@ -77,19 +78,23 @@ export function buildAstanaTraining(allItems: Item[], user: { email: string; nam
     { name: 'Gypsum works', floors: low, sup: ['Grace Wanjiru'], mats: [['Gyprock Gypsum Filler 25kg', 2, 5], ['Sand Paper P80', 1, 2]] },
     { name: 'Metal works', floors: ['Roof', ...upper], sup: ['Juma Hassan'], mats: [['Metal Primer Grey', 2, 4], ['Thinner', 1, 2], ['Cutting Disc 9"', 2, 4], ['Welding Rods', 1, 2]] },
   ];
-  const supplier: [RegExp, string, string][] = [
+  const supplierA: [RegExp, string, string][] = [
     [/^cement|waterproof/i, 'Bamburi Cement Depot', 'BCD'], [/ballast|sand|stones|hardcore/i, 'Savannah Quarries', 'SQ'], [/bars|binding|brc|hoop/i, 'Devki Steel Mills', 'DSM'],
     [/timber|marine|tie rod|anchor|shutter/i, 'Timsales Ltd', 'TS'], [/ppr|pvc|tangit|gate valve/i, 'Ndovu Hardware', 'NH'], [/conduit|coupler|cable|socket|insulating/i, 'Nyali Electricals', 'NE'],
     [/tile|gyprock/i, 'Tile & Carpet Centre', 'TCC'], [/primer|thinner|turpentine|paint|sand paper/i, 'Crown Paints Depot', 'CP'], [/./, 'Ndovu Hardware', 'NH'],
   ];
+  const acts = F?.acts ?? actsA;
+  const supplier = F?.supplier ?? supplierA;
   const supplierOf = (n: string) => supplier.find(([re]) => re.test(n))!;
-  const reorder: Record<string, number> = {
+  const reorderA: Record<string, number> = {
     'Cement': 120, 'Ballast': 12, 'River Sand': 10, '200mm thick Machine Cut Stones': 800, 'T12 Bars': 150, 'T16 Bars': 80, 'T10 Bars': 100, 'Binding Wire 16g X 25Kgs': 6,
     'Timber 4" x 2"': 150, 'Tile Adhesive': 30, 'PPR Elbow 25mm': 60, 'Conduit 25mm': 120, 'Coupler 25mm': 150, 'Gyprock Gypsum Filler 25kg': 20, 'Marine board': 12, 'Rock Sand': 6, 'Hoop Iron': 4,
   };
   // Items left to run low at the end, so the red pulse and reorder list have something to show.
-  const runDown = new Set(['Tile Adhesive', 'Binding Wire 16g X 25Kgs', 'Marine board', 'Gyprock Gypsum Filler 25kg', 'Hoop Iron', 'Coupler 25mm']);
-  const deliverySize: Record<string, number> = { 'Cement': 300, 'Ballast': 30, 'River Sand': 28, 'Rock Sand': 16, '200mm thick Machine Cut Stones': 2400, 'T12 Bars': 400, 'T16 Bars': 200, 'T10 Bars': 260, 'Binding Wire 16g X 25Kgs': 14, 'Timber 4" x 2"': 400, 'Tile Adhesive': 80, 'PPR Elbow 25mm': 200, 'Conduit 25mm': 400, 'Coupler 25mm': 500, 'Gyprock Gypsum Filler 25kg': 60, 'Marine board': 40, 'Hoop Iron': 12 };
+  const reorder = F?.reorder ?? reorderA;
+  const runDown = F ? new Set(F.runDown) : new Set(['Tile Adhesive', 'Binding Wire 16g X 25Kgs', 'Marine board', 'Gyprock Gypsum Filler 25kg', 'Hoop Iron', 'Coupler 25mm']);
+  const deliverySizeA: Record<string, number> = { 'Cement': 300, 'Ballast': 30, 'River Sand': 28, 'Rock Sand': 16, '200mm thick Machine Cut Stones': 2400, 'T12 Bars': 400, 'T16 Bars': 200, 'T10 Bars': 260, 'Binding Wire 16g X 25Kgs': 14, 'Timber 4" x 2"': 400, 'Tile Adhesive': 80, 'PPR Elbow 25mm': 200, 'Conduit 25mm': 400, 'Coupler 25mm': 500, 'Gyprock Gypsum Filler 25kg': 60, 'Marine board': 40, 'Hoop Iron': 12 };
+  const deliverySize = F?.deliverySize ?? deliverySizeA;
 
   const subs: Record<string, Submission> = {};
   let balAt30 = new Map<number, number>();
@@ -141,8 +146,8 @@ export function buildAstanaTraining(allItems: Item[], user: { email: string; nam
     }
 
     // Project transfers now and then.
-    if (k % 11 === 4) add({ kind: 'transfer_out', doc_date: day, ref_no: `TN-${tn++}`, party: pick(['Balozi Suites', 'Nyayo View 2']), authorised_by: 'Eng. Kariuki (Projects Manager)', vehicle: 'KCK 412T' }, [[pick(['T12 Bars', 'Timber 4" x 2"', 'Cement']), between(10, 30)]], iso(day, '14:20'));
-    if (k % 13 === 6) add({ kind: 'transfer_in', doc_date: day, ref_no: `TN-${tn++}`, party: pick(['Balozi Suites', 'Nyayo View 2']), authorised_by: 'Eng. Kariuki (Projects Manager)', vehicle: 'KCK 412T' }, [[pick(['Marine board', 'Tie Rods', 'Wheelbarrow']), between(4, 12)]], iso(day, '11:40'));
+    if (k % 11 === 4) add({ kind: 'transfer_out', doc_date: day, ref_no: `TN-${tn++}`, party: pick(F?.sites ?? ['Balozi Suites', 'Nyayo View 2']), authorised_by: F?.authoriser ?? 'Eng. Kariuki (Projects Manager)', vehicle: 'KCK 412T' }, [[pick(F?.outItems ?? ['T12 Bars', 'Timber 4" x 2"', 'Cement']), between(10, 30)]], iso(day, '14:20'));
+    if (k % 13 === 6) add({ kind: 'transfer_in', doc_date: day, ref_no: `TN-${tn++}`, party: pick(F?.sites ?? ['Balozi Suites', 'Nyayo View 2']), authorised_by: F?.authoriser ?? 'Eng. Kariuki (Projects Manager)', vehicle: 'KCK 412T' }, [[pick(F?.inItems ?? ['Marine board', 'Tie Rods', 'Wheelbarrow']), between(4, 12)]], iso(day, '11:40'));
 
     // The evening submission.
     if (!missed.has(day)) {
@@ -185,7 +190,7 @@ export function buildAstanaTraining(allItems: Item[], user: { email: string; nam
 
   return {
     items: allItems,
-    meta: { company: 'Comex Builders', site: 'Astana', user: { email: user.email, name: user.name, role: user.role ?? 'admin' } },
+    meta: { company: 'Comex Builders', site: F?.site ?? 'Astana', user: { email: user.email, name: user.name, role: user.role ?? 'admin' } },
     docs, nextLine, submissions: subs, reorder: reorderById, extraItems: [], signedIn: true,
     checklist: { [SITE]: openDoc ? openDoc.lines.map((l) => l.item_id) : [] },
     stockTakes: [
@@ -193,7 +198,7 @@ export function buildAstanaTraining(allItems: Item[], user: { email: string; nam
       { id: id(), count_date: addDays(today, -29), start_time: '07:30', end_time: '11:05', counted_by: 'Mary Achieng', checked_by: 'Kevin Mutiso', is_first: false, status: 'recorded' as const, created_at: iso(addDays(today, -29), '11:20'),
         lines: [...balAt30].map(([item_id, qty]) => ({ item_id, qty: Math.max(0, qty - (R() < 0.12 ? between(1, 3) : 0)) })) },
     ],
-    sites: [{ id: SITE, name: 'Astana', company: 'Comex Builders', week_anchor_no: 46, week_anchor_date: start }, { id: 'site-nyayo', name: 'Nyayo View 2', company: 'Comex Builders' }, { id: 'site-balozi', name: 'Balozi Suites', company: 'Comex Builders' }],
+    sites: [{ id: SITE, name: F?.site ?? 'Astana', company: 'Comex Builders', week_anchor_no: 46, week_anchor_date: start }, ...(F?.sites ?? ['Nyayo View 2', 'Balozi Suites']).map((n) => ({ id: `site-${n.toLowerCase().replace(/\W+/g, '-')}`, name: n, company: 'Comex Builders' }))],
     profiles: [
       { id: ME, full_name: user.name, email: user.email, phone: null, role: 'admin', status: 'approved', site_id: SITE, created_at: iso(addDays(today, -62), '08:00'), decided_at: iso(addDays(today, -62), '08:00') },
       P('demo-mary', 'Mary Achieng', 'store', 'approved', 58, 'mary.achieng@example.com', '0712 448 210'),
@@ -204,3 +209,46 @@ export function buildAstanaTraining(allItems: Item[], user: { email: string; nam
     corrections,
   };
 }
+
+/** Reveal's own items, suppliers, activities and floors, so the demo feels like home. */
+const REVEAL = {
+  site: 'Reveal',
+  sites: ['Nyayo View 2', 'Astana'],
+  authoriser: 'Macharia - Site manager',
+  opening: [
+    ['Cement', 420], ['River Sand', 40], ['Rock Sand', 30], ['Hoop Iron', 25], ['Binding Wire', 14], ['Chicken Wire', 6],
+    ['T8 Bars', 1900], ['T10 Bars', 180], ['T12 Bars', 520], ['T16 Bars', 360], ['T20 Bars', 160], ['T25 Bars', 60],
+    ['Concrete steel Nails 1"', 9], ['Concrete steel Nails 2"', 10], ['Concrete Steel Nails 3"', 10], ['Concrete Steel Nails 4"', 6],
+    ['RHS Tube 40mm x 25mm x 1.5mm', 120], ['RHS 40mmx25mmx2.0mm', 17], ['SHS 20mm x 20mm x 1.5mm', 220], ['CHS 50mm x x1.5mm', 64], ['CHS Black Pipe 50mm x 3mm', 75],
+    ['Welding Rods', 51], ['Cutting Disc 9"', 60], ['Grinding Disc 9"', 28], ['Grinding Disc 7"', 14], ['Metal Primer Grey', 44], ['Thinner', 20], ['Turpentine', 13], ['Body Filler', 26],
+    ['Scaffold Clamps 90 DEG-Fixed Forged', 228], ['Scaffold Clamp Sleeve Coupler', 963], ['Scaffold Clamp Swivel Forged', 653], ['Scaffold H-Frame', 67], ['Anchor Nut for Tie Rods', 1769],
+    ['Tile Adhesive', 40], ['Ceramic Tile Rock 6156 - 40cm x 40cm', 200], ['Ceramic Tile Rock 6154 - 40cm x 40cm', 22], ['Tile Spacers 2mm', 23],
+    ['Dr. Fixit Pidifin 2k', 8], ['Dr. Fixit Super Latex', 6], ['Black Polythene Sheet', 7], ['Green Net', 6], ['Flexible pvc braided hose pipe 3/4"', 2],
+    ['PPR Socket 32mm', 15], ['PPR Tee 32mm', 9], ['PPR SOCKET 40MM', 9], ['PPR Socket 25mm', 7], ['PPR Tee 25mm', 5], ['Tangit Glue 1 Ltr', 6], ['PVC Bend 2" x 90deg', 5], ['PVC Tee 2"', 5],
+    ['Helmet', 82], ['Overalls', 40], ['Safety Harness', 24], ['Leather Gloves', 30], ['Safety Boots', 12], ['Gum Boots', 8], ['Safety Goggles', 8], ['Ear Muffs', 2],
+    ['Spade', 22], ['AgricultureImplements Metal Shovels', 27], ['Wheelbarrow', 5], ['Buckets', 14], ['Hard Broom', 14], ['Soft Broom', 14], ['Water Drums', 13], ['Craw Bar T25', 20],
+    ['Caution Tape', 5], ['Warning Tape', 4], ['Insulating Tape', 14], ['Twin socket', 3], ['Paint Brush 2"', 18], ['Sand Paper P80', 2],
+    ['Concrete Mixer', 1], ['Poker Vibrator Machine', 4], ['Poker Shaft', 3], ['Welding Machine', 1], ['Bar Bending Machine', 1], ['Bar Cutting Machine', 1], ['Drill Machine', 3], ['Hoist 1000kg', 2],
+  ] as [string, number][],
+  acts: [
+    { name: 'Walling', floors: ['12th floor', '13th floor', '14th floor'], sup: ['Hamisi - Supervisor', 'Peter Supervisor'], mats: [['Cement', 4, 10], ['Hoop Iron', 1, 1], ['Rock Sand', 1, 2]] },
+    { name: 'Plaster & Screed', floors: ['4th floor', '5th floor', '6th floor', '7th floor'], sup: ['Hamisi - Supervisor'], mats: [['Cement', 6, 12], ['River Sand', 1, 3]] },
+    { name: 'Steel fixing', floors: ['14th floor', '15th floor'], sup: ['Peter Supervisor'], mats: [['T8 Bars', 40, 110], ['T12 Bars', 10, 24], ['T16 Bars', 8, 18], ['T20 Bars', 4, 10], ['Binding Wire', 1, 1]] },
+    { name: 'Fabrication', floors: ['10th floor', 'Preliminaries'], sup: ['Hamisi - Supervisor'], mats: [['RHS Tube 40mm x 25mm x 1.5mm', 2, 5], ['SHS 20mm x 20mm x 1.5mm', 4, 10], ['Welding Rods', 1, 1], ['Cutting Disc 9"', 1, 3], ['Metal Primer Grey', 1, 2]] },
+    { name: 'Scaffolding', floors: ['12th floor', '13th floor'], sup: ['Mary - Site admin'], mats: [['Scaffold Clamps 90 DEG-Fixed Forged', 8, 24], ['Scaffold Clamp Sleeve Coupler', 8, 24]] },
+    { name: 'Tiling', floors: ['4th floor', '5th floor'], sup: ['Hamisi - Supervisor'], mats: [['Tile Adhesive', 2, 5], ['Ceramic Tile Rock 6156 - 40cm x 40cm', 4, 10]] },
+    { name: 'Waterproofing', floors: ['5th floor', '6th floor'], sup: ['Peter Supervisor'], mats: [['Dr. Fixit Super Latex', 1, 1], ['Dr. Fixit Pidifin 2k', 1, 1]] },
+    { name: 'Repairs', floors: ['Preliminaries'], sup: ['Hamisi - Supervisor'], mats: [['Cement', 1, 3], ['Concrete steel Nails 2"', 1, 1]] },
+  ] as Act[],
+  supplier: [
+    [/^cement/i, 'Five Star Hardware', 'FSH'], [/sand/i, 'Machako Sand', 'MS'], [/bars|binding|hoop|chicken/i, 'Apex Steel Ltd', 'ASL'],
+    [/rhs|shs|chs/i, 'Tuffsteel Limited', 'TSL'], [/fixit/i, 'Pidilite East Africa Ltd', 'PEA'], [/./, 'ASL Limited', 'ASLL'],
+  ] as [RegExp, string, string][],
+  reorder: { 'Cement': 100, 'River Sand': 10, 'Rock Sand': 8, 'T8 Bars': 400, 'T12 Bars': 120, 'T16 Bars': 90, 'T20 Bars': 40, 'Binding Wire': 4, 'Hoop Iron': 5,
+    'RHS Tube 40mm x 25mm x 1.5mm': 30, 'SHS 20mm x 20mm x 1.5mm': 50, 'Welding Rods': 10, 'Cutting Disc 9"': 15, 'Tile Adhesive': 10, 'Dr. Fixit Super Latex': 2, 'Scaffold Clamps 90 DEG-Fixed Forged': 60 } as Record<string, number>,
+  deliverySize: { 'Cement': 220, 'River Sand': 14, 'Rock Sand': 20, 'T8 Bars': 1250, 'T12 Bars': 250, 'T16 Bars': 170, 'T20 Bars': 140, 'Binding Wire': 15, 'Hoop Iron': 20,
+    'RHS Tube 40mm x 25mm x 1.5mm': 80, 'SHS 20mm x 20mm x 1.5mm': 120, 'Welding Rods': 20, 'Cutting Disc 9"': 50, 'Tile Adhesive': 30, 'Dr. Fixit Super Latex': 3, 'Scaffold Clamps 90 DEG-Fixed Forged': 100 } as Record<string, number>,
+  runDown: ['Binding Wire', 'Tile Adhesive', 'Dr. Fixit Super Latex', 'Welding Rods', 'Hoop Iron'],
+  outItems: ['Cement', 'Rock Sand', 'T12 Bars'],
+  inItems: ['Scaffold Clamps 90 DEG-Fixed Forged', 'Poker Shaft', 'Scaffold Clamp Sleeve Coupler'],
+};

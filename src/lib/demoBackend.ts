@@ -267,11 +267,11 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
       // Sample orders so the demo shows the panel; dates follow the real calendar.
       const t = today(); const dow = (new Date(t + 'T00:00:00Z').getUTCDay() + 6) % 7; const wk = addDays(t, -dow);
       const o = (id: string, po: string, vendor: string, expected: string | null, lines: [string, string, number, number][], lastIn?: string) =>
-        ({ id, po, vendor, subphase: lastIn ? (Number(id) % 2 ? '7th floor slab' : 'Ground floor walling') : null, date: addDays(t, -9), expected, status: lastIn ? 'partially_received' : 'open', lines: lines.map(([name, unit, ordered, received]) => ({ name, unit, ordered, received })), lastIn: lastIn ?? null,
+        ({ id, po, vendor, subphase: lastIn ? (Number(id) % 2 ? '14th floor slab' : '6th floor walling') : null, date: addDays(t, -9), expected, status: lastIn ? 'partially_received' : 'open', lines: lines.map(([name, unit, ordered, received]) => ({ name, unit, ordered, received })), lastIn: lastIn ?? null,
            grns: lastIn ? [{ grn: 'GRN' + (103000 + Number(id)), date: lastIn, lines: lines.map(([n, , , r]) => `${n} ×${r}`).join(' · ') }] : [] });
       return { connected: true, checked_at: new Date().toISOString(), today: t, week: { from: wk, to: addDays(wk, 6) }, next: { from: addDays(wk, 7), to: addDays(wk, 13) },
-        thisWeek: [o('1', 'PO-02496', 'Bamburi Cement', addDays(t, -1), [['Cement 42.5N', 'Bags', 300, 0]]), o('2', 'PO-02490', 'Five Star Hardware', t, [['Cement 42.5N', 'Bags', 400, 0], ['Binding Wire 16g', 'Rolls', 10, 0]]), o('3', 'PO-02493', 'ASL Limited', addDays(wk, 5), [['Green Net', 'Roll', 10, 0], ['Hose pipe 3/4"', 'Roll', 4, 0]])],
-        nextWeek: [o('4', 'PO-02501', 'Apex Steel Ltd', addDays(wk, 8), [['T16 Bars', 'Pcs', 200, 0], ['BRC Mesh A142', 'Pcs', 40, 0]]), o('5', 'PO-02505', 'Mabati Rolling Mills', addDays(wk, 10), [['Hoop Iron', 'Rolls', 20, 0]])],
+        thisWeek: [o('1', 'PO-02496', 'Tuffsteel Limited', addDays(t, -1), [['Cement', 'Bags', 200, 0]]), o('2', 'PO-02490', 'Five Star Hardware', t, [['Cement', 'Bags', 220, 0], ['Binding Wire', 'Roll', 10, 0]]), o('3', 'PO-02493', 'ASL Limited', addDays(wk, 5), [['Green Net', 'Roll', 10, 0], ['Flexible pvc braided hose pipe 3/4"', 'Roll', 2, 0]])],
+        nextWeek: [o('4', 'PO-02501', 'Apex Steel Ltd', addDays(wk, 8), [['T16 Bars', 'Pcs', 200, 0], ['T20 Bars', 'Pcs', 140, 0]]), o('5', 'PO-02505', 'Apex Steel Ltd', addDays(wk, 10), [['Hoop Iron', 'Roll', 20, 0]])],
         part: [o('6', 'PO-02478', 'Apex Steel Ltd', addDays(t, -1), [['T12 Bars', 'Pcs', 400, 250], ['T10 Bars', 'Pcs', 120, 60]], addDays(t, -1)), o('7', 'PO-02481', 'Machako Sand', addDays(t, -2), [['River Sand', 'Ton', 30, 10.2]], addDays(t, -1))] };
     },
     async zohoSync() { return (await this_.zohoStatus())?.connected ? { connected: true, imported: 0, pending: 0 } : { connected: false }; },

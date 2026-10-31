@@ -4,7 +4,7 @@
 import { addDays, today } from './dates';
 import type { Store } from './demoBackend';
 import { buildAstanaTraining } from './trainingData';
-import type { Backend, Role, Submission, User } from './types';
+import type { Backend, Submission, User } from './types';
 
 const FLAG = 'ssms-guest';
 export const GUEST_KEY = 'ssms-guest-store';
@@ -50,17 +50,16 @@ export async function startGuest(source: Backend, user: User) {
   location.reload();
 }
 
-/** Project manager and the C-suite open on a full example store (no Zoho to connect). */
-export const SHOWCASE_ROLES: Role[] = ['project_manager', 'coo', 'ceo'];
+/** People the admin set to "Demo mode" open on a full example store (no Zoho to connect). */
 const OFF = 'ssms-showcase-off';
 /** They chose "See real data" in this tab. */
 export const showcaseOff = () => { try { return sessionStorage.getItem(OFF) === '1'; } catch { return false; } };
-export const wantsShowcase = (u: User) => SHOWCASE_ROLES.includes(u.role) && !showcaseOff();
+export const wantsShowcase = (u: User) => u.access === 'demo' && u.role !== 'admin' && !showcaseOff();
 
 export async function startShowcase(source: Backend, user: User) {
   const items = await source.items();
   // In the demo they work as a store keeper: every button, including Send to Site Manager.
-  const store = buildAstanaTraining(items, { email: user.email, name: user.name, role: 'store' }, today());
+  const store = buildAstanaTraining(items, { email: user.email, name: user.name, role: 'store' }, today(), 'reveal');
   store.meta = { ...store.meta!, user: { ...store.meta!.user, trainingWaived: true } };
   store.showcase = true; store.copiedAt = new Date().toISOString();
   localStorage.setItem(GUEST_KEY, JSON.stringify(store));

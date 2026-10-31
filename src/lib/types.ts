@@ -87,8 +87,8 @@ export interface Submission {
 export interface NewPerson { full_name: string; password: string; role: Role; site_id: string | null; access: Access; pages: string[] | null; phone: string | null; head_office?: boolean }
 export type Role = 'admin' | 'store' | 'site_manager' | 'procurement' | 'accounts' | 'coo' | 'ceo' | 'project_manager';
 export interface RolePermission { role: Role; access: Access; pages: string[] | null }
-/** Edit: can enter and change. Read: can only look. */
-export type Access = 'edit' | 'read';
+/** Edit: can enter and change. Read: can only look. Demo: opens on an example store (the real data is view only). */
+export type Access = 'edit' | 'read' | 'demo';
 export type Status = 'pending' | 'approved' | 'declined' | 'removed';
 
 export interface User {

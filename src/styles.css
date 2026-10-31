@@ -4428,3 +4428,9 @@ button.btn.dark.isDone::after, button.evGo.isDone::after { color: #fff; }
 /* Guest account strip */
 .trainBar.guestBar { background: linear-gradient(90deg, #0F2C25, #1F5A47); box-shadow: 0 4px 16px rgba(15,44,37,.35); }
 .trainBar.guestBar .trainTag { background: #FCA72D; color: #1B2120; }
+
+/* Access: Can edit / Read only / Demo mode */
+select.adAcc.adAccSel { appearance: none; -webkit-appearance: none; padding: 0 24px 0 10px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2359625F' stroke-width='1.6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; }
+select.adAccSel.edit { background-color: #E7F4EC; color: #1F7A4D; } select.adAccSel.read { background-color: #F1F3F1; color: #59625F; }
+select.adAccSel.demo { background-color: #FFF1DC; color: #8A5A00; }
+select.adAccSel:hover { border-color: currentColor; }
