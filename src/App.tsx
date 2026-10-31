@@ -17,7 +17,7 @@ import { Submitted } from './screens/Submitted';
 import { RecordsHub } from './screens/RecordsHub';
 import { Transfers } from './screens/Transfers';
 import { exitTraining } from './lib/training';
-import { endGuest, startGuest } from './lib/guest';
+import { endGuest, startGuest, startShowcase, wantsShowcase } from './lib/guest';
 import { bootDone, bootGreet, forgetVisitor } from './lib/boot';
 import { recordScreen } from './lib/nav';
 import { canSee, firstAllowed } from './lib/access';
@@ -115,8 +115,12 @@ export function App() {
   useEffect(() => { if (user !== undefined && !storeScreen) bootDone(); }, [user, storeScreen]);
 
   // A guest account opens on its own copy of the site (made now, kept in this browser).
-  const guestOpening = !!user && user.guest && api.mode === 'live';
-  useEffect(() => { if (guestOpening && live && user) startGuest(live, user).catch(() => { setUser(null); }); }, [guestOpening, user]);
+  // The project manager and C-suite open on a full example store instead.
+  const guestOpening = !!user && user.status === 'approved' && api.mode === 'live' && (!!user.guest || wantsShowcase(user));
+  useEffect(() => {
+    if (!guestOpening || !live || !user) return;
+    (user.guest ? startGuest(live, user) : startShowcase(live, user)).catch(() => { setUser(null); });
+  }, [guestOpening, user]);
   if (user === undefined || guestOpening) return null;
   if (recovering) return <SetPassword onDone={() => { setRecovering(false); location.hash = ''; loadUser(); }} />;
   if (!user) {

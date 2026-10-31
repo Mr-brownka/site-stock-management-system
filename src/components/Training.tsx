@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, live } from '../lib/api';
 import { exitTraining, resetTraining, startTraining } from '../lib/training';
-import { guestCopiedAt, startGuest } from '../lib/guest';
+import { guestCopiedAt, isShowcase, seeRealData, showcaseOff, SHOWCASE_ROLES, startGuest, startShowcase } from '../lib/guest';
 import type { User } from '../lib/types';
 import { ask, toast } from './feedback';
 import { Icon } from './fx';
 
 /** Purple strip shown on every screen while training. */
 export function TrainingBar() {
-  if (api.mode === 'guest') return <GuestBar />;
+  if (api.mode === 'guest') return isShowcase() ? <ShowcaseBar /> : <GuestBar />;
+  if (api.mode === 'live' && showcaseOff()) return <BackToDemo />;
   if (api.mode !== 'training') return null;
   return (
     <div className="trainBar" role="status">
@@ -18,6 +19,31 @@ export function TrainingBar() {
         <button onClick={async () => { if (await ask({ title: 'Start the practice again?', body: <p>Everything entered in training is cleared and the copy goes back to how it started.</p>, yes: 'Reset practice' })) resetTraining(); }}>Reset</button>
         <button className="exit" onClick={exitTraining}>Exit training</button>
       </span>
+    </div>
+  );
+}
+
+/** Project manager and C-suite: the example store. */
+function ShowcaseBar() {
+  return (
+    <div className="trainBar guestBar" role="status">
+      <span className="trainTag">DEMO</span>
+      <span className="trainText"><span className="long">Example store to show how Ostock works. The figures are not real.</span><span className="short">Demo · example figures</span></span>
+      <span className="trainBtns"><button onClick={seeRealData}>See real data</button></span>
+    </div>
+  );
+}
+
+/** After "See real data": a way back to the example store. */
+function BackToDemo() {
+  const [user, setUser] = useState<User | null>(null);
+  useEffect(() => { live?.currentUser().then(setUser).catch(() => undefined); }, []);
+  if (!user || !SHOWCASE_ROLES.includes(user.role) || !live) return null;
+  return (
+    <div className="trainBar guestBar" role="status">
+      <span className="trainTag">REAL</span>
+      <span className="trainText"><span className="long">You are looking at the real data.</span><span className="short">Real data</span></span>
+      <span className="trainBtns"><button onClick={() => startShowcase(live!, user).catch((e) => toast((e as Error).message, 'warn'))}>Back to demo</button></span>
     </div>
   );
 }

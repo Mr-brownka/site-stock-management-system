@@ -26,19 +26,19 @@ export function noteVisit(u: User, screen: string) {
 
 type Step = { sel: string[]; kicker: string; title: string; text: string; screen?: Screen; /** Also lit softly, e.g. the menu entry to get here. */ also?: string[] };
 const STORE_STEPS: Step[] = [
-  { sel: [], kicker: 'Welcome', title: 'SiteStock keeps the store’s balance true', text: 'Deliveries come in from Zoho on their own. You record what goes out and what comes back. Each evening you submit the day, and every balance is up to date. This takes 2 minutes.' },
-  { sel: ['.kStrip'], kicker: 'The store at a glance', title: 'Balances, consumption, orders on the way', text: 'What is in the store now, what was used this week, what Zoho says is coming and when the store was last counted. Tap any of them to open it.' },
-  { sel: ['.incPanel'], kicker: 'Incoming this week', title: 'Orders on their way from Zoho', text: 'What Zoho says arrives this week, late ones included. When goods are received in Zoho Books they come into the store by themselves. You don’t type deliveries in.' },
-  { sel: ['section[aria-label="Needs attention"]'], kicker: 'Needs attention', title: 'Items running low', text: 'Anything at or under its reorder level shows here. Send the list to the site manager on WhatsApp in one tap.' },
-  { sel: ['.railLink[title="Issued items"]', '.phA', '.tabbar'], kicker: 'During the day', title: 'What goes out: the issuance register', text: 'One register a day. Add items as they leave the store; adding later continues the same sheet. Returns and transfers sit just below it.' },
-  { sel: ['.r2Today', '.phASum', '.phA'], kicker: 'Every evening', title: 'Check in and submit the day', text: 'Open Today’s summary, go through the register, returns and transfers, then submit. Submitting locks the day and makes the balances final.' },
-  { sel: ['.railLink[title="Fix an error"]', '.tabbar'], kicker: 'Made a mistake?', title: 'Fix an error', text: 'Open the entry and change it, or delete it. The balances follow. Your checklist on the dashboard shows what to try first.' },
+  { sel: [], kicker: 'Welcome', title: 'Welcome to Ostock', text: 'Deliveries come in from Zoho on their own. You record what goes out and what comes back. Each evening you submit the day, and every balance is up to date. This takes 2 minutes.' },
+  { sel: ['.kStrip'], kicker: 'The store at a glance', title: 'View the store at a glance here', text: 'What is in the store now, what was used this week, what Zoho says is coming and when the store was last counted. Tap any of them to open it.' },
+  { sel: ['.incPanel'], kicker: 'Incoming this week', title: 'See orders coming in here', text: 'What Zoho says arrives this week, late ones included. When goods are received in Zoho Books they come into the store by themselves. You don’t type deliveries in.' },
+  { sel: ['section[aria-label="Needs attention"]'], kicker: 'Needs attention', title: 'See items running low here', text: 'Anything at or under its reorder level shows here. Send the list to the site manager on WhatsApp in one tap.' },
+  { sel: ['.railLink[title="Issued items"]', '.phA', '.tabbar'], kicker: 'During the day', title: 'Record items going out here', text: 'One register a day. Add items as they leave the store; adding later continues the same sheet. Returns and transfers sit just below it.' },
+  { sel: ['.r2Today', '.phASum', '.phA'], kicker: 'Every evening', title: 'Check in and submit the day here', text: 'Open Today’s summary, go through the register, returns and transfers, then submit. Submitting locks the day and makes the balances final.' },
+  { sel: ['.railLink[title="Fix an error"]', '.tabbar'], kicker: 'Made a mistake?', title: 'Fix a mistake here', text: 'Open the entry and change it, or delete it. The balances follow. Your checklist on the dashboard shows what to try first.' },
 ];
 
 /** Procurement and site managers: two moves, from 30 Oct 2026 (earlier sign-ins don't count). */
-const viewerSteps = (site: string): Step[] => [
+const viewerSteps = (): Step[] => [
   { screen: 'home', sel: ['.kpi3.green', '.pTileB.bal'], kicker: 'Stock balances', title: 'View stock balances here', text: 'What is in the store right now. Tap it to see every item and its balance.' },
-  { screen: 'stocktake', sel: ['.stLiveBtn', '.pStLive'], also: ['.railLink[title="Stock take"]', '.tabbar button[aria-current="page"]'], kicker: 'Stock take', title: `Import ${site || 'the site'}’s stock take here`, text: 'Press Print live balances (Download live balances on the phone) to get today’s stock take as Excel or PDF.' },
+  { screen: 'stocktake', sel: ['.stLiveBtn', '.pStLive'], also: ['.railLink[title="Stock take"]', '.tabbar button[aria-current="page"]'], kicker: 'Stock take', title: 'Download the stock take here', text: 'Press Print live balances (Download live balances on the phone) to get today’s stock take as Excel or PDF.' },
 ];
 const VIEWER_FROM = '2026-10-30';
 const RESET = ['daniel.macharia@people.ostock.co.ke'];
@@ -52,9 +52,9 @@ function target(s: Step): HTMLElement | null {
 }
 
 export function Tour() {
-  const { user, go, site, realToday } = useData();
+  const { user, go, realToday } = useData();
   const viewer = user.role === 'procurement' || user.role === 'site_manager';
-  const STEPS = useMemo(() => (viewer ? viewerSteps(site) : STORE_STEPS), [viewer, site]);
+  const STEPS = useMemo(() => (viewer ? viewerSteps() : STORE_STEPS), [viewer]);
   // A tour that was played on the wrong account is reset by adding the address here (it shows once more).
   const doneKey = viewer ? (RESET.includes(user.email) ? 'tourViewer2' : 'tourViewer') : 'tour';
   const [i, setI] = useState<number | null>(null);
@@ -123,9 +123,8 @@ export function Tour() {
       {hole ? <div className="tourHole" style={hole} /> : <div className="tourDim" />}
       {alsoRect && <div className="tourAlso" aria-hidden="true" style={{ left: alsoRect.left / z - 4, top: alsoRect.top / z - 4, width: alsoRect.width / z + 8, height: alsoRect.height / z + 8 }} />}
       <div className={`tourCard ${hole ? '' : 'center'}`} style={card}>
-        <span className="tourKick">Step {i + 1} of {STEPS.length} · {step.kicker}</span>
-        <b id="tourT">{i === 0 && !viewer ? `Welcome, ${user.name.split(' ')[0]}. ` : ''}{step.title}</b>
-        <p>{step.text}</p>
+        <span className="tourKick">Step {i + 1} of {STEPS.length}</span>
+        <b id="tourT">{step.title}</b>
         <span className="tourDots" aria-hidden="true">{STEPS.map((_, k) => <i key={k} className={k === i ? 'on' : k < i ? 'done' : ''} />)}</span>
         <span className="tourActs">
           <button className="btn link" onClick={() => end('skipped')}>Skip the tour</button>

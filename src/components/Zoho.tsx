@@ -136,6 +136,9 @@ export function useZohoDeliveries() {
 export function ZohoStatusLine({ compact }: { compact?: boolean }) {
   const s = useZoho();
   const { connect, busy } = useZohoConnect();
+  const { user } = useData();
+  // Only the store team and the admin connect Zoho; managers and head office are never asked.
+  if (user.role !== 'store' && user.role !== 'admin') return null;
   if (s === undefined || s === null) return null;
   if (!s.connected) {
     return compact

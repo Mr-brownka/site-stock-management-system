@@ -19,6 +19,8 @@ export interface Store {
   /** Guest copy: the site's incoming deliveries as they were when copied, and when that was. */
   incoming?: Incoming;
   copiedAt?: string;
+  /** Example store for the project manager and C-suite. */
+  showcase?: boolean;
   docs: Doc[];
   nextLine: number;
   submissions: Record<string, Submission>;

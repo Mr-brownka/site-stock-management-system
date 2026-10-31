@@ -3,7 +3,8 @@
 // (the database also refuses any write made with a guest's sign-in).
 import { addDays, today } from './dates';
 import type { Store } from './demoBackend';
-import type { Backend, Submission, User } from './types';
+import { buildAstanaTraining } from './trainingData';
+import type { Backend, Role, Submission, User } from './types';
 
 const FLAG = 'ssms-guest';
 export const GUEST_KEY = 'ssms-guest-store';
@@ -49,9 +50,39 @@ export async function startGuest(source: Backend, user: User) {
   location.reload();
 }
 
+/** Project manager and the C-suite open on a full example store (no Zoho to connect). */
+export const SHOWCASE_ROLES: Role[] = ['project_manager', 'coo', 'ceo'];
+const OFF = 'ssms-showcase-off';
+/** They chose "See real data" in this tab. */
+export const showcaseOff = () => { try { return sessionStorage.getItem(OFF) === '1'; } catch { return false; } };
+export const wantsShowcase = (u: User) => SHOWCASE_ROLES.includes(u.role) && !showcaseOff();
+
+export async function startShowcase(source: Backend, user: User) {
+  const items = await source.items();
+  const store = buildAstanaTraining(items, { email: user.email, name: user.name, role: user.role }, today());
+  store.meta = { ...store.meta!, user: { ...store.meta!.user, trainingWaived: true } };
+  store.showcase = true; store.copiedAt = new Date().toISOString();
+  localStorage.setItem(GUEST_KEY, JSON.stringify(store));
+  try { sessionStorage.removeItem(OFF); } catch { /* ignore */ }
+  sessionStorage.setItem(FLAG, '1');
+  history.replaceState(null, '', '/#/home');
+  location.reload();
+}
+
+/** Leave the example store for the real data (this tab). */
+export function seeRealData() {
+  try { sessionStorage.setItem(OFF, '1'); sessionStorage.removeItem(FLAG); localStorage.removeItem(GUEST_KEY); } catch { /* ignore */ }
+  history.replaceState(null, '', '/#/home');
+  location.reload();
+}
+
+export function isShowcase(): boolean {
+  try { return !!(JSON.parse(localStorage.getItem(GUEST_KEY) || 'null') as Store | null)?.showcase; } catch { return false; }
+}
+
 /** Leaves the guest copy (on sign out). */
 export function endGuest() {
-  try { sessionStorage.removeItem(FLAG); localStorage.removeItem(GUEST_KEY); } catch { /* ignore */ }
+  try { sessionStorage.removeItem(FLAG); sessionStorage.removeItem(OFF); localStorage.removeItem(GUEST_KEY); } catch { /* ignore */ }
 }
 
 export function guestCopiedAt(): string | null {
