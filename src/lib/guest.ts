@@ -59,7 +59,8 @@ export const wantsShowcase = (u: User) => SHOWCASE_ROLES.includes(u.role) && !sh
 
 export async function startShowcase(source: Backend, user: User) {
   const items = await source.items();
-  const store = buildAstanaTraining(items, { email: user.email, name: user.name, role: user.role }, today());
+  // In the demo they work as a store keeper: every button, including Send to Site Manager.
+  const store = buildAstanaTraining(items, { email: user.email, name: user.name, role: 'store' }, today());
   store.meta = { ...store.meta!, user: { ...store.meta!.user, trainingWaived: true } };
   store.showcase = true; store.copiedAt = new Date().toISOString();
   localStorage.setItem(GUEST_KEY, JSON.stringify(store));
