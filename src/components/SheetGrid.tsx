@@ -76,8 +76,14 @@ export function SheetGrid({ lines, setLines, stock, effect, flag, onEmptyEnter, 
           </div>,
           <div key={`u${l.key}`} className="mirTd mirUnit">{l.item?.unit ?? ''}</div>,
           ...(cards ? [<div key={`g${l.key}`} className="mirTd mirGemba">
-            <button type="button" data-nav data-g={`gemba${i}`} className={`mirGBtn ${l.card?.gemba ? 'set' : ''} ${g(`gemba${i}`) ? 'next' : ''}`} disabled={!l.item} onClick={() => setCardRow(i)}>
-              {l.card?.gemba ? <><b>{l.card.gemba}</b><small>{[l.card.activity, l.card.supervisor].filter(Boolean).join(' · ')}</small></> : l.item ? <span className="mirGPh">Choose…</span> : ''}
+            <button type="button" data-nav data-g={`gemba${i}`} className={`mirGBtn ${l.cards?.length ? 'set' : ''} ${g(`gemba${i}`) ? 'next' : ''}`} disabled={!l.item} onClick={() => setCardRow(i)}>
+              {(() => {
+                const cs = (l.cards ?? []).filter((c) => c.gemba);
+                if (!cs.length) return l.item ? <span className="mirGPh">Choose…</span> : '';
+                if (cs.length === 1) return <><b>{cs[0].gemba}</b><small>{[cs[0].activity, cs[0].supervisor].filter(Boolean).join(' · ')}</small></>;
+                const placed = cs.reduce((a, c) => a + (Number(c.qty) || 0), 0);
+                return <><b>{cs[0].gemba} +{cs.length - 1}</b><small>{cs.length} gembas · {fmt(placed)} of {fmt(q)}</small></>;
+              })()}
             </button>
           </div>] : []),
           <div key={`a${l.key}`} className={`mirTd r mono mirAfter ${over ? 'bad' : ''}`}>{l.item && q ? (over ? `Only ${fmt(have)}` : fmt(after)) : l.item ? fmt(have) : ''}</div>,
@@ -86,7 +92,7 @@ export function SheetGrid({ lines, setLines, stock, effect, flag, onEmptyEnter, 
       {cards && cardRow != null && lines[cardRow] && (
         <CardPop line={lines[cardRow]} row={cardRow}
           onClose={() => { setCardRow(null); goTo(`gemba${cardRow}`); }}
-          onSave={(c) => { const i = cardRow; patch(lines[i].key, { card: c }); setCardRow(null); goTo(`item${i + 1}`); }} />
+          onSave={(cs) => { const i = cardRow; patch(lines[i].key, { cards: cs }); setCardRow(null); goTo(`item${i + 1}`); }} />
       )}
     </div>
   );
@@ -96,36 +102,58 @@ const FLOORS = ['Preliminaries', 'Ground floor', ...Array.from({ length: 15 }, (
 const ACTS = ['Walling', 'Plaster & Screed', 'Steel fixing', 'Formwork', 'Slab casting', 'Fabrication', 'Scaffolding', 'Tiling', 'Waterproofing', 'Plumbing', 'Electrical', 'Repairs'];
 const SUPS = ['Hamisi - Supervisor', 'Peter Supervisor', 'Mary - Site admin', 'Macharia - Site manager'];
 
-/** Demo: the paper Material Withdrawal Card for one register row: gemba, activity, supervisor, issued to. */
-function CardPop({ line, row, onSave, onClose }: { line: LineDraft; row: number; onSave: (c: CardDraft) => void; onClose: () => void }) {
-  const [c, setC] = useState<CardDraft>(line.card ?? { gemba: '', activity: '', supervisor: '', issued_to: '' });
+/** Demo: the paper Material Withdrawal Cards behind one register row. The row's total can be split by gemba:
+ * 5 bags 6th floor (Plaster), 2 bags 4th floor (Repairs), … one line each. */
+function CardPop({ line, row, onSave, onClose }: { line: LineDraft; row: number; onSave: (c: CardDraft[]) => void; onClose: () => void }) {
+  const total = Number(line.qty) || 0;
+  const blank = (qty = ''): CardDraft => ({ qty, gemba: '', activity: '', supervisor: '', issued_to: '' });
+  const [cs, setCs] = useState<CardDraft[]>(line.cards?.length ? line.cards : [blank(String(total))]);
   const [opts, setOpts] = useState<{ act: string[]; sup: string[]; to: string[] }>({ act: ACTS, sup: SUPS, to: [] });
+  const box = useRef<HTMLElement>(null);
   useEffect(() => {
     const mix = (a: string[], b: string[]) => [...new Set([...b, ...a])];
     Promise.all([api.remembered('activity').catch(() => []), api.remembered('supervisor').catch(() => []), api.remembered('issued_to').catch(() => [])])
       .then(([a, s, t]) => setOpts({ act: mix(ACTS, a), sup: mix(SUPS, s), to: t }));
   }, []);
   useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; document.addEventListener('keydown', k); return () => document.removeEventListener('keydown', k); }, [onClose]);
-  const done = () => onSave({ gemba: c.gemba.trim(), activity: c.activity.trim(), supervisor: c.supervisor.trim(), issued_to: c.issued_to.trim() });
+  const set = (k: number, q: Partial<CardDraft>) => setCs((xs) => xs.map((x, n) => (n === k ? { ...x, ...q } : x)));
+  const placed = cs.reduce((a, c) => a + (Number(c.qty) || 0), 0);
+  const left = total - placed;
+  const add = () => {
+    setCs((xs) => [...xs, blank(left > 0 ? String(left) : '')]);
+    setTimeout(() => box.current?.querySelector<HTMLElement>('.cardRow:last-child select')?.focus(), 30);
+  };
+  const done = () => {
+    if (placed > total + 1e-9) return;
+    onSave(cs.map((c) => ({ qty: c.qty.trim(), gemba: c.gemba.trim(), activity: c.activity.trim(), supervisor: c.supervisor.trim(), issued_to: c.issued_to.trim() })).filter((c) => Number(c.qty) > 0 && c.gemba));
+  };
+  const unit = line.item?.unit ?? '';
   return createPortal(
     <div className="sheetBack dayAskBack" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <section className="cardPop" role="dialog" aria-modal="true" aria-labelledby="cardPopT" onKeyDown={(e) => {
-        if (e.key !== 'Enter') return;
-        const t = e.target as HTMLElement;
-        // Enter on a floor picks it and moves to Activity; Enter anywhere else outside a box finishes the card.
-        if (t.dataset.floor) { e.preventDefault(); setC({ ...c, gemba: t.dataset.floor }); (e.currentTarget.querySelector('.cardFields input') as HTMLInputElement | null)?.focus(); return; }
-        if (t.tagName !== 'INPUT') { e.preventDefault(); done(); }
-      }}>
-        <header><span className="daKicker">Row {row + 1} · {line.item?.name} · {line.qty} {line.item?.unit}</span><h2 id="cardPopT">Gemba</h2></header>
-        <div className="cardFloors" role="radiogroup" aria-label="Gemba">
-          {FLOORS.map((f, k) => <button key={f} type="button" data-floor={f} role="radio" aria-checked={c.gemba === f} className={c.gemba === f ? 'on' : ''} autoFocus={c.gemba ? c.gemba === f : k === 0} onClick={() => setC({ ...c, gemba: f })}>{f}</button>)}
+      <section ref={box} className="cardPop wide" role="dialog" aria-modal="true" aria-labelledby="cardPopT">
+        <header><span className="daKicker">Row {row + 1} · {line.item?.name} · {fmt(total)} {unit}</span><h2 id="cardPopT">Where did it go?</h2></header>
+        <div className="cardTbl" role="table">
+          <div className="cardRow head" role="row"><span>Qty</span><span>Gemba</span><span>Activity</span><span>Supervisor</span><span>Issued to</span><span /></div>
+          {cs.map((c, k) => (
+            <div className="cardRow" role="row" key={k}>
+              <input className="input num" inputMode="decimal" aria-label={`Quantity ${k + 1}`} value={c.qty} onChange={(e) => set(k, { qty: e.target.value.replace(/[^0-9.]/g, '') })} autoFocus={k === 0 && !line.cards?.length} />
+              <select className="select input" aria-label={`Gemba ${k + 1}`} value={c.gemba} onChange={(e) => set(k, { gemba: e.target.value })}>
+                <option value="">Gemba…</option>{FLOORS.map((f) => <option key={f} value={f}>{f}</option>)}
+              </select>
+              <Suggest bare label={`Activity ${k + 1}`} value={c.activity} onChange={(v) => set(k, { activity: v })} options={opts.act} placeholder="Activity" />
+              <Suggest bare label={`Supervisor ${k + 1}`} value={c.supervisor} onChange={(v) => set(k, { supervisor: v })} options={opts.sup} placeholder="Supervisor" />
+              <Suggest bare label={`Issued to ${k + 1}`} value={c.issued_to} onChange={(v) => set(k, { issued_to: v })} options={opts.to} placeholder="Issued to" onNext={() => (k === cs.length - 1 && left > 0 ? add() : done())} />
+              <button type="button" className="iconBtn cardDel" aria-label={`Remove line ${k + 1}`} disabled={cs.length === 1} onClick={() => setCs((xs) => xs.filter((_, n) => n !== k))}>×</button>
+            </div>
+          ))}
         </div>
-        <div className="cardFields">
-          <Suggest label="Activity" value={c.activity} onChange={(v) => setC({ ...c, activity: v })} options={opts.act} placeholder="Activity" />
-          <Suggest label="Supervisor" value={c.supervisor} onChange={(v) => setC({ ...c, supervisor: v })} options={opts.sup} placeholder="Supervisor" />
-          <Suggest label="Issued to" value={c.issued_to} onChange={(v) => setC({ ...c, issued_to: v })} options={opts.to} placeholder="Issued to" onNext={() => done()} />
+        <div className="cardFoot">
+          <button type="button" className="btn ghost sm" onClick={add}>+ Add a line</button>
+          <span className={`cardLeft ${placed > total + 1e-9 ? 'over' : left > 1e-9 ? 'open' : 'ok'}`}>
+            {placed > total + 1e-9 ? `${fmt(placed - total)} ${unit} more than the ${fmt(total)} issued` : left > 1e-9 ? `${fmt(placed)} of ${fmt(total)} ${unit} placed · ${fmt(left)} left` : `All ${fmt(total)} ${unit} placed`}
+          </span>
         </div>
-        <footer><button type="button" className="btn ghost" onClick={onClose}>Skip</button><button type="button" className="btn accent" onClick={done}>Done</button></footer>
+        <footer><button type="button" className="btn ghost" onClick={onClose}>Skip</button><button type="button" className="btn accent" onClick={done} disabled={placed > total + 1e-9}>Done</button></footer>
       </section>
     </div>, document.body);
 }

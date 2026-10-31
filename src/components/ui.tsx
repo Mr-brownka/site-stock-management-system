@@ -280,9 +280,9 @@ export function ItemPicker({ item, onPick, autoFocus, glow, bare, label = 'Item'
   );
 }
 
-/** Demo: the card behind a register row. */
-export type CardDraft = { gemba: string; activity: string; supervisor: string; issued_to: string };
-export interface LineDraft { key: number; item: Item | null; qty: string; subphase: string; card?: CardDraft }
+/** Demo: the cards behind a register row: how its total was split by gemba (qty, gemba, activity, supervisor, issued to). */
+export type CardDraft = { qty: string; gemba: string; activity: string; supervisor: string; issued_to: string };
+export interface LineDraft { key: number; item: Item | null; qty: string; subphase: string; cards?: CardDraft[] }
 let lineKey = 1;
 export const newLine = (subphase = ''): LineDraft => ({ key: lineKey++, item: null, qty: '', subphase });
 

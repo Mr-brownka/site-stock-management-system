@@ -4476,3 +4476,21 @@ select.adAccSel:hover { border-color: currentColor; }
 .cardFields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 @media (max-width: 600px) { .cardFields { grid-template-columns: 1fr; } }
 .cardPop footer { display: flex; justify-content: flex-end; gap: 8px; }
+/* Demo: split a register row by gemba */
+.cardPop.wide { width: min(980px, 100%); }
+.cardTbl { display: flex; flex-direction: column; gap: 6px; }
+.cardRow { display: grid; grid-template-columns: 84px 150px 1fr 1fr 1fr 34px; gap: 6px; align-items: center; }
+.cardRow.head span { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #69736F; padding: 0 4px; }
+.cardRow .input { height: 40px; min-width: 0; }
+.cardRow .field { margin: 0; min-width: 0; }
+.cardDel { width: 32px; height: 32px; font-size: 18px; }
+.cardFoot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.cardLeft { font-size: 13px; font-weight: 700; padding: 5px 10px; border-radius: 99px; }
+.cardLeft.ok { background: #E7F4EC; color: #1F7A4D; } .cardLeft.open { background: #FFF1DC; color: #8A5A00; } .cardLeft.over { background: #FDECEA; color: #B42318; }
+@media (max-width: 760px) {
+  .cardRow { grid-template-columns: 70px 1fr 34px; }
+  .cardRow.head { display: none; }
+  .cardRow > :nth-child(3), .cardRow > :nth-child(4), .cardRow > :nth-child(5) { grid-column: 1 / -1; }
+  .cardRow { padding-bottom: 10px; border-bottom: 1px solid #EEF0EE; }
+  .cardRow > .cardDel { grid-row: 1; grid-column: 3; }
+}

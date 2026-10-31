@@ -35,14 +35,9 @@ function RegisterForm({ done, again }: { done: () => void; again: () => Promise<
   useEffect(() => {
     if (filled.current || draft || !existing) return;
     filled.current = true;
-    const rows = existing.lines.flatMap((l) => {
-      const item = itemById.get(l.item_id) ?? null;
-      // Demo: a row per card, so each keeps its gemba; anything without a card stays as one row.
-      const cs = l.cards ?? [];
-      const rest = Number(l.qty) - cs.reduce((a, c) => a + c.qty, 0);
-      return [...cs.map((c) => ({ ...newLine(), item, qty: String(c.qty), card: { gemba: c.gemba, activity: c.activity, supervisor: c.supervisor, issued_to: c.issued_to } })),
-        ...(rest > 0 || !cs.length ? [{ ...newLine(), item, qty: String(cs.length ? rest : Number(l.qty)) }] : [])];
-    });
+    // Demo: a row keeps its cards (how it was split by gemba).
+    const rows = existing.lines.map((l) => ({ ...newLine(), item: itemById.get(l.item_id) ?? null, qty: String(Number(l.qty)),
+      ...(l.cards?.length ? { cards: l.cards.map((c) => ({ ...c, qty: String(c.qty) })) } : {}) }));
     setLines([...rows, ...Array.from({ length: Math.max(2, ROWS - rows.length) }, () => newLine())]);
   }, [existing, draft, itemById]);
   useEffect(() => { api.siteTeam().then((t) => setTeam(t.length ? t : [user.name])).catch(() => undefined); }, [user.name]);
@@ -69,8 +64,8 @@ function RegisterForm({ done, again }: { done: () => void; again: () => Promise<
     if (hard || over) { setErr(hard || `Only ${fmt(stockFor(over![0]))} ${itemById.get(over![0])?.unit ?? ''} of ${itemById.get(over![0])?.name} in store.`); focusMiss(); return; }
     setBusy('save'); setErr('');
     try {
-      // Demo: each row's card (gemba, activity, supervisor, issued to) goes with its item.
-      const cardsOf = (id: number) => used.filter((l) => l.item?.id === id && l.card && (Number(l.qty) || 0) > 0).map((l) => ({ qty: Number(l.qty), ...l.card! }));
+      // Demo: each row's cards (qty, gemba, activity, supervisor, issued to) go with its item.
+      const cardsOf = (id: number) => used.filter((l) => l.item?.id === id).flatMap((l) => l.cards ?? []).filter((c) => Number(c.qty) > 0).map((c) => ({ ...c, qty: Number(c.qty) }));
       const items = [...merged().entries()].filter(([, q]) => q > 0).map(([item_id, qty]) => ({ item_id, qty, ...(isDemoMode() && cardsOf(item_id).length ? { cards: cardsOf(item_id) } : {}) }));
       const r = existing ? await api.setRegister(day, store.trim() || null, items) : await api.saveRegister(day, store.trim() || null, items);
       setAddedTo(r !== 'new');
