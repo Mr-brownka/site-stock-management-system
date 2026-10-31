@@ -8,10 +8,12 @@ import { fmt, ItemPicker, lineMiss, newLine, type LineDraft } from './ui';
  * Item, quantity, Enter, next row. Two empty rows always wait at the bottom. Picking an item already on the
  * sheet empties that row and jumps to the item's quantity ("Edit here"); Enter there returns to the next empty row.
  */
-export function SheetGrid({ lines, setLines, stock, effect, flag, onEmptyEnter }: {
+export function SheetGrid({ lines, setLines, stock, effect, flag, onEmptyEnter, redChange }: {
   lines: LineDraft[]; setLines: (f: (ls: LineDraft[]) => LineDraft[]) => void;
   /** What the store has of an item before this sheet. */ stock: (id: number) => number;
   effect: 'out' | 'in'; flag: boolean; onEmptyEnter: () => void;
+  /** Show a balance that this sheet changes in red (the issuance register). */
+  redChange?: boolean;
 }) {
   const patch = (k: number, q: Partial<LineDraft>) => setLines((ls) => {
     const next = ls.map((l) => (l.key === k ? { ...l, ...q } : l));
@@ -70,7 +72,7 @@ export function SheetGrid({ lines, setLines, stock, effect, flag, onEmptyEnter }
             {editHere === l.key && <span className="mirEditHere" role="status">Edit here</span>}
           </div>,
           <div key={`u${l.key}`} className="mirTd mirUnit">{l.item?.unit ?? ''}</div>,
-          <div key={`a${l.key}`} className={`mirTd r mono mirAfter ${over ? 'bad' : ''}`}>{l.item && q ? (over ? `Only ${fmt(have)}` : fmt(after)) : l.item ? fmt(have) : ''}</div>,
+          <div key={`a${l.key}`} className={`mirTd r mono mirAfter ${over ? 'bad' : redChange && l.item && q ? 'chg' : ''}`}>{l.item && q ? (over ? `Only ${fmt(have)}` : fmt(after)) : l.item ? fmt(have) : ''}</div>,
         ];
       })}
     </div>

@@ -91,7 +91,7 @@ function RegisterForm({ done, again }: { done: () => void; again: () => Promise<
           <div className="mirTitle">MATERIAL ISSUANCE REGISTER</div>
           <div className="mirMeta"><span>Week <b className="mono">{projectWeek ?? '–'}</b></span><span>Date <b>{dateText}</b></span></div>
         </div>
-        <SheetGrid lines={lines} setLines={setLines} stock={stockFor} effect="out" flag={flag} onEmptyEnter={() => save()} />
+        <SheetGrid lines={lines} setLines={setLines} stock={stockFor} effect="out" redChange flag={flag} onEmptyEnter={() => save()} />
         <div className="mirFoot"><span>Store</span><Suggest bare showAll nav="store" label="Store" value={store} onChange={setStore} options={team} placeholder="Who issued from the store" inputClass="mirIn" onNext={() => save()} /></div>
       </div>
 

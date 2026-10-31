@@ -4434,3 +4434,4 @@ select.adAcc.adAccSel { appearance: none; -webkit-appearance: none; padding: 0 2
 select.adAccSel.edit { background-color: #E7F4EC; color: #1F7A4D; } select.adAccSel.read { background-color: #F1F3F1; color: #59625F; }
 select.adAccSel.demo { background-color: #FFF1DC; color: #8A5A00; }
 select.adAccSel:hover { border-color: currentColor; }
+.mirAfter.chg { color: #C8322A; font-weight: 700; }
