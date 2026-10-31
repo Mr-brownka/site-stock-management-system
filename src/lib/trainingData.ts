@@ -111,6 +111,8 @@ export function buildAstanaTraining(allItems: Item[], user: { email: string; nam
     const wd = weekday(day);
     if (wd === 'Sun') continue;
     const isToday = k === 0;
+    // Today starts empty: pressing Start fills the register, returns and transfers afresh.
+    if (isToday) continue;
     if (k <= 29 && !balAt30.size) balAt30 = new Map([...bal].filter(([, q]) => q > 0));
     const sat = wd === 'Sat';
 
