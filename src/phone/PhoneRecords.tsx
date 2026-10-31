@@ -155,7 +155,7 @@ export function PhoneRecList({ recKey: key }: { recKey: RecKey }) {
       {modal}
       <PTop title={TITLE[key]} back="records" right={<>
         <button className="pIconBtn" onClick={() => { setFind((v) => !v); if (find) setQ(''); }} aria-label="Search" aria-pressed={find}><Icon name={find ? 'close' : 'search'} size={19} /></button>
-        {canEdit(user) && !(key === 'deliveries' && zohoOnly) && <button className="pAddBtn" onClick={() => add(key)}><Icon name="plus" size={18} />{key === 'issued' ? 'Today' : 'New'}</button>}
+        {canEdit(user) && !(key === 'deliveries' && zohoOnly) && <button className="pAddBtn" onClick={() => add(key)}><Icon name="plus" size={18} />Add</button>}
       </>} />
       {find && <PSearch value={q} onChange={setQ} placeholder={`Search ${TITLE[key].toLowerCase()}`} />}
       <Chips value={period} onChange={(p) => { setPeriod(p); setMore(40); }} items={[['week', 'This week'], ['month', 'This month'], ['all', 'All']]} />

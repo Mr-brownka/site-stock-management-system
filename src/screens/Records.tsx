@@ -124,7 +124,7 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
         <label className="recSearch"><Icon name="search" size={16} /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Search ${C.title.toLowerCase()}`} aria-label={`Search ${C.title}`} /></label>
         {zohoOnly
           ? <ZohoRefresh />
-          : !canEdit(user) ? null : <button className="recNew" onClick={addNew}><span><Icon name="plus" size={16} /></span>{key === 'issued' ? 'Today’s register' : 'New'}</button>}
+          : !canEdit(user) ? null : <button className="recNew" onClick={addNew}><span><Icon name="plus" size={16} /></span>Add</button>}
         <div className="recMore">
           <button className="recDots" onClick={() => setMenu((v) => !v)} aria-label="More" aria-expanded={menu}>···</button>
           {menu && <div className="recMenu" onMouseLeave={() => setMenu(false)}><button onClick={download}><Icon name="download" size={16} />Download as Excel</button></div>}
