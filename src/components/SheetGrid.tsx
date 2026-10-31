@@ -1,19 +1,21 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { api } from '../lib/api';
 import type { Item } from '../lib/types';
 import { toast } from './feedback';
-import { fmt, ItemPicker, lineMiss, newLine, type LineDraft } from './ui';
+import { fmt, ItemPicker, lineMiss, newLine, Suggest, type CardDraft, type LineDraft } from './ui';
 
 /**
  * The rows of a paper sheet (issuance register, transfer note): #, item, qty, unit, balance after.
  * Item, quantity, Enter, next row. Two empty rows always wait at the bottom. Picking an item already on the
  * sheet empties that row and jumps to the item's quantity ("Edit here"); Enter there returns to the next empty row.
  */
-export function SheetGrid({ lines, setLines, stock, effect, flag, onEmptyEnter, redChange }: {
+export function SheetGrid({ lines, setLines, stock, effect, flag, onEmptyEnter, cards }: {
   lines: LineDraft[]; setLines: (f: (ls: LineDraft[]) => LineDraft[]) => void;
   /** What the store has of an item before this sheet. */ stock: (id: number) => number;
   effect: 'out' | 'in'; flag: boolean; onEmptyEnter: () => void;
-  /** Show a balance that this sheet changes in red (the issuance register). */
-  redChange?: boolean;
+  /** Demo: a Gemba column after the quantity, filled from the paper card (gemba, activity, supervisor, issued to). */
+  cards?: boolean;
 }) {
   const patch = (k: number, q: Partial<LineDraft>) => setLines((ls) => {
     const next = ls.map((l) => (l.key === k ? { ...l, ...q } : l));
@@ -47,10 +49,11 @@ export function SheetGrid({ lines, setLines, stock, effect, flag, onEmptyEnter, 
     if (el) go(el); else requestAnimationFrame(() => go(find()));
   };
   const g = (key: string) => guide === key;
+  const [cardRow, setCardRow] = useState<number | null>(null);
 
   return (
-    <div ref={root} className="mirGrid" onFocusCapture={(e) => { const k = (e.target as HTMLElement).closest<HTMLElement>('[data-g]')?.dataset.g; if (k) setGuide(k); }}>
-      <div className="mirTh c">#</div><div className="mirTh">Item</div><div className="mirTh r">Qty</div><div className="mirTh">Unit</div><div className="mirTh r">Balance{effect === 'in' ? ' after' : ''}</div>
+    <div ref={root} className={`mirGrid ${cards ? 'withCard' : ''}`} onFocusCapture={(e) => { const k = (e.target as HTMLElement).closest<HTMLElement>('[data-g]')?.dataset.g; if (k) setGuide(k); }}>
+      <div className="mirTh c">#</div><div className="mirTh">Item</div><div className="mirTh r">Qty</div><div className="mirTh">Unit</div>{cards && <div className="mirTh">Gemba</div>}<div className="mirTh r">Balance{effect === 'in' ? ' after' : ''}</div>
       {lines.map((l, i) => {
         const q = Number(l.qty) || 0;
         const have = l.item ? stock(l.item.id) : 0;
@@ -66,15 +69,63 @@ export function SheetGrid({ lines, setLines, stock, effect, flag, onEmptyEnter, 
           <div key={`q${l.key}`} className="mirTd">
             <label className="field bare"><span className="sr">Qty for item {i + 1}</span>
               <input data-nav data-g={`qty${i}`} className={`input mirIn num ${over ? 'bad' : g(`qty${i}`) ? 'next' : ''} ${ms.qty ? 'miss' : ''} ${editHere === l.key ? 'editHere' : ''}`} inputMode="decimal" value={l.qty}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (editHere === l.key) { setEditHere(null); const n = lines.findIndex((x) => !x.item); goTo(`item${n < 0 ? i + 1 : n}`, true); } else goTo(`item${i + 1}`); } }}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (editHere === l.key) { setEditHere(null); const n = lines.findIndex((x) => !x.item); goTo(`item${n < 0 ? i + 1 : n}`, true); } else if (cards && l.item && Number(l.qty) > 0) { goTo(`gemba${i}`); setCardRow(i); } else goTo(`item${i + 1}`); } }}
                 onChange={(e) => patch(l.key, { qty: e.target.value.replace(/[^0-9.]/g, '') })} aria-invalid={over} />
             </label>
             {editHere === l.key && <span className="mirEditHere" role="status">Edit here</span>}
           </div>,
           <div key={`u${l.key}`} className="mirTd mirUnit">{l.item?.unit ?? ''}</div>,
-          <div key={`a${l.key}`} className={`mirTd r mono mirAfter ${over ? 'bad' : redChange && l.item && q ? 'chg' : ''}`}>{l.item && q ? (over ? `Only ${fmt(have)}` : fmt(after)) : l.item ? fmt(have) : ''}</div>,
+          ...(cards ? [<div key={`g${l.key}`} className="mirTd mirGemba">
+            <button type="button" data-nav data-g={`gemba${i}`} className={`mirGBtn ${l.card?.gemba ? 'set' : ''} ${g(`gemba${i}`) ? 'next' : ''}`} disabled={!l.item} onClick={() => setCardRow(i)}>
+              {l.card?.gemba ? <><b>{l.card.gemba}</b><small>{[l.card.activity, l.card.supervisor].filter(Boolean).join(' · ')}</small></> : l.item ? <span className="mirGPh">Choose…</span> : ''}
+            </button>
+          </div>] : []),
+          <div key={`a${l.key}`} className={`mirTd r mono mirAfter ${over ? 'bad' : ''}`}>{l.item && q ? (over ? `Only ${fmt(have)}` : fmt(after)) : l.item ? fmt(have) : ''}</div>,
         ];
       })}
+      {cards && cardRow != null && lines[cardRow] && (
+        <CardPop line={lines[cardRow]} row={cardRow}
+          onClose={() => { setCardRow(null); goTo(`gemba${cardRow}`); }}
+          onSave={(c) => { const i = cardRow; patch(lines[i].key, { card: c }); setCardRow(null); goTo(`item${i + 1}`); }} />
+      )}
     </div>
   );
+}
+
+const FLOORS = ['Preliminaries', 'Ground floor', ...Array.from({ length: 15 }, (_, k) => `${k + 1}${['st', 'nd', 'rd'][k] ?? 'th'} floor`), 'Roof'];
+const ACTS = ['Walling', 'Plaster & Screed', 'Steel fixing', 'Formwork', 'Slab casting', 'Fabrication', 'Scaffolding', 'Tiling', 'Waterproofing', 'Plumbing', 'Electrical', 'Repairs'];
+const SUPS = ['Hamisi - Supervisor', 'Peter Supervisor', 'Mary - Site admin', 'Macharia - Site manager'];
+
+/** Demo: the paper Material Withdrawal Card for one register row: gemba, activity, supervisor, issued to. */
+function CardPop({ line, row, onSave, onClose }: { line: LineDraft; row: number; onSave: (c: CardDraft) => void; onClose: () => void }) {
+  const [c, setC] = useState<CardDraft>(line.card ?? { gemba: '', activity: '', supervisor: '', issued_to: '' });
+  const [opts, setOpts] = useState<{ act: string[]; sup: string[]; to: string[] }>({ act: ACTS, sup: SUPS, to: [] });
+  useEffect(() => {
+    const mix = (a: string[], b: string[]) => [...new Set([...b, ...a])];
+    Promise.all([api.remembered('activity').catch(() => []), api.remembered('supervisor').catch(() => []), api.remembered('issued_to').catch(() => [])])
+      .then(([a, s, t]) => setOpts({ act: mix(ACTS, a), sup: mix(SUPS, s), to: t }));
+  }, []);
+  useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; document.addEventListener('keydown', k); return () => document.removeEventListener('keydown', k); }, [onClose]);
+  const done = () => onSave({ gemba: c.gemba.trim(), activity: c.activity.trim(), supervisor: c.supervisor.trim(), issued_to: c.issued_to.trim() });
+  return createPortal(
+    <div className="sheetBack dayAskBack" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <section className="cardPop" role="dialog" aria-modal="true" aria-labelledby="cardPopT" onKeyDown={(e) => {
+        if (e.key !== 'Enter') return;
+        const t = e.target as HTMLElement;
+        // Enter on a floor picks it and moves to Activity; Enter anywhere else outside a box finishes the card.
+        if (t.dataset.floor) { e.preventDefault(); setC({ ...c, gemba: t.dataset.floor }); (e.currentTarget.querySelector('.cardFields input') as HTMLInputElement | null)?.focus(); return; }
+        if (t.tagName !== 'INPUT') { e.preventDefault(); done(); }
+      }}>
+        <header><span className="daKicker">Row {row + 1} · {line.item?.name} · {line.qty} {line.item?.unit}</span><h2 id="cardPopT">Gemba</h2></header>
+        <div className="cardFloors" role="radiogroup" aria-label="Gemba">
+          {FLOORS.map((f, k) => <button key={f} type="button" data-floor={f} role="radio" aria-checked={c.gemba === f} className={c.gemba === f ? 'on' : ''} autoFocus={c.gemba ? c.gemba === f : k === 0} onClick={() => setC({ ...c, gemba: f })}>{f}</button>)}
+        </div>
+        <div className="cardFields">
+          <Suggest label="Activity" value={c.activity} onChange={(v) => setC({ ...c, activity: v })} options={opts.act} placeholder="Activity" />
+          <Suggest label="Supervisor" value={c.supervisor} onChange={(v) => setC({ ...c, supervisor: v })} options={opts.sup} placeholder="Supervisor" />
+          <Suggest label="Issued to" value={c.issued_to} onChange={(v) => setC({ ...c, issued_to: v })} options={opts.to} placeholder="Issued to" onNext={() => done()} />
+        </div>
+        <footer><button type="button" className="btn ghost" onClick={onClose}>Skip</button><button type="button" className="btn accent" onClick={done}>Done</button></footer>
+      </section>
+    </div>, document.body);
 }

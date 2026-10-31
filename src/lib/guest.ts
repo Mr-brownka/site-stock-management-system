@@ -88,3 +88,6 @@ export function endGuest() {
 export function guestCopiedAt(): string | null {
   try { return (JSON.parse(localStorage.getItem(GUEST_KEY) || 'null') as Store | null)?.copiedAt ?? null; } catch { return null; }
 }
+
+/** Demo mode (the example store), not a guest's copy of a real site. */
+export const isDemoMode = () => isGuest() && isShowcase();

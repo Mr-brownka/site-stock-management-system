@@ -4444,3 +4444,35 @@ select.adAccSel:hover { border-color: currentColor; }
 .dirPick2 .dirOpt span:not(.dirIc) { font-size: 13.5px; color: #69736F; }
 .trfDir button:disabled { cursor: default; }
 .trfDir button:disabled:not(.on) { background: #F3F4F3; color: #B9BFBC; opacity: .7; }
+
+/* Registers: every balance in red */
+.mirAfter { color: #C8322A; }
+.mirAfter.bad { color: #B42318; font-weight: 700; }
+
+/* Demo: Gemba column on the issuance register (from the paper card) */
+.mirGrid.withCard { grid-template-columns: 52px minmax(0, 1fr) 130px 100px 200px 150px; }
+.mirGrid.withCard > .mirTh:nth-child(5n), .mirGrid.withCard > .mirTd:nth-child(5n):not(.mirAfter) { border-right: 1.5px solid #2A2F2E; }
+.mirGrid.withCard > .mirTh:nth-child(6), .mirGrid.withCard > .mirAfter { border-right: 0; }
+.mirGrid.withCard > .mirUnit { border-right: 1.5px solid #2A2F2E; }
+.mirGBtn { width: 100%; height: 100%; min-height: 44px; border: 0; background: transparent; text-align: left; padding: 4px 10px; font: inherit; cursor: pointer; display: flex; flex-direction: column; justify-content: center; gap: 1px; min-width: 0; }
+.mirGBtn:disabled { cursor: default; }
+.mirGBtn b { font-size: 13.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mirGBtn small { font-size: 11.5px; color: #69736F; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mirGPh { color: #9AA3A0; font-size: 13px; }
+.mirGBtn.next, .mirGBtn:focus-visible { outline: 2.5px solid #FCA72D; outline-offset: -3px; background: #FFF8EC; }
+@media (max-width: 767px) {
+  .mirGrid.withCard { grid-template-columns: 28px minmax(0, 1fr) 64px 44px 84px; }
+  .mirGrid.withCard > .mirTh:nth-child(5), .mirGrid.withCard > .mirGemba { display: flex; }
+  .mirGrid.withCard > .mirTh:nth-child(6), .mirGrid.withCard > .mirAfter { display: none; }
+  .mirGrid.withCard > .mirTh:nth-child(5), .mirGrid.withCard > .mirGemba { border-right: 0; }
+  .mirGBtn small { display: none; }
+}
+.cardPop { width: min(620px, 100%); background: #fff; border-radius: 22px; box-shadow: 0 30px 80px rgba(18,23,22,.32); padding: 22px; display: flex; flex-direction: column; gap: 16px; animation: sheetPop .25s var(--spring); max-height: calc(100dvh - 32px); overflow: auto; }
+.cardPop header h2 { margin: 2px 0 0; font-family: var(--display); font-size: 28px; }
+.cardFloors { display: flex; flex-wrap: wrap; gap: 6px; }
+.cardFloors button { height: 34px; padding: 0 12px; border-radius: 99px; border: 1.5px solid #E3E6E4; background: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.cardFloors button.on { background: #0F2C25; border-color: #0F2C25; color: #fff; }
+.cardFloors button:focus-visible { outline: 2.5px solid #FCA72D; outline-offset: 1px; }
+.cardFields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+@media (max-width: 600px) { .cardFields { grid-template-columns: 1fr; } }
+.cardPop footer { display: flex; justify-content: flex-end; gap: 8px; }

@@ -140,8 +140,8 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
       for (const l of ls) {
         if (!(l.qty > 0)) continue;
         const ex = reg.lines.find((x) => x.item_id === l.item_id);
-        if (ex) ex.qty += l.qty;
-        else reg.lines.push({ id: s.nextLine++, document_id: reg.id, kind: 'issue', move_date: day, item_id: l.item_id, qty: l.qty, subphase: null, return_of: null });
+        if (ex) { ex.qty += l.qty; if (l.cards?.length) ex.cards = [...(ex.cards ?? []), ...l.cards]; }
+        else reg.lines.push({ id: s.nextLine++, document_id: reg.id, kind: 'issue', move_date: day, item_id: l.item_id, qty: l.qty, subphase: null, return_of: null, ...(l.cards?.length ? { cards: l.cards } : {}) });
       }
       save(); return 'added';
     },
@@ -152,8 +152,8 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
       for (const l of ls) {
         if (!(l.qty > 0)) continue;
         const ex = reg.lines.find((x) => x.item_id === l.item_id && !keep.has(x.id));
-        if (ex) { ex.qty = l.qty; keep.add(ex.id); }
-        else { const id = s.nextLine++; reg.lines.push({ id, document_id: reg.id, kind: 'issue', move_date: day, item_id: l.item_id, qty: l.qty, subphase: null, return_of: null }); keep.add(id); }
+        if (ex) { ex.qty = l.qty; ex.cards = l.cards?.length ? l.cards : undefined; keep.add(ex.id); }
+        else { const id = s.nextLine++; reg.lines.push({ id, document_id: reg.id, kind: 'issue', move_date: day, item_id: l.item_id, qty: l.qty, subphase: null, return_of: null, ...(l.cards?.length ? { cards: l.cards } : {}) }); keep.add(id); }
       }
       reg.lines = reg.lines.filter((x) => keep.has(x.id));
       if (store) reg.authorised_by = store;
@@ -323,7 +323,7 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
     async saveDocument(doc: DocInput, ls: LineInput[]) {
       const id = uid();
       s.docs.push({ ...doc, id, created_at: new Date().toISOString(),
-        lines: ls.map((l) => ({ id: s.nextLine++, document_id: id, kind: doc.kind, move_date: doc.doc_date, item_id: l.item_id, qty: l.qty, subphase: l.subphase ?? null, return_of: l.return_of ?? null })) });
+        lines: ls.map((l) => ({ id: s.nextLine++, document_id: id, kind: doc.kind, move_date: doc.doc_date, item_id: l.item_id, qty: l.qty, subphase: l.subphase ?? null, return_of: l.return_of ?? null, ...(l.cards?.length ? { cards: l.cards } : {}) })) });
       save(); return wait(undefined);
     },
     async removeDocument(id) {

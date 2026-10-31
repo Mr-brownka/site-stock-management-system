@@ -25,9 +25,13 @@ export interface DocInput {
   to_confirm?: string[];
 }
 
+/** Demo: where a register row went, as on the paper Material Withdrawal Card. */
+export interface CardInfo { qty: number; gemba: string; activity: string; supervisor: string; issued_to: string }
+
 export interface LineInput {
   item_id: number;
   qty: number;
+  cards?: CardInfo[];
   subphase?: string | null;
   return_of?: number | null;
 }
@@ -43,6 +47,8 @@ export interface Line {
   qty: number;
   subphase: string | null;
   return_of: number | null;
+  /** Demo: the card details behind this row (gemba, activity, supervisor, issued to). */
+  cards?: CardInfo[];
 }
 
 export interface Doc extends DocInput {
@@ -294,9 +300,9 @@ export interface Backend {
   requestCorrection(input: CorrectionInput): Promise<void>;
   myCorrections(): Promise<CorrectionRequest[]>;
   /** The day's Material Issuance Register: adds to the one already there (same item adds up), or starts it. */
-  saveRegister(day: string, store: string | null, lines: { item_id: number; qty: number }[]): Promise<'new' | 'added'>;
+  saveRegister(day: string, store: string | null, lines: { item_id: number; qty: number; cards?: CardInfo[] }[]): Promise<'new' | 'added'>;
   /** The day's register becomes exactly these lines (day not submitted). */
-  setRegister(day: string, store: string | null, lines: { item_id: number; qty: number }[]): Promise<'new' | 'saved' | 'emptied'>;
+  setRegister(day: string, store: string | null, lines: { item_id: number; qty: number; cards?: CardInfo[] }[]): Promise<'new' | 'saved' | 'emptied'>;
   /** Delete an entry entirely (its lines go too, so balances go back). The admin deletes now; others ask. */
   deleteEntry(docId: string, why: string, note?: string | null): Promise<'deleted' | 'asked'>;
   admin: AdminApi;

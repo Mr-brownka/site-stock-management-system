@@ -3,6 +3,7 @@ import { StepShell } from '../components/StepShell';
 import { checkLines, fmt, newLine, Suggest, type LineDraft } from '../components/ui';
 import { SheetGrid } from '../components/SheetGrid';
 import { api } from '../lib/api';
+import { isDemoMode } from '../lib/guest';
 import { useData } from '../lib/store';
 import { focusMiss, linesFromPayload, linesToPayload, useDraft } from '../components/Unfinished';
 import { ask, toast } from '../components/feedback';
@@ -34,7 +35,14 @@ function RegisterForm({ done, again }: { done: () => void; again: () => Promise<
   useEffect(() => {
     if (filled.current || draft || !existing) return;
     filled.current = true;
-    const rows = existing.lines.map((l) => ({ ...newLine(), item: itemById.get(l.item_id) ?? null, qty: String(Number(l.qty)) }));
+    const rows = existing.lines.flatMap((l) => {
+      const item = itemById.get(l.item_id) ?? null;
+      // Demo: a row per card, so each keeps its gemba; anything without a card stays as one row.
+      const cs = l.cards ?? [];
+      const rest = Number(l.qty) - cs.reduce((a, c) => a + c.qty, 0);
+      return [...cs.map((c) => ({ ...newLine(), item, qty: String(c.qty), card: { gemba: c.gemba, activity: c.activity, supervisor: c.supervisor, issued_to: c.issued_to } })),
+        ...(rest > 0 || !cs.length ? [{ ...newLine(), item, qty: String(cs.length ? rest : Number(l.qty)) }] : [])];
+    });
     setLines([...rows, ...Array.from({ length: Math.max(2, ROWS - rows.length) }, () => newLine())]);
   }, [existing, draft, itemById]);
   useEffect(() => { api.siteTeam().then((t) => setTeam(t.length ? t : [user.name])).catch(() => undefined); }, [user.name]);
@@ -61,7 +69,9 @@ function RegisterForm({ done, again }: { done: () => void; again: () => Promise<
     if (hard || over) { setErr(hard || `Only ${fmt(stockFor(over![0]))} ${itemById.get(over![0])?.unit ?? ''} of ${itemById.get(over![0])?.name} in store.`); focusMiss(); return; }
     setBusy('save'); setErr('');
     try {
-      const items = [...merged().entries()].filter(([, q]) => q > 0).map(([item_id, qty]) => ({ item_id, qty }));
+      // Demo: each row's card (gemba, activity, supervisor, issued to) goes with its item.
+      const cardsOf = (id: number) => used.filter((l) => l.item?.id === id && l.card && (Number(l.qty) || 0) > 0).map((l) => ({ qty: Number(l.qty), ...l.card! }));
+      const items = [...merged().entries()].filter(([, q]) => q > 0).map(([item_id, qty]) => ({ item_id, qty, ...(isDemoMode() && cardsOf(item_id).length ? { cards: cardsOf(item_id) } : {}) }));
       const r = existing ? await api.setRegister(day, store.trim() || null, items) : await api.saveRegister(day, store.trim() || null, items);
       setAddedTo(r !== 'new');
       if (draft) { await api.deleteDraft(draft.id).catch(() => undefined); refreshUnfinished(); }
@@ -91,7 +101,7 @@ function RegisterForm({ done, again }: { done: () => void; again: () => Promise<
           <div className="mirTitle">MATERIAL ISSUANCE REGISTER</div>
           <div className="mirMeta"><span>Week <b className="mono">{projectWeek ?? '–'}</b></span><span>Date <b>{dateText}</b></span></div>
         </div>
-        <SheetGrid lines={lines} setLines={setLines} stock={stockFor} effect="out" redChange flag={flag} onEmptyEnter={() => save()} />
+        <SheetGrid lines={lines} setLines={setLines} stock={stockFor} effect="out" cards={isDemoMode()} flag={flag} onEmptyEnter={() => save()} />
         <div className="mirFoot"><span>Store</span><Suggest bare showAll nav="store" label="Store" value={store} onChange={setStore} options={team} placeholder="Who issued from the store" inputClass="mirIn" onNext={() => save()} /></div>
       </div>
 
