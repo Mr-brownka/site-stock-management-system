@@ -38,7 +38,7 @@ function toCorrection(r: Record<string, unknown>): CorrectionRequest {
 function toBalance(r: Record<string, unknown>): Balance {
   return {
     site_id: r.site_id as string, item_id: num(r.item_id), name: String(r.name), unit: String(r.unit), reorder_level: r.reorder_level == null ? null : num(r.reorder_level),
-    first_seen: String(r.first_seen), balance: num(r.balance), deliveries: num(r.deliveries),
+    first_seen: String(r.first_seen), balance: num(r.balance), deliveries: num(r.deliveries), low_alert: r.low_alert !== false,
   };
 }
 
@@ -551,6 +551,10 @@ export function supabaseBackend(url: string, key: string): Backend {
 
     async setReorder(itemId, level) {
       const { error } = await sb.from('site_items').update({ reorder_level: level }).eq('site_id', await mySite()).eq('item_id', itemId);
+      if (error) fail(error);
+    },
+    async setLowAlert(itemId, on) {
+      const { error } = await sb.from('site_items').update({ low_alert: on }).eq('site_id', await mySite()).eq('item_id', itemId);
       if (error) fail(error);
     },
 

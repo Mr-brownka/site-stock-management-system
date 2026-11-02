@@ -18,6 +18,7 @@ import type { StepKey, StepState } from '../lib/types';
 import { openRecords, useAddEntry } from '../components/AddEntry';
 import { useZohoDeliveries } from '../components/Zoho';
 import { openItems } from './Dashboard';
+import { RemoveLow } from '../components/RemoveLow';
 import { continueEvening, startEvening, useFlow } from '../components/EveningFlow';
 import { IncomingPanel, useIncomingCounts } from '../components/Incoming';
 import { Ring } from '../components/Ring';
@@ -236,7 +237,7 @@ export function Home() {
         <span className="lcBar">{outCount > 0 && <i className="out" style={{ flex: outCount }} />}{lowOnly > 0 && <i className="low" style={{ flex: lowOnly }} />}</span>
         <span className="lcLeg">{outCount > 0 && <span><b className="out">{outCount}</b> out of stock</span>}{lowOnly > 0 && <span><b className="low">{lowOnly}</b> running out</span>}</span>
       </span>
-      <span className="lcList">{urgent.map((b) => <span key={b.item_id} className="lcItem"><span>{b.name}</span><b className={b.balance <= 0 ? 'out' : 'low'}>{b.balance <= 0 ? 'Finished' : `${fmt(b.balance)} ${b.unit}`}</b></span>)}</span>
+      <span className="lcList">{urgent.map((b) => <span key={b.item_id} className="lcItem"><span>{b.name}</span><b className={b.balance <= 0 ? 'out' : 'low'}>{b.balance <= 0 ? 'Finished' : `${fmt(b.balance)} ${b.unit}`}</b><RemoveLow b={b} /></span>)}</span>
       {/* Stores open the list by tapping the card; no extra button. */}
       {user.role !== 'store' && <span className="lcGo">Review all {nLow}<Icon name="arrow" size={16} /></span>}
     </button>

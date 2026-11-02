@@ -4503,3 +4503,8 @@ select.adAccSel:hover { border-color: currentColor; }
 .newVer { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 120; display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 16px; border-radius: 99px; background: #0F2C25; color: #fff; font-size: 14px; font-weight: 600; box-shadow: 0 14px 30px -10px rgba(0,0,0,.45); animation: sheetPop .3s var(--spring); }
 .newVer button { border: 0; border-radius: 99px; background: #FCA72D; color: #1B2120; font: inherit; font-weight: 800; padding: 7px 14px; cursor: pointer; }
 @media (max-width: 767px) { .newVer { bottom: calc(84px + env(safe-area-inset-bottom)); } }
+/* × on a Needs attention row */
+.rmLow { flex: none; width: 24px; height: 24px; margin-left: 8px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 16px; line-height: 1; color: #8A9490; background: transparent; cursor: pointer; transition: background .15s, color .15s; }
+.rmLow:hover, .rmLow:focus-visible { background: #F8DCD8; color: #B42318; outline: none; }
+.pLowCard .rmLow { width: 32px; height: 32px; font-size: 20px; background: #F3F4F3; }
+.lcItem { align-items: center; } .lcItem > span:first-child { flex: 1; min-width: 0; }

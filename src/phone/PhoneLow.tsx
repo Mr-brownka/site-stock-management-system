@@ -4,6 +4,7 @@ import { fmt } from '../components/ui';
 import { useData } from '../lib/store';
 import type { Balance } from '../lib/types';
 import { Pill, PTop } from './PhoneUI';
+import { RemoveLow } from '../components/RemoveLow';
 
 /** Running low (design B): each item a card with a ring of days left, coloured by how soon. */
 export function PhoneLow() {
@@ -34,6 +35,7 @@ export function PhoneLow() {
               </svg>
               <span className="pLowT"><b>{b.name}</b><small>{fmt(b.balance)} {b.unit}{b.reorder_level != null ? ` · reorder at ${fmt(b.reorder_level)}` : ''}</small>
                 <em>{b.balance <= 0 ? 'Finished' : d == null ? 'Low' : d === 0 ? 'Runs out today' : `${d} day${d === 1 ? '' : 's'} left`}</em></span>
+              <RemoveLow b={b} />
               <Icon name="chevR" size={18} />
             </button>
           );

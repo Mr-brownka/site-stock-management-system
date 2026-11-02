@@ -74,6 +74,8 @@ export interface Balance {
   first_seen: string;
   balance: number;
   deliveries: number;
+  /** False: taken off Needs attention by hand (never shown as low). */
+  low_alert?: boolean;
 }
 
 /** Names the app remembers and suggests as you type. */
@@ -362,6 +364,8 @@ export interface Backend {
   /** Counts a training day for the signed-in person (Sundays don't count). Returns days done. */
   recordTrainingDay(day: string): Promise<number>;
   setReorder(itemId: number, level: number | null): Promise<void>;
+  /** Take an item off Needs attention (false) or put it back (true). */
+  setLowAlert(itemId: number, on: boolean): Promise<void>;
   /** The items the admin listed for this store's stock take (no quantities). */
   checklist(): Promise<Item[]>;
   stockTakes(): Promise<StockTake[]>;

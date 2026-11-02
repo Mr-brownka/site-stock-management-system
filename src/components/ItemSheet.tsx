@@ -6,6 +6,8 @@ import { useData } from '../lib/store';
 import { delta, type Balance } from '../lib/types';
 import { Icon, Num, PulseDot } from './fx';
 import { fmt } from './ui';
+import { api } from '../lib/api';
+import { toast } from './feedback';
 
 export interface Use { issued: number; returned: number; used: number; bySub: Map<string, number> }
 
@@ -40,7 +42,7 @@ function Spark({ data, low }: { data: number[]; low: boolean }) {
 export function ItemSheet({ b, mode, use, rangeLabel, onClose, onSaveReorder }: {
   b: Balance; mode: 'cons' | 'bal'; use?: Use; rangeLabel: string; onClose: () => void; onSaveReorder?: (v: number | null) => Promise<void>;
 }) {
-  const { day, recent, isLow, daysLeft } = useData();
+  const { day, recent, isLow, daysLeft, refresh } = useData();
   const closeRef = useRef<HTMLButtonElement>(null);
   const sheetRef = useRef<HTMLElement>(null);
   // Phones: drag the handle or header down to close.
@@ -126,6 +128,7 @@ export function ItemSheet({ b, mode, use, rangeLabel, onClose, onSaveReorder }: 
                 </div>
                 <button className="btn link" onClick={save} disabled={draft === (b.reorder_level == null ? '' : String(b.reorder_level))}>{saved ? '✓ Saved' : 'Save level'}</button>
                 </>) : <b>{b.reorder_level == null ? 'Not set' : fmt(b.reorder_level)}</b>}
+                {onSaveReorder && b.low_alert === false && <button className="btn link" onClick={() => api.setLowAlert(b.item_id, true).then(refresh).then(() => toast(`${b.name} is back on Needs attention`)).catch((e) => toast((e as Error).message, 'warn'))}>Off Needs attention · Turn back on</button>}
               </div>
             </div>
             {low && <div className="note err sheetNote"><PulseDot />{out ? 'None left in the store.' : 'Running low.'} Tell the site manager so it can be ordered.</div>}

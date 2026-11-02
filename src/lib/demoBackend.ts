@@ -19,6 +19,8 @@ export interface Store {
   /** Guest copy: the site's incoming deliveries as they were when copied, and when that was. */
   incoming?: Incoming;
   copiedAt?: string;
+  /** Items taken off Needs attention by hand. */
+  lowOff?: number[];
   /** Example store for the project manager and C-suite. */
   showcase?: boolean;
   docs: Doc[];
@@ -340,7 +342,7 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
       const map = new Map<number, Balance>();
       s.docs.slice().sort((a, b) => a.doc_date.localeCompare(b.doc_date)).forEach((d) => d.lines.forEach((l) => {
         const it = items.get(l.item_id)!;
-        const b = map.get(l.item_id) ?? { item_id: l.item_id, name: it.name, unit: it.unit, reorder_level: s.reorder[l.item_id] ?? null, first_seen: l.move_date, balance: 0, deliveries: 0 };
+        const b = map.get(l.item_id) ?? { item_id: l.item_id, name: it.name, unit: it.unit, reorder_level: s.reorder[l.item_id] ?? null, first_seen: l.move_date, balance: 0, deliveries: 0, low_alert: !(s.lowOff ?? []).includes(l.item_id) };
         b.balance += delta(l.kind, l.qty);
         map.set(l.item_id, b);
       }));
@@ -359,6 +361,7 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
     async submitDay(day, steps, closedReason) { s.submissions[day] = { day, steps, closed_reason: closedReason ?? null, submitted_at: new Date().toISOString() }; save(); },
     async lastSubmittedDay(before) { return Object.keys(s.submissions).filter((d) => d < before).sort().pop() ?? null; },
     async setReorder(itemId, level) { s.reorder[itemId] = level; save(); },
+    async setLowAlert(itemId, on) { s.lowOff = on ? (s.lowOff ?? []).filter((x) => x !== itemId) : [...new Set([...(s.lowOff ?? []), itemId])]; save(); },
     async checklist() {
       const ids = s.checklist?.[SITE] ?? [];
       const m = new Map(allItems().map((i) => [i.id, i]));

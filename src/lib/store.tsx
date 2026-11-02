@@ -189,6 +189,7 @@ export function DataProvider({ user, go, signOut, openAdmin, children }: { user:
   }, [recent, realToday]);
   const isLow = useCallback((b: Balance) => {
     // Finished, or at/below the reorder level set for it. Above the level (or no level set) it is healthy.
+    if (b.low_alert === false) return false; // taken off Needs attention by hand
     if (b.balance <= 0) return true;
     return b.reorder_level != null && b.balance <= b.reorder_level;
   }, []);
