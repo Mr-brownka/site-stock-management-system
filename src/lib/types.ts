@@ -189,6 +189,8 @@ export interface Profile {
   access?: Access;
   pages?: string[] | null;
   head_office?: boolean;
+  /** Demo mode: the private token in their own demo link. */
+  demo_token?: string | null;
 }
 
 export interface SignUpInput {
@@ -252,7 +254,7 @@ export interface AdminApi {
   issuedPasswords(): Promise<Record<string, { password: string; set_at: string }>>;
   /** Who used the app on a day (first and last time seen), and each person's last sign-in. */
   activity(day: string): Promise<{ today: Record<string, { first: string; last: string }>; lastSeen: Record<string, string>; signIn: Record<string, string> }>;
-  setProfile(id: string, patch: Partial<Pick<Profile, 'status' | 'role' | 'site_id' | 'full_name' | 'phone' | 'training_waived' | 'access' | 'pages' | 'head_office'>>): Promise<void>;
+  setProfile(id: string, patch: Partial<Pick<Profile, 'status' | 'role' | 'site_id' | 'full_name' | 'phone' | 'training_waived' | 'access' | 'pages' | 'head_office' | 'demo_token'>>): Promise<void>;
   /** Item ids on a site's stock take list. */
   checklist(siteId: string): Promise<number[]>;
   setChecklist(siteId: string, itemIds: number[]): Promise<void>;

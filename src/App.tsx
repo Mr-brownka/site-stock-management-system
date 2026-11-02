@@ -17,7 +17,7 @@ import { Submitted } from './screens/Submitted';
 import { RecordsHub } from './screens/RecordsHub';
 import { Transfers } from './screens/Transfers';
 import { exitTraining } from './lib/training';
-import { endGuest, startGuest, startShowcase, wantsShowcase } from './lib/guest';
+import { demoLinkToken, endGuest, isGuest, openDemoLink, startGuest, startShowcase, wantsShowcase } from './lib/guest';
 import { bootDone, bootGreet, forgetVisitor } from './lib/boot';
 import { recordScreen } from './lib/nav';
 import { canSee, firstAllowed } from './lib/access';
@@ -72,6 +72,14 @@ export function App() {
   const [recovering, setRecovering] = useState(() => api.isRecovery());
   const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState('');
+  // A demo link (…/?demo=…) opens that person's demo straight away, no sign-in. Coming back later opens it again.
+  const [linkOpening, setLinkOpening] = useState(() => !!new URLSearchParams(location.search).get('demo') || (!isGuest() && !!demoLinkToken()));
+  useEffect(() => {
+    if (!linkOpening) return;
+    const token = new URLSearchParams(location.search).get('demo') || demoLinkToken();
+    if (!token) { setLinkOpening(false); return; }
+    openDemoLink(token).catch((e) => { history.replaceState(null, '', '/'); setNotice((e as Error).message); setLinkOpening(false); });
+  }, [linkOpening]);
   const [adminPath, setAdminPath] = useState(isAdminPath);
 
   const loadUser = useCallback(() => api.currentUser().then(setUser).catch(() => setUser(null)), []);
@@ -121,7 +129,7 @@ export function App() {
     if (!guestOpening || !live || !user) return;
     (user.guest ? startGuest(live, user) : startShowcase(live, user)).catch(() => { setUser(null); });
   }, [guestOpening, user]);
-  if (user === undefined || guestOpening) return null;
+  if (user === undefined || guestOpening || linkOpening) return null;
   if (recovering) return <SetPassword onDone={() => { setRecovering(false); location.hash = ''; loadUser(); }} />;
   if (!user) {
     if (creating) {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, live } from '../lib/api';
 import { exitTraining, resetTraining, startTraining } from '../lib/training';
-import { guestCopiedAt, isShowcase, showcaseOff, startGuest, startShowcase } from '../lib/guest';
+import { demoLinkToken, guestCopiedAt, isShowcase, openDemoLink, showcaseOff, startGuest, startShowcase } from '../lib/guest';
 import type { User } from '../lib/types';
 import { ask, toast } from './feedback';
 import { Icon } from './fx';
@@ -30,7 +30,10 @@ function ShowcaseBar() {
       <span className="trainTag">DEMO</span>
       <span className="trainText"><span className="long">Example store to show how Ostock works. The figures are not real.</span><span className="short">Demo · example figures</span></span>
       <span className="trainBtns"><button onClick={async () => {
-        if (!live || !(await ask({ title: 'Reset the demo?', body: <p>Everything entered in the demo is cleared and it starts again.</p>, yes: 'Reset demo' }))) return;
+        if (!(await ask({ title: 'Reset the demo?', body: <p>Everything entered in the demo is cleared and it starts again.</p>, yes: 'Reset demo' }))) return;
+        const link = demoLinkToken();
+        if (link) { await openDemoLink(link, true).catch((e) => toast((e as Error).message, 'warn')); return; }
+        if (!live) return;
         const u = await live.currentUser().catch(() => null);
         if (u) await startShowcase(live, u).catch((e) => toast((e as Error).message, 'warn'));
       }}>Reset</button></span>

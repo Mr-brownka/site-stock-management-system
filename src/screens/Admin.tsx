@@ -11,6 +11,7 @@ import { ZohoOpen } from '../components/Zoho';
 import { ask, toast } from '../components/feedback';
 import { StartTraining } from '../components/Training';
 import { PAGES, ROLE_DEFAULT, ROLE_NAME, ROLES } from '../lib/access';
+import { demoUrl } from '../lib/guest';
 import { describeStructure, subphasesFor } from '../lib/structure';
 
 type Sec = 'overview' | 'approvals' | 'sites' | 'people' | 'items' | 'zoho' | 'activity';
@@ -866,7 +867,17 @@ function People({ d, me, busy, act }: { d: Data; me: User; busy: string; act: Ac
 </span>
                 <span>{f === 'off' ? <span className="stPill idle">{p.status === 'removed' ? 'Removed' : 'Declined'}</span> : <span className="muted">{ago(p.decided_at ?? p.created_at)}</span>}</span>
                 <span className="muted">{ago(lastSeen(p.id))}</span>
-                <span className="adRowActs">{f !== 'off' && p.email !== me.email && <button className="adSend" title={`Send ${p.full_name.split(' ')[0]} the login details on WhatsApp`} aria-label={`Send ${p.full_name} the login details`}
+                <span className="adRowActs">{f !== 'off' && p.email !== me.email && p.access === 'demo' && <button className="adSend demo" title={`Send ${p.full_name.split(' ')[0]} their own demo link on WhatsApp (no sign-in)`} aria-label={`Send ${p.full_name} their demo link`}
+                  onClick={() => { const w = window.open('about:blank', '_blank'); act(p.id, async () => {
+                    // Their own link: the token says who they are, so the demo greets them by the name saved here.
+                    let token = p.demo_token;
+                    if (!token) { token = crypto.randomUUID(); await api.admin.setProfile(p.id, { demo_token: token }); }
+                    const first = p.full_name.split(' ')[0];
+                    const text = `Hello ${first}, here is your own Ostock demo. Open it and you go straight in, no sign-in needed:\n${demoUrl(token)}`;
+                    const wa = p.phone ? `https://wa.me/${waNumber(p.phone)}?text=${encodeURIComponent(text)}` : `https://wa.me/?text=${encodeURIComponent(text)}`;
+                    if (w) w.location.href = wa; else location.href = wa;
+                  }).catch(() => w?.close()); }}><Icon name="mail" size={15} />Send demo</button>}
+                {f !== 'off' && p.email !== me.email && p.access !== 'demo' && <button className="adSend" title={`Send ${p.full_name.split(' ')[0]} the login details on WhatsApp`} aria-label={`Send ${p.full_name} the login details`}
                   onClick={() => { const cur = issued[p.id]; if (cur) { setPwFor(null); setShare({ name: p.full_name, password: cur.password, phone: p.phone }); window.scrollTo({ top: 0, behavior: 'smooth' }); } else { setPwFor({ id: p.id, value: newPassword(), show: true }); toast(`${p.full_name.split(' ')[0]}’s password isn’t known · save a new one and the message opens`, 'warn'); } }}><Icon name="mail" size={15} />Send</button>}
                 <Dots items={f === 'off' ? [{ label: 'Give access back', onClick: () => act(p.id, () => api.admin.setProfile(p.id, { status: 'approved' })) }] : [
                   { label: 'Password…', onClick: () => { setPwFor({ id: p.id, value: issued[p.id]?.password ?? '', show: false }); } },

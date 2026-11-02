@@ -4,7 +4,7 @@
 import { addDays, today } from './dates';
 import type { Store } from './demoBackend';
 import { buildAstanaTraining } from './trainingData';
-import type { Backend, Submission, User } from './types';
+import type { Backend, Item, Submission, User } from './types';
 
 const FLAG = 'ssms-guest';
 export const GUEST_KEY = 'ssms-guest-store';
@@ -57,7 +57,12 @@ export const showcaseOff = () => { try { return sessionStorage.getItem(OFF) === 
 export const wantsShowcase = (u: User) => u.access === 'demo' && u.role !== 'admin' && !showcaseOff();
 
 export async function startShowcase(source: Backend, user: User) {
-  const items = await source.items();
+  await openShowcase(await source.items(), user.email, user.name);
+}
+
+/** Builds the example store for this person and opens it (no sign-in needed). */
+async function openShowcase(items: Item[], email: string, name: string) {
+  const user = { email, name };
   // In the demo they work as a store keeper: every button, including Send to Site Manager.
   const store = buildAstanaTraining(items, { email: user.email, name: user.name, role: 'store' }, today(), 'reveal');
   store.meta = { ...store.meta!, user: { ...store.meta!.user, trainingWaived: true } };
@@ -82,7 +87,32 @@ export function isShowcase(): boolean {
 
 /** Leaves the guest copy (on sign out). */
 export function endGuest() {
-  try { sessionStorage.removeItem(FLAG); sessionStorage.removeItem(OFF); localStorage.removeItem(GUEST_KEY); } catch { /* ignore */ }
+  try { sessionStorage.removeItem(FLAG); sessionStorage.removeItem(OFF); localStorage.removeItem(GUEST_KEY); localStorage.removeItem(LINK); } catch { /* ignore */ }
+}
+
+// ── Demo links: management opens their own demo from a WhatsApp link, without signing in. ──
+const LINK = 'ostock-demo-link';
+/** The demo link this browser was opened with (kept, so coming back opens the same demo). */
+export const demoLinkToken = () => { try { return localStorage.getItem(LINK); } catch { return null; } };
+export const demoUrl = (token: string) => `${location.origin}/?demo=${token}`;
+
+/** Opens the demo for a link. Coming back with the same link keeps everything entered; a new link (or Reset) starts afresh. */
+export async function openDemoLink(token: string, fresh = false) {
+  let keep = false;
+  try { keep = !fresh && localStorage.getItem(LINK) === token && isShowcase(); } catch { /* ignore */ }
+  if (!keep) {
+    const url = import.meta.env.VITE_SUPABASE_URL as string | undefined, key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+    if (!url || !key) throw new Error('Demo links work on the live site only.');
+    const r = await fetch(`${url}/functions/v1/demo-open`, { method: 'POST', headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) });
+    const j = await r.json().catch(() => ({})) as { name?: string; items?: Item[]; error?: string };
+    if (!j.name || !j.items) throw new Error(j.error ?? 'This demo link could not be opened.');
+    localStorage.setItem(LINK, token);
+    await openShowcase(j.items, `demo-${token.slice(0, 8)}@demo.ostock`, j.name);
+    return;
+  }
+  sessionStorage.setItem(FLAG, '1');
+  history.replaceState(null, '', '/#/home');
+  location.reload();
 }
 
 export function guestCopiedAt(): string | null {

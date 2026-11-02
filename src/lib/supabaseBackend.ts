@@ -45,7 +45,7 @@ function toBalance(r: Record<string, unknown>): Balance {
 function adminApi(sb: SupabaseClient): AdminApi {
   return {
     async profiles() {
-      const { data, error } = await sb.from('profiles').select('id, full_name, email, phone, role, status, site_id, created_at, decided_at, training_days, training_waived, access, pages, head_office').order('created_at', { ascending: false });
+      const { data, error } = await sb.from('profiles').select('id, full_name, email, phone, role, status, site_id, created_at, decided_at, training_days, training_waived, access, pages, head_office, demo_token').order('created_at', { ascending: false });
       if (error) fail(error);
       return (data ?? []) as Profile[];
     },
