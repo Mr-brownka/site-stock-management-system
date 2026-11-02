@@ -1,4 +1,5 @@
 import { Component, lazy, type ComponentType, type ReactNode } from 'react';
+import { logError } from '../lib/errorLog';
 
 // A new version of the app was published while this tab was open: the old page asks for files
 // that no longer exist and React is left with nothing to show (a white page). Load the new version once.
@@ -36,6 +37,7 @@ export class PageGuard extends Component<{ children: ReactNode; screen?: string 
   static getDerivedStateFromError(err: Error) { return { err }; }
   componentDidCatch(err: Error) {
     console.error('[page]', err);
+    logError(err, `page:${this.props.screen ?? ''}`);
     if (isStale(err)) reloadOnce();
   }
   componentDidUpdate(prev: { screen?: string }) { if (prev.screen !== this.props.screen && this.state.err) this.setState({ err: null }); }
@@ -47,6 +49,30 @@ export class PageGuard extends Component<{ children: ReactNode; screen?: string 
         <p className="muted" style={{ margin: 0 }}>Usually a new version of SiteStock was just published. Reloading fixes it.</p>
         <button className="btn accent sm" onClick={() => location.reload()}>Reload</button>
         <small className="muted mono">{String(this.state.err.message).slice(0, 160)}</small>
+      </div>
+    );
+  }
+}
+
+/** The whole app's safety net: anything that fails outside a page (menu, pop-ups, strips, loading) never leaves a white page.
+ *  An old-version file reloads the new version; anything else shows Reload, and the error is recorded. */
+export class AppGuard extends Component<{ children: ReactNode }, { err: Error | null }> {
+  state = { err: null as Error | null };
+  static getDerivedStateFromError(err: Error) { return { err }; }
+  componentDidCatch(err: Error) {
+    console.error('[app]', err);
+    logError(err, 'app');
+    if (isStale(err)) reloadOnce();
+  }
+  render() {
+    if (!this.state.err) return this.props.children;
+    return (
+      <div style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', padding: 24, background: '#F5F6F4', fontFamily: 'inherit' }} role="alert">
+        <div style={{ maxWidth: 380, textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+          <h2 style={{ margin: 0 }}>Something went wrong</h2>
+          <p style={{ margin: 0, color: '#69736F' }}>Nothing you saved is lost. Reload to carry on.</p>
+          <button className="btn accent" onClick={() => location.reload()}>Reload</button>
+        </div>
       </div>
     );
   }

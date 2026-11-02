@@ -7,6 +7,9 @@ import { bootStep } from './lib/boot';
 import { installFx } from './lib/fxGlobal';
 import { installBusyButtons } from './lib/busyButtons';
 import { enterMovesOn, keepFocusClear } from './components/ui';
+import { AppGuard } from './components/Recover';
+import { installErrorLog } from './lib/errorLog';
+import { NewVersion } from './components/NewVersion';
 
 bootStep('Checking your account…', 30, 55);
 installFx();
@@ -15,10 +18,14 @@ enterMovesOn();
 import { TrainingBar } from './components/Training';
 
 installBusyButtons();
+installErrorLog();
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
-    <FeedbackHost />
-    <TrainingBar />
+    <AppGuard>
+      <App />
+      <FeedbackHost />
+      <TrainingBar />
+      <NewVersion />
+    </AppGuard>
   </StrictMode>,
 );

@@ -4499,3 +4499,7 @@ select.adAccSel:hover { border-color: currentColor; }
 .comexLogo .clT1 { animation-delay: .9s; } .comexLogo .clT2 { animation-delay: 1.05s; }
 @keyframes clTextIn { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .comexLogo .clHat, .comexLogo .clHook, .comexLogo .clT1, .comexLogo .clT2 { animation: none; opacity: 1; } }
+/* New version note */
+.newVer { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 120; display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 16px; border-radius: 99px; background: #0F2C25; color: #fff; font-size: 14px; font-weight: 600; box-shadow: 0 14px 30px -10px rgba(0,0,0,.45); animation: sheetPop .3s var(--spring); }
+.newVer button { border: 0; border-radius: 99px; background: #FCA72D; color: #1B2120; font: inherit; font-weight: 800; padding: 7px 14px; cursor: pointer; }
+@media (max-width: 767px) { .newVer { bottom: calc(84px + env(safe-area-inset-bottom)); } }
