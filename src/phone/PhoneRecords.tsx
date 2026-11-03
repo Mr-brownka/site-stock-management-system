@@ -78,7 +78,7 @@ const PREFIX: Record<RecKey, string> = { deliveries: 'DLV', issued: 'ISS', retur
 export function PhoneRecList({ recKey: key }: { recKey: RecKey }) {
   const { day, itemById, go, user, submission } = useData();
   const [all, setAll] = useState<Doc[] | null>(null);
-  const [period, setPeriod] = useState<Period>('week');
+  const [period, setPeriod] = useState<Period>('all') // like the laptop: everything, newest first;
   const [q, setQ] = useState('');
   const [find, setFind] = useState(false);
   const [more, setMore] = useState(40);
@@ -158,7 +158,7 @@ export function PhoneRecList({ recKey: key }: { recKey: RecKey }) {
         {canEdit(user) && !(key === 'deliveries' && zohoOnly) && <button className="pAddBtn" onClick={() => add(key)}><Icon name="plus" size={18} />Add</button>}
       </>} />
       {find && <PSearch value={q} onChange={setQ} placeholder={`Search ${TITLE[key].toLowerCase()}`} />}
-      <Chips value={period} onChange={(p) => { setPeriod(p); setMore(40); }} items={[['week', 'This week'], ['month', 'This month'], ['all', 'All']]} />
+      <Chips value={period} onChange={(p) => { setPeriod(p); setMore(40); }} items={[['all', 'All'], ['week', 'This week'], ['month', 'This month']]} />
       {all === null && <Skel rows={5} card />}
       {all && !shown.length && <div className="pEmpty">Nothing {period === 'week' ? 'this week' : period === 'month' ? 'this month' : 'yet'}{q ? ' matching your search' : ''}.{period !== 'all' && <button className="pLink" onClick={() => setPeriod('all')}>See all</button>}</div>}
       <div className="pCards">
