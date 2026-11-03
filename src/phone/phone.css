@@ -373,3 +373,28 @@
 .pHome .pTileB b.pTName { font-family: inherit; font-size: 17px; font-weight: 800; line-height: 1.2; margin-top: auto; color: var(--pInk); }
 .pHome .pTileB small.pTNum { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 14.5px; color: var(--pMut); margin-top: 4px; }
 .pAddBtn { height: 40px; padding: 0 14px 0 10px; border: 0; border-radius: 12px; background: var(--pAcc); color: var(--pInk); font-weight: 800; font-size: 14.5px; display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; }
+
+/* ── Phone home, design B: green header with the greeting and a frosted check-in ── */
+.pHomeB .pHero { position: relative; background: linear-gradient(160deg, #0F2C25 0%, #1F5A47 100%); color: #fff; border-radius: 0 0 32px 32px; padding: 6px 0 22px; overflow: hidden; }
+.pHomeB .pHero::after { content: ""; position: absolute; right: -70px; top: -80px; width: 220px; height: 220px; border-radius: 50%; background: radial-gradient(circle, rgba(252,167,45,.22), transparent 65%); pointer-events: none; }
+.pHomeB .pHello { padding: 18px 20px 0; position: relative; z-index: 1; }
+.pHomeB .pHello small { color: #9FC2B5; font-size: 13.5px; font-weight: 600; }
+.pHomeB .pHello b { color: #fff; font-size: 28px; letter-spacing: -.02em; }
+.pHomeB .pCheck.pGlass { position: relative; z-index: 1; width: calc(100% - 40px); margin: 18px 20px 0; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: none; border-radius: 22px; padding: 16px 16px 14px 18px; gap: 12px; color: #fff; }
+.pHomeB .pGlass .pCheckRow b { color: #fff; font-size: 18px; font-weight: 800; }
+.pHomeB .pGlass .pCheckRow small { color: #C9DBD4; font-size: 13px; }
+.pHomeB .pGlass .pCheckGo { width: 40px; height: 40px; border-radius: 50%; background: #FCA72D; color: #1B2120; display: grid; place-items: center; }
+.pHomeB .pGlass .pCheckBar { display: none; }
+.pSteps3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.pSteps3 i { height: 6px; border-radius: 9px; background: rgba(255,255,255,.2); transition: background .4s; }
+.pSteps3 i.on { background: #FCA72D; }
+.pSteps3L { display: grid; grid-template-columns: repeat(3, 1fr); font-size: 12px; color: #B9CCC5; }
+.pSteps3L span:nth-child(2) { text-align: center; } .pSteps3L span:nth-child(3) { text-align: right; }
+.pHomeB .pTiles.pRows { margin: 20px 20px 12px; display: flex; flex-direction: column; gap: 12px; }
+.pHomeB .pRows .pTileB { min-height: 0; flex-direction: row; align-items: center; gap: 14px; padding: 15px 16px; border-radius: 20px; color: #9AA3A0; }
+.pHomeB .pRows .pTIc { width: 42px; height: 42px; border-radius: 14px; flex: none; }
+.pHomeB .pRowT { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.pHomeB .pRows .pTileB b.pTName { font-size: 16px; font-weight: 700; margin-top: 0; }
+.pHomeB .pRows .pTileB small { font-size: 13px; color: var(--pMut); }
+.pHomeB .pStrip { margin: 0 20px 12px; border-radius: 20px; min-height: 60px; }
+.pHomeB .gsCard, .pHomeB .getStarted { margin: 16px 20px 0; }

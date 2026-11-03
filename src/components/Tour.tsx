@@ -26,16 +26,13 @@ export function noteVisit(u: User, screen: string) {
   if (!seen.has(screen)) { seen.add(screen); write(k, [...seen].join(',')); window.dispatchEvent(new Event('ssms-guide')); }
 }
 
-type Step = { sel: string[]; kicker: string; title: string; text: string; screen?: Screen; /** Also lit softly, e.g. the menu entry to get here. */ also?: string[] };
+type Step = { sel: string[]; kicker: string; title: string; text: string; screen?: Screen; /** Also lit softly, e.g. the menu entry to get here. */ also?: string[];
+  /** Light several parts as one (e.g. the four records pages in the menu); used when they are on screen. */ group?: string[] };
 const STORE_STEPS: Step[] = [
-  { sel: [], kicker: '', title: 'Welcome to Ostock', text: '' },
-  { sel: ['.kStrip', '.pTiles'], kicker: '', title: 'Your store at a glance', text: '' },
-  { sel: ['.kpi3.green', '.pTileB.bal'], kicker: '', title: 'Balances', text: '' },
-  { sel: ['.incPanel', '.pTileB.inc'], kicker: '', title: 'Deliveries on the way', text: '' },
-  { sel: ['section[aria-label="Needs attention"]', '.pStrip.low', '.pStrip.good'], kicker: '', title: 'Items running low', text: '' },
-  { sel: ['.startBtn', '.pCheck'], kicker: '', title: 'Evening check-in', text: '' },
-  { sel: ['.railLink[title="Issued items"]', '.tabbar'], kicker: '', title: 'Records', text: '' },
-  { sel: ['.railLink[title="Fix an error"]', '.tabbar'], kicker: '', title: 'Fix a mistake', text: '' },
+  { sel: ['.kpi3.green', '.pTileB.bal'], kicker: '', title: 'View your balances here', text: '' },
+  { sel: ['.kpi3.amber', '.pTileB.con'], kicker: '', title: 'View your consumption here', text: '' },
+  { sel: ['.railLink[title="Stock take"]', '.tabbar button:nth-of-type(3)'], kicker: '', title: 'Stock reconciliation', text: '' },
+  { sel: ['.tabbar button:nth-of-type(2)'], group: ['.railLink[title="Deliveries"]', '.railLink[title="Issued items"]', '.railLink[title="Returned items"]', '.railLink[title="Project transfers"]'], kicker: '', title: 'View your records here', text: '' },
 ];
 
 /** Procurement and site managers: two moves, from 30 Oct 2026 (earlier sign-ins don't count). */
@@ -59,7 +56,7 @@ export function Tour() {
   const viewer = user.role === 'procurement' || user.role === 'site_manager';
   const STEPS = useMemo(() => (viewer ? viewerSteps() : STORE_STEPS), [viewer]);
   // A tour that was played on the wrong account is reset by adding the address here (it shows once more).
-  const doneKey = viewer ? (RESET.includes(user.email) ? 'tourViewer2' : 'tourViewer') : 'tour';
+  const doneKey = viewer ? (RESET.includes(user.email) ? 'tourViewer2' : 'tourViewer') : api.mode === 'guest' && isShowcase() ? 'tourDemo2' : 'tour';
   const [i, setI] = useState<number | null>(null);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const [alsoRect, setAlsoRect] = useState<DOMRect | null>(null);
@@ -83,15 +80,23 @@ export function Tour() {
     if (!step) return;
     if (step.screen) goRef.current(step.screen);
     let el: HTMLElement | null = null, tries = 0, alive = true;
+    // Several parts lit as one box (the four records pages), when they are on screen.
+    const groupRect = () => {
+      const rs = (step.group ?? []).map((q) => document.querySelector<HTMLElement>(q)?.getBoundingClientRect()).filter((r): r is DOMRect => !!r && r.width > 0);
+      if (!rs.length) return null;
+      const l = Math.min(...rs.map((r) => r.left)), t = Math.min(...rs.map((r) => r.top)), r2 = Math.max(...rs.map((r) => r.right)), b = Math.max(...rs.map((r) => r.bottom));
+      return new DOMRect(l, t, r2 - l, b - t);
+    };
     const put = () => {
-      if (el) setRect(el.getBoundingClientRect());
+      const gr = groupRect();
+      if (gr) setRect(gr); else if (el) setRect(el.getBoundingClientRect());
       const a = step.also?.map((q) => document.querySelector<HTMLElement>(q)).find((x) => x && x.getBoundingClientRect().width > 0);
       setAlsoRect(a ? a.getBoundingClientRect() : null);
     };
     // The page may still be opening: look for the part to light for up to 3 seconds.
     const find = () => {
       if (!alive) return;
-      el = target(step);
+      el = groupRect() ? document.querySelector<HTMLElement>(step.group![0]) : target(step);
       if (!el) { setRect(null); if (++tries < 30) setTimeout(find, 100); return; }
       el.scrollIntoView({ block: 'center', behavior: 'smooth' });
       put(); setTimeout(put, 300);
@@ -118,7 +123,8 @@ export function Tour() {
   // The card sits beside the lit part when there is room, otherwise below or above it; centred when nothing is lit.
   const W = Math.min(380, vw - 32);
   let card: React.CSSProperties;
-  if (!hole || vw < 760) card = vw < 760 ? { left: 16, right: 16, bottom: 16 } : { left: '50%', top: '50%', transform: 'translate(-50%,-50%)', width: 460 };
+  // Phone: the card sits at the bottom, or at the top when the lit part is low (e.g. the tab bar), so it never covers it.
+  if (!hole || vw < 760) card = vw < 760 ? (hole && hole.top + hole.height / 2 > vh / 2 ? { left: 16, right: 16, top: 16 } : { left: 16, right: 16, bottom: 16 }) : { left: '50%', top: '50%', transform: 'translate(-50%,-50%)', width: 460 };
   else if (hole.left + hole.width + 20 + W < vw) card = { left: hole.left + hole.width + 20, top: Math.max(16, Math.min(hole.top, vh - 280)), width: W };
   else if (hole.top + hole.height + 240 < vh) card = { left: Math.max(16, Math.min(hole.left, vw - W - 16)), top: hole.top + hole.height + 16, width: W };
   else card = { left: Math.max(16, Math.min(hole.left, vw - W - 16)), top: Math.max(16, hole.top - 250), width: W };

@@ -47,23 +47,28 @@ export function PhoneHome() {
     { k: 'st', icon: 'clip', n: lastTake == null ? '–' : lastTake, t: 'Last stock take', s: lastTake == null ? '' : `day${lastTake === 1 ? '' : 's'} ago`, run: () => go('stocktake') },
   ];
   return (
-    <div className="pPage pGrey pHome">
-      <header className="pHello">
-        <span><small>{site || 'Store'} · {shortDay(day)}{projectWeek != null ? ` · Wk ${projectWeek}` : ''}</small><b>{greeting()}, {first}</b></span>
-      </header>
+    <div className="pPage pGrey pHome pHomeB">
+      {/* Design B: a green header holds the greeting and the check-in (frosted glass, three steps). */}
+      <section className="pHero">
+        <header className="pHello">
+          <span><small>{site || 'Store'} · {shortDay(day)}{projectWeek != null ? ` · Wk ${projectWeek}` : ''}</small><b>{greeting()}, {first}</b></span>
+        </header>
+        {canEdit(user) && (
+          <button className="pCheck pGlass" onClick={run}>
+            <span className="pCheckRow"><b>{submission ? 'Day submitted' : flowStage ? 'Continue the check-in' : 'Start the check-in'}</b><small className="mono">{submission ? '3 of 3' : `${done} of 3`}</small><span className="pCheckGo"><Icon name={submission ? 'check' : 'chevR'} size={18} /></span></span>
+            <span className="pSteps3" aria-hidden="true">{(['issued', 'returns', 'transfers'] as const).map((k) => <i key={k} className={submission || stepState(k) !== 'todo' ? 'on' : ''} />)}</span>
+            <span className="pSteps3L" aria-hidden="true"><span>Issued</span><span>Returns</span><span>Transfers</span></span>
+          </button>
+        )}
+      </section>
       <GetStarted />
-      {canEdit(user) && (
-        <button className="pCheck" onClick={run}>
-          <span className="pCheckRow"><b>{submission ? 'Day submitted · see the summary' : flowStage ? 'Continue the check-in' : 'Start the check-in'}</b><small>{submission ? '3 of 3' : `${done} of 3`}</small><span className="pCheckGo"><Icon name={submission ? 'check' : 'chevR'} size={17} /></span></span>
-          <i className="pCheckBar"><i style={{ width: `${((submission ? 3 : done) / 3) * 100}%` }} /></i>
-        </button>
-      )}
-      <div className="pTiles">
+      <div className="pTiles pRows">
         {tiles.map((t) => (
           <button key={t.k} className={`pTileB ${t.k}`} onClick={t.run}>
-            <span className="pTIc"><Icon name={t.icon} size={18} /></span>
-            <b className="pTName">{t.t}</b>
-            <small className="mono pTNum">{typeof t.n === 'number' ? <FlipNum value={t.n} /> : t.n} {t.s}</small>
+            <span className="pTIc"><Icon name={t.icon} size={19} /></span>
+            <span className="pRowT"><b className="pTName">{t.t}</b>
+              <small className="pTNum">{typeof t.n === 'number' ? <FlipNum value={t.n} /> : t.n} {t.s}</small></span>
+            <Icon name="chevR" size={18} />
           </button>
         ))}
       </div>
