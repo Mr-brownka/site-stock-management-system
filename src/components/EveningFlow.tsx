@@ -88,10 +88,10 @@ export function EveningFlow({ screen }: { screen: Screen }) {
   // A day already submitted needs no evening flow.
   useEffect(() => { if (stage && submission) set(null); }, [stage, submission]);
 
+  // "Any project transfers?" is a plain Yes / No; Yes then asks Sent or Received. (Above the early return: hooks keep their order.)
+  const [dirAsk, setDirAsk] = useState(false);
   if (!stage || ENTRY[stage]) return null;
   const to = (s: Stage) => to_(day, s);
-  // "Any project transfers?" is a plain Yes / No; Yes then asks Sent or Received.
-  const [dirAsk, setDirAsk] = useState(false);
   const enter = (step: 'issued' | 'returns' | 'transfers', dir?: 'in' | 'out') => {
     to_(day, step);
     if (dir) setPendingDir(dir);

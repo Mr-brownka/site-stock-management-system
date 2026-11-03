@@ -3,8 +3,7 @@
 // (the database also refuses any write made with a guest's sign-in).
 import { addDays, today } from './dates';
 import type { Store } from './demoBackend';
-import { buildAstanaTraining } from './trainingData';
-import type { Backend, Item, Submission, User } from './types';
+import type { Backend, Submission, User } from './types';
 
 const FLAG = 'ssms-guest';
 export const GUEST_KEY = 'ssms-guest-store';
@@ -56,17 +55,63 @@ const OFF = 'ssms-showcase-off';
 export const showcaseOff = () => { try { return sessionStorage.getItem(OFF) === '1'; } catch { return false; } };
 export const wantsShowcase = (u: User) => u.access === 'demo' && u.role !== 'admin' && !showcaseOff();
 
-export async function startShowcase(source: Backend, user: User) {
-  await openShowcase(await source.items(), user.email, user.name);
+export async function startShowcase(_source: Backend, user: User) {
+  // Signed in on Demo mode: the server sends a read-only copy of Reveal (checked against their account).
+  const snap = await fetchDemo({}, sessionJwt());
+  await openShowcase(snap, user.email, user.name);
 }
 
-/** Builds the example store for this person and opens it (no sign-in needed). */
-async function openShowcase(items: Item[], email: string, name: string) {
-  const user = { email, name };
-  // In the demo they work as a store keeper: every button, including Send to Site Manager.
-  const store = buildAstanaTraining(items, { email: user.email, name: user.name, role: 'store' }, today(), 'reveal');
-  store.meta = { ...store.meta!, user: { ...store.meta!.user, trainingWaived: true } };
-  store.showcase = true; store.copiedAt = new Date().toISOString();
+type Snap = {
+  name?: string; error?: string;
+  site?: { name: string; company: string; week_anchor_no: number | null; week_anchor_date: string | null; basements?: number; has_ground?: boolean; floors?: number | null; roof_name?: string | null; alert_name?: string | null };
+  items?: { id: number | string; name: string; unit: string; in_zoho?: boolean }[];
+  docs?: (Record<string, unknown> & { lines: Record<string, unknown>[] })[];
+  stockTakes?: (Record<string, unknown> & { lines: { item_id: number | string; qty: number | string }[] })[];
+  submissions?: { day: string; submitted_at: string; steps: Submission['steps']; closed_reason: string | null }[];
+  siteItems?: { item_id: number | string; reorder_level: number | string | null; low_alert: boolean }[];
+  checklist?: (number | string)[];
+  incoming?: unknown; dismissed?: unknown[];
+};
+const sessionJwt = () => {
+  try { for (const k of Object.keys(localStorage)) if (/^sb-.*-auth-token$/.test(k)) return (JSON.parse(localStorage.getItem(k) || 'null') as { access_token?: string } | null)?.access_token ?? null; } catch { /* ignore */ }
+  return null;
+};
+async function fetchDemo(body: { token?: string }, jwt: string | null): Promise<Snap> {
+  const url = import.meta.env.VITE_SUPABASE_URL as string | undefined, key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+  if (!url || !key) throw new Error('The demo opens on the live site only.');
+  const r = await fetch(`${url}/functions/v1/demo-open`, { method: 'POST', headers: { apikey: key, Authorization: `Bearer ${jwt ?? key}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({})) as Snap;
+  if (!j.name || !j.site || !j.items) throw new Error(j.error ?? 'The demo could not be opened. Try again in a minute.');
+  return j;
+}
+
+/** Builds the demo from Reveal's real data, kept only in this browser, and opens it. Nothing reaches the real store. */
+export async function openShowcase(snap: Snap, email: string, name: string) {
+  const n = (v: unknown) => Number(v) || 0;
+  const docs = (snap.docs ?? []).map((d) => ({ ...d, id: String(d.id), lines: d.lines.map((l) => ({
+    id: n(l.id), document_id: String(l.document_id), kind: l.kind, move_date: String(l.move_date), item_id: n(l.item_id), qty: n(l.qty),
+    subphase: (l.subphase as string) ?? null, return_of: l.return_of == null ? null : n(l.return_of), corrects_kind: (l.corrects_kind as string) ?? null })) })) as unknown as Store['docs'];
+  const s = snap.site!;
+  const now = new Date().toISOString();
+  const store: Store = {
+    items: snap.items!.map((i) => ({ id: n(i.id), name: i.name, unit: i.unit, in_zoho: i.in_zoho !== false })),
+    // In the demo they work as a store keeper: every button, including Send to Site Manager.
+    meta: { company: s.company, site: s.name, user: { email, name, role: 'store', trainingWaived: true } },
+    docs, nextLine: docs.reduce((m, d) => d.lines.reduce((x, l) => Math.max(x, l.id), m), 0) + 1,
+    submissions: Object.fromEntries((snap.submissions ?? []).map((x) => [x.day, { day: x.day, submitted_at: x.submitted_at, steps: x.steps ?? {}, closed_reason: x.closed_reason ?? null }])),
+    reorder: Object.fromEntries((snap.siteItems ?? []).filter((x) => x.reorder_level != null).map((x) => [n(x.item_id), n(x.reorder_level)])),
+    lowOff: (snap.siteItems ?? []).filter((x) => x.low_alert === false).map((x) => n(x.item_id)),
+    extraItems: [], signedIn: true,
+    checklist: { [SITE]: (snap.checklist ?? []).map(n) },
+    stockTakes: (snap.stockTakes ?? []).map((t) => ({ ...t, lines: t.lines.map((l) => ({ item_id: n(l.item_id), qty: n(l.qty) })) })) as unknown as Store['stockTakes'],
+    sites: [{ id: SITE, name: s.name, company: s.company, week_anchor_no: s.week_anchor_no, week_anchor_date: s.week_anchor_date,
+      ...(s.floors ? { basements: s.basements ?? 0, has_ground: s.has_ground ?? true, floors: s.floors, roof_name: s.roof_name ?? null } : {}),
+      alert_name: s.alert_name ?? null, alert_phone: null /* a demo never messages the real site manager */ }],
+    profiles: [{ id: 'demo-admin', full_name: name, email, phone: null, role: 'store', status: 'approved', site_id: SITE, created_at: now, decided_at: now }],
+    corrections: [], drafts: [], dismissed: (snap.dismissed ?? []) as Store['dismissed'],
+    ...(snap.incoming ? { incoming: snap.incoming as Store['incoming'] } : {}),
+    showcase: true, copiedAt: now,
+  };
   localStorage.setItem(GUEST_KEY, JSON.stringify(store));
   try { sessionStorage.removeItem(OFF); } catch { /* ignore */ }
   sessionStorage.setItem(FLAG, '1');
@@ -101,13 +146,9 @@ export async function openDemoLink(token: string, fresh = false) {
   let keep = false;
   try { keep = !fresh && localStorage.getItem(LINK) === token && isShowcase(); } catch { /* ignore */ }
   if (!keep) {
-    const url = import.meta.env.VITE_SUPABASE_URL as string | undefined, key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-    if (!url || !key) throw new Error('Demo links work on the live site only.');
-    const r = await fetch(`${url}/functions/v1/demo-open`, { method: 'POST', headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) });
-    const j = await r.json().catch(() => ({})) as { name?: string; items?: Item[]; error?: string };
-    if (!j.name || !j.items) throw new Error(j.error ?? 'This demo link could not be opened.');
+    const snap = await fetchDemo({ token }, null);
     localStorage.setItem(LINK, token);
-    await openShowcase(j.items, `demo-${token.slice(0, 8)}@demo.ostock`, j.name);
+    await openShowcase(snap, `demo-${token.slice(0, 8)}@demo.ostock`, snap.name!);
     return;
   }
   sessionStorage.setItem(FLAG, '1');

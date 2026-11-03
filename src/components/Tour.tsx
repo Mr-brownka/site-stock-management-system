@@ -5,6 +5,8 @@ import { useData } from '../lib/store';
 import type { User } from '../lib/types';
 import type { Screen } from '../lib/store';
 import { Icon } from './fx';
+import { api } from '../lib/api';
+import { isShowcase } from '../lib/guest';
 
 // The guide for a new store keeper (instead of training days): a short spotlight tour on the real screens,
 // then a "Get started" checklist on the dashboard until their first day is submitted.
@@ -26,19 +28,20 @@ export function noteVisit(u: User, screen: string) {
 
 type Step = { sel: string[]; kicker: string; title: string; text: string; screen?: Screen; /** Also lit softly, e.g. the menu entry to get here. */ also?: string[] };
 const STORE_STEPS: Step[] = [
-  { sel: [], kicker: 'Welcome', title: 'Welcome to Ostock', text: 'Deliveries come in from Zoho on their own. You record what goes out and what comes back. Each evening you submit the day, and every balance is up to date. This takes 2 minutes.' },
-  { sel: ['.kStrip'], kicker: 'The store at a glance', title: 'View the store at a glance here', text: 'What is in the store now, what was used this week, what Zoho says is coming and when the store was last counted. Tap any of them to open it.' },
-  { sel: ['.incPanel'], kicker: 'Incoming this week', title: 'See orders coming in here', text: 'What Zoho says arrives this week, late ones included. When goods are received in Zoho Books they come into the store by themselves. You don’t type deliveries in.' },
-  { sel: ['section[aria-label="Needs attention"]'], kicker: 'Needs attention', title: 'See items running low here', text: 'Anything at or under its reorder level shows here. Send the list to the site manager on WhatsApp in one tap.' },
-  { sel: ['.railLink[title="Issued items"]', '.phA', '.tabbar'], kicker: 'During the day', title: 'Record items going out here', text: 'One register a day. Add items as they leave the store; adding later continues the same sheet. Returns and transfers sit just below it.' },
-  { sel: ['.r2Today', '.phASum', '.phA'], kicker: 'Every evening', title: 'Check in and submit the day here', text: 'Open Today’s summary, go through the register, returns and transfers, then submit. Submitting locks the day and makes the balances final.' },
-  { sel: ['.railLink[title="Fix an error"]', '.tabbar'], kicker: 'Made a mistake?', title: 'Fix a mistake here', text: 'Open the entry and change it, or delete it. The balances follow. Your checklist on the dashboard shows what to try first.' },
+  { sel: [], kicker: '', title: 'Welcome to Ostock', text: '' },
+  { sel: ['.kStrip', '.pTiles'], kicker: '', title: 'Your store at a glance', text: '' },
+  { sel: ['.kpi3.green', '.pTileB.bal'], kicker: '', title: 'Balances', text: '' },
+  { sel: ['.incPanel', '.pTileB.inc'], kicker: '', title: 'Deliveries on the way', text: '' },
+  { sel: ['section[aria-label="Needs attention"]', '.pStrip.low', '.pStrip.good'], kicker: '', title: 'Items running low', text: '' },
+  { sel: ['.startBtn', '.pCheck'], kicker: '', title: 'Evening check-in', text: '' },
+  { sel: ['.railLink[title="Issued items"]', '.tabbar'], kicker: '', title: 'Records', text: '' },
+  { sel: ['.railLink[title="Fix an error"]', '.tabbar'], kicker: '', title: 'Fix a mistake', text: '' },
 ];
 
 /** Procurement and site managers: two moves, from 30 Oct 2026 (earlier sign-ins don't count). */
 const viewerSteps = (): Step[] => [
-  { screen: 'home', sel: ['.kpi3.green', '.pTileB.bal'], kicker: 'Stock balances', title: 'View stock balances here', text: 'What is in the store right now. Tap it to see every item and its balance.' },
-  { screen: 'stocktake', sel: ['.stLiveBtn', '.pStLive'], also: ['.railLink[title="Stock take"]', '.tabbar button[aria-current="page"]'], kicker: 'Stock take', title: 'Download the stock take here', text: 'Press Print live balances (Download live balances on the phone) to get today’s stock take as Excel or PDF.' },
+  { screen: 'home', sel: ['.kpi3.green', '.pTileB.bal'], kicker: 'Stock balances', title: 'Balances', text: 'What is in the store right now. Tap it to see every item and its balance.' },
+  { screen: 'stocktake', sel: ['.stLiveBtn', '.pStLive'], also: ['.railLink[title="Stock take"]', '.tabbar button[aria-current="page"]'], kicker: 'Stock take', title: 'Download the stock take', text: 'Press Print live balances (Download live balances on the phone) to get today’s stock take as Excel or PDF.' },
 ];
 const VIEWER_FROM = '2026-10-30';
 const RESET = ['daniel.macharia@people.ostock.co.ke'];
@@ -65,7 +68,9 @@ export function Tour() {
   useEffect(() => { openTour = start; return () => { openTour = () => undefined; }; }, [start]);
   // First time a store keeper opens the app: start on its own.
   useEffect(() => {
-    const due = viewer ? realToday >= VIEWER_FROM && !read(key(user, doneKey)) : isStore && !user.trainingWaived && !read(key(user, doneKey));
+    // Demo mode (incl. demo links): the tour plays once, the first time they open it.
+    const demo = api.mode === 'guest' && isShowcase();
+    const due = viewer ? realToday >= VIEWER_FROM && !read(key(user, doneKey)) : (demo || (isStore && !user.trainingWaived)) && !read(key(user, doneKey));
     if (!due) return;
     const t = setTimeout(() => setI(0), 900);
     return () => clearTimeout(t);
@@ -123,7 +128,6 @@ export function Tour() {
       {hole ? <div className="tourHole" style={hole} /> : <div className="tourDim" />}
       {alsoRect && <div className="tourAlso" aria-hidden="true" style={{ left: alsoRect.left / z - 4, top: alsoRect.top / z - 4, width: alsoRect.width / z + 8, height: alsoRect.height / z + 8 }} />}
       <div className={`tourCard ${hole ? '' : 'center'}`} style={card}>
-        <span className="tourKick">Step {i + 1} of {STEPS.length}</span>
         <b id="tourT">{step.title}</b>
         <span className="tourDots" aria-hidden="true">{STEPS.map((_, k) => <i key={k} className={k === i ? 'on' : k < i ? 'done' : ''} />)}</span>
         <span className="tourActs">

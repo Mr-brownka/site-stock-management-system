@@ -28,9 +28,9 @@ function ShowcaseBar() {
   return (
     <div className="trainBar guestBar" role="status">
       <span className="trainTag">DEMO</span>
-      <span className="trainText"><span className="long">Example store to show how Ostock works. The figures are not real.</span><span className="short">Demo · example figures</span></span>
+      <span className="trainText"><span className="long">Reveal’s real data. Nothing you do here changes the real store.</span><span className="short">Demo · real store is safe</span></span>
       <span className="trainBtns"><button onClick={async () => {
-        if (!(await ask({ title: 'Reset the demo?', body: <p>Everything entered in the demo is cleared and it starts again.</p>, yes: 'Reset demo' }))) return;
+        if (!(await ask({ title: 'Reset the demo?', body: <p>Everything you entered is cleared and a fresh copy of Reveal is loaded.</p>, yes: 'Reset demo' }))) return;
         const link = demoLinkToken();
         if (link) { await openDemoLink(link, true).catch((e) => toast((e as Error).message, 'warn')); return; }
         if (!live) return;
