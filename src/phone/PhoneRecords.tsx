@@ -78,7 +78,7 @@ const PREFIX: Record<RecKey, string> = { deliveries: 'DLV', issued: 'ISS', retur
 export function PhoneRecList({ recKey: key }: { recKey: RecKey }) {
   const { day, itemById, go, user, submission } = useData();
   const [all, setAll] = useState<Doc[] | null>(null);
-  const [period, setPeriod] = useState<Period>('all') // like the laptop: everything, newest first;
+  const [period, setPeriod] = useState<Period>('all'); // like the laptop: everything, newest first
   const [q, setQ] = useState('');
   const [find, setFind] = useState(false);
   const [more, setMore] = useState(40);
