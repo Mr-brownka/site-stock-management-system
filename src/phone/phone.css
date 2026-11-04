@@ -428,8 +428,6 @@
 .hbGlance button + button { border-left: 1px solid #EEF1EF; border-radius: 0; }
 .hbGlance b { font-size: 26px; font-weight: 600; letter-spacing: -.02em; font-family: var(--body, Barlow, sans-serif); font-variant-numeric: tabular-nums; }
 .hbGlance small { font-size: 12.5px; color: var(--pMut); font-weight: 600; }
-.hbAlert { margin: 14px 18px 0; min-height: 54px; display: flex; align-items: center; gap: 12px; padding: 0 16px; border: 0; border-radius: 18px; background: #FFF4F2; color: #A3241C !important; text-align: left; }
-.hbAlert b { flex: 1; font-size: 15.5px; font-weight: 700; }
 .hbList { margin: 14px 18px 22px; background: #fff; border-radius: 22px; padding: 2px 0; display: flex; flex-direction: column; box-shadow: 0 1px 2px rgba(16,24,22,.04); }
 .hbRow { position: relative; display: flex; align-items: center; gap: 14px; min-height: 56px; padding: 0 14px 0 16px; border: 0; background: none; text-align: left; }
 .hbRow + .hbRow::before { content: ''; position: absolute; top: 0; left: 64px; right: 0; height: 1px; background: #EEF1EF; }
@@ -440,3 +438,16 @@
 .hbRow.bal .hbIc { background: #1F7A4D; } .hbRow.con .hbIc { background: #C9620F; } .hbRow.inc .hbIc { background: #2D5BD0; }
 .hbRow.st .hbIc { background: #3D4542; } .hbRow.sum .hbIc { background: #0F2C25; }
 .hbRow:active, .hbGlance button:active { background: #F4F6F5; }
+
+/* Running-low bar, design B: a second line says whether the site manager knows; the Send link sits on that line. */
+.hbAlert { position: relative; margin: 14px 18px 0; min-height: 60px; display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 16px; border-radius: 18px; background: #FFF4F2; color: #A3241C; }
+.hbCover { position: absolute; inset: 0; border: 0; background: none; border-radius: 18px; z-index: 0; }
+.hbCover:active { background: rgba(163,36,28,.06); }
+.hbAlert > .ic { position: relative; z-index: 0; pointer-events: none; }
+.hbAlertT { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; pointer-events: none; }
+.hbAlertT b { font-size: 15.5px; font-weight: 700; }
+.hbAlertS { font-size: 13px; color: #7A3A33; display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; min-height: 20px; }
+.hbAlertS.sent { color: #146C40; font-weight: 600; }
+.hbAlertS.new { color: #8A4A00; font-weight: 600; }
+.hbSend { position: relative; z-index: 1; pointer-events: auto; display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; padding: 0; color: #146C40 !important; font-size: 13px; font-weight: 700; }
+.hbSend::after { content: ''; position: absolute; inset: -12px -8px; }

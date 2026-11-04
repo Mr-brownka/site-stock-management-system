@@ -3,6 +3,7 @@ import { Icon, greeting } from '../components/fx';
 import { continueEvening, startEvening, useFlow } from '../components/EveningFlow';
 import { useIncomingCounts } from '../components/Incoming';
 import { GetStarted } from '../components/Tour';
+import { ChatMark, useAlertStatus } from '../components/StockAlert';
 import { canEdit } from '../lib/access';
 import { api } from '../lib/api';
 import { periodRange } from '../lib/dates';
@@ -18,6 +19,7 @@ export function PhoneHome() {
   const { day, user, balances, docsToday, stepState, submission, go, lowItems, recent, catchUp, pendingDays, site, projectWeek } = useData();
   const flowStage = useFlow(day);
   const inc = useIncomingCounts();
+  const alert = useAlertStatus();
   const [lastTake, setLastTake] = useState<number | null>(null);
   useEffect(() => {
     api.stockTakes().then((t) => {
@@ -63,10 +65,17 @@ export function PhoneHome() {
         <button onClick={() => go('incoming')}><b className="mono">{inc ? <FlipNum value={inc.week} /> : '–'}</b><small>Coming in</small></button>
       </section>
       {lowItems.length > 0 && (
-        <button className="hbAlert" onClick={() => go('low')}>
-          <Icon name="warn" size={19} /><b>{out === lowItems.length ? `${out} item${out === 1 ? '' : 's'} finished` : `${lowItems.length} item${lowItems.length === 1 ? '' : 's'} running low`}</b><Icon name="chevR" size={18} />
-        </button>
+        <div className="hbAlert">
+          {/* The whole bar opens the list; the Send link on the second line sits above it. */}
+          <button type="button" className="hbCover" onClick={() => go('low')} aria-label={`${lowItems.length} item${lowItems.length === 1 ? '' : 's'} running low: open the list`} />
+          <Icon name="warn" size={19} />
+          <span className="hbAlertT"><b>{out === lowItems.length ? `${out} item${out === 1 ? '' : 's'} finished` : `${lowItems.length} item${lowItems.length === 1 ? '' : 's'} running low`}</b>
+            <span className={`hbAlertS ${alert.state}`}>{alert.state === 'sent' && <Icon name="check" size={13} />}{alert.text}
+              {alert.canSend && alert.state !== 'sent' && <>{' · '}<button type="button" className="hbSend" onClick={alert.open}><ChatMark size={14} />{alert.state === 'new' ? 'Send again' : 'Send to site manager'}</button></>}</span></span>
+          <Icon name="chevR" size={18} />
+        </div>
       )}
+      {alert.sheet}
       <nav className="hbList" aria-label="Go to">
         {[
           { k: 'bal', icon: 'box', t: 'Balances', r: '', run: () => go('balances') },

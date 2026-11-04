@@ -48,7 +48,7 @@ export function AlertButton() {
   );
 }
 
-function AlertSheet({ info, onClose, onSent }: { info: AlertInfo | null; onClose: () => void; onSent: () => void }) {
+export function AlertSheet({ info, onClose, onSent }: { info: AlertInfo | null; onClose: () => void; onSent: () => void }) {
   const { lowItems, daysLeft, avgUse, site, user, day, projectWeek } = useData();
   const [style, setStyle] = useState<Style>('detailed');
   const [incFin, setIncFin] = useState(true);
@@ -100,6 +100,7 @@ function AlertSheet({ info, onClose, onSent }: { info: AlertInfo | null; onClose
   const send = () => {
     keepSign(sign);
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+    try { localStorage.setItem('ostock-alert-items', JSON.stringify({ day, ids: lowItems.map((b) => b.item_id) })); } catch { /* ignore */ }
     api.markAlertSent().then(onSent).catch(() => undefined);
     toast(phone ? `WhatsApp opened for ${info?.name || 'the Site manager'}` : 'WhatsApp opened · choose who to send it to');
     onClose();
@@ -146,4 +147,28 @@ function AlertSheet({ info, onClose, onSent }: { info: AlertInfo | null; onClose
       </section>
     </div>
   );
+}
+
+/** Phone home, running-low bar (design B): a second line says whether the site manager knows, with a small Send link. */
+export function useAlertStatus() {
+  const { lowItems, day, user } = useData();
+  const [info, setInfo] = useState<AlertInfo | null>(null);
+  const [open, setOpen] = useState(false);
+  const load = () => api.alertInfo().then(setInfo).catch(() => setInfo(null));
+  useEffect(() => { load(); }, []);
+  const sentAt = info?.sent_at ? new Date(info.sent_at) : null;
+  const sentToday = !!sentAt && sentAt.toLocaleDateString('en-CA', { timeZone: 'Africa/Nairobi' }) === day;
+  let fresh = 0;
+  if (sentToday) {
+    try { const k = JSON.parse(localStorage.getItem('ostock-alert-items') || 'null') as { day: string; ids: number[] } | null; if (k?.day === day) fresh = lowItems.filter((b) => !k.ids.includes(b.item_id)).length; } catch { /* ignore */ }
+  }
+  const who = info?.name?.split(' ')[0] || 'the site manager';
+  const time = sentAt?.toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Africa/Nairobi' }).replace(' ', ' ');
+  return {
+    canSend: canEdit(user) && lowItems.length > 0,
+    state: !sentToday ? 'not' as const : fresh ? 'new' as const : 'sent' as const,
+    text: !sentToday ? 'Not sent today' : fresh ? `${fresh} new since you sent` : `Sent to ${who} at ${time}`,
+    open: () => setOpen(true),
+    sheet: open ? createPortal(<AlertSheet info={info} onClose={() => setOpen(false)} onSent={load} />, document.body) : null,
+  };
 }
