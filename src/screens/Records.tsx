@@ -13,6 +13,7 @@ import { toast } from '../components/feedback';
 import { checkZohoNow, useZohoDeliveries, ZohoOpen, ZohoRefresh, ZohoTag } from '../components/Zoho';
 import { BackPill } from '../components/BackPill';
 import { DateRange, rangeLabel, type Range } from '../components/DateRange';
+import { EntryHistory } from '../components/History';
 import { IssuedTable, RegisterSheet } from './IssuedRegisters';
 
 export type RecKey = 'deliveries' | 'issued' | 'returns' | 'transfers';
@@ -245,6 +246,7 @@ function Detail({ row, cfg, onClose, onFix }: { row: Row; cfg: (typeof CFG)[RecK
           <div key={l.id} className={`recLine ${showSub ? 'sub' : ''}`}><span className="muted">{i + 1}</span><b>{it?.name ?? 'Item'}</b><span className="num mono">{fmt(l.qty)}</span><span className="muted">{it?.unit}</span>{showSub && <span>{l.subphase ?? '—'}</span>}</div>
         ); })}
       </div>
+      <EntryHistory docId={d.id} />
     </section>
   );
 }

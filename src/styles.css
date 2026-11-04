@@ -4522,3 +4522,38 @@ select.adAccSel:hover { border-color: currentColor; }
   .entryPage, .page:has(> .actionBar), div:has(> .actionBar) { padding-bottom: calc(150px + env(safe-area-inset-bottom)); }
   .stickyBar .btn, .sheet footer .btn, .dayAsk .btn { min-height: 48px; }
 }
+
+/* 26 · History of an entry: who changed what */
+.hist { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.hist h3 { margin: 0 0 10px; font-size: 15px; font-weight: 800; }
+.hist h3 small { font-weight: 500; color: #5F6B66; font-size: 13px; margin-left: 6px; }
+.hist ol { list-style: none; margin: 0; padding: 0; position: relative; }
+.hist ol::before { content: ''; position: absolute; left: 10px; top: 8px; bottom: 8px; width: 2px; background: #E4E7E5; }
+.hist li { position: relative; display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; font-size: 14px; }
+.hist li > div { flex: 1; min-width: 0; }
+.hist li small { display: block; color: #5F6B66; font-size: 12.5px; margin-top: 1px; }
+.histDet { color: #3D4542; }
+.histDot { position: relative; z-index: 1; flex: none; width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 2px solid #C9CFCC; display: grid; place-items: center; color: #5F6B66; }
+.hist li.created .histDot { border-color: #1F7A4D; color: #1F7A4D; }
+.hist li.fix-approved .histDot { background: #1F7A4D; border-color: #1F7A4D; color: #fff; }
+.hist li.fix-turned-down .histDot, .hist li.deleted .histDot { border-color: #A3241C; color: #A3241C; }
+.hist li.fix-asked .histDot { border-color: #B5650C; color: #B5650C; }
+.histMore { border: 0; background: none; color: #8A5000; font: inherit; font-size: 13px; font-weight: 700; text-decoration: underline; cursor: pointer; padding: 2px 0; min-height: 32px; }
+.hist.ph { margin: 14px 16px 0; padding: 14px; border: 1px solid #E4E7E5; border-radius: 16px; background: #fff; }
+@media print { .hist { break-inside: avoid; } }
+
+/* 30 · Approving a new account: checklist */
+.apCheck { display: flex; flex-direction: column; gap: 14px; }
+.apList { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.apH { font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #5F6B66; padding: 0; margin-bottom: 2px; }
+.apAuto { display: flex; gap: 10px; align-items: flex-start; padding: 9px 12px; border-radius: 10px; background: #F4F7F5; }
+.apAuto b { display: block; font-size: 14px; }
+.apAuto small { display: block; font-size: 12.5px; color: #3D4542; }
+.apIc { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; margin-top: 1px; }
+.apAuto.ok .apIc { background: #E3F2EA; color: #1A6B43; }
+.apAuto.warn { background: #FFF6E5; } .apAuto.warn .apIc { background: #FFE2B0; color: #7A4500; }
+.apAuto.info .apIc { background: #E6EDFB; color: #1F4AB0; }
+.apTick { display: flex; gap: 12px; align-items: center; min-height: 48px; padding: 8px 12px; border: 1.5px solid #D5DBD8; border-radius: 12px; cursor: pointer; font-size: 14.5px; background: #fff; }
+.apTick input { width: 20px; height: 20px; flex: none; accent-color: #1F7A4D; }
+.apTick.on { border-color: #1F7A4D; background: #F3FAF6; }
+.apAccess { max-width: 320px; }

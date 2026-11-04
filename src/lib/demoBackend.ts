@@ -260,6 +260,10 @@ export function demoBackend(opts: { key?: string; seed?: () => Store; mode?: 'de
       return real?.connected ? { ...real, last_sync_at: new Date().toISOString(), last_error: null } : null;
     },
     async zohoConnect() { throw new Error('Zoho connects in the live app only, not the demo.'); },
+    async entryHistory(docId) {
+      const d = s.docs.find((x) => x.id === docId);
+      return d ? [{ at: d.created_at, by_name: d.source === 'zoho' ? 'Zoho' : null, action: 'created', detail: d.source === 'zoho' ? 'Brought in from Zoho' : null }] : [];
+    },
     async dismissedIncoming() { return s.dismissed ?? []; },
     async dismissIncoming(o) { s.dismissed = [...(s.dismissed ?? []).filter((x) => x.po_id !== o.po_id), { ...o, dismissed_at: new Date().toISOString() }]; save(); },
     async restoreIncoming(poId) { s.dismissed = (s.dismissed ?? []).filter((x) => x.po_id !== poId); save(); },

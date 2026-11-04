@@ -289,6 +289,8 @@ export interface AdminApi {
   setReorder(siteId: string, itemId: number, level: number | null): Promise<void>;
 }
 
+export interface HistoryRow { at: string; by_name: string | null; action: string; detail: string | null }
+
 export interface Backend {
   mode: 'live' | 'demo' | 'training' | 'guest';
   currentUser(): Promise<User | null>;
@@ -329,6 +331,8 @@ export interface Backend {
   incoming(force?: boolean): Promise<Incoming>;
   /** The exact record's page in Zoho Books (falls back to the list). */
   zohoOpen(q: ZohoRef): Promise<{ url?: string; error?: string }>;
+  /** 26 · Who changed what on one entry, oldest first. */
+  entryHistory(docId: string): Promise<HistoryRow[]>;
   /** Part deliveries marked "Not coming" (hidden from Incoming). */
   dismissedIncoming(): Promise<IncomingDismissed[]>;
   dismissIncoming(o: { po_id: string; po: string; vendor: string | null; reason: string }): Promise<void>;

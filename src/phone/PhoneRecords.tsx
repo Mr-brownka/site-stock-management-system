@@ -12,6 +12,7 @@ import { weekStart } from '../lib/projectWeek';
 import { REPORTS } from '../lib/reports';
 import { useData, type Screen } from '../lib/store';
 import { useSignal } from '../lib/signals';
+import { EntryHistory } from '../components/History';
 import type { Doc } from '../lib/types';
 import type { RecKey } from '../screens/Records';
 import { Chips, FlipNum, Pill, PSearch, PTop, shortDay, Skel, timeOf, useSub } from './PhoneUI';
@@ -143,6 +144,7 @@ export function PhoneRecList({ recKey: key }: { recKey: RecKey }) {
         <div className="pLines">
           {d.lines.map((l) => <div key={l.id} className="pLine"><span>{name(l.item_id)}{l.subphase && l.subphase !== d.gemba ? <small>{l.subphase}</small> : null}</span><b className={`mono ${tone}`}>{key === 'issued' ? '' : sign}{fmt(Number(l.qty))}</b><small>{unit(l.item_id)}</small></div>)}
         </div>
+        <EntryHistory docId={d.id} phone />
         <footer className="pFoot">
           {zoho ? <ZohoOpen className="pBtn ghost" zref={{ receive_id: d.zoho_receive_id, grn: d.zoho_grn, po: d.zoho_po }} />
             : todayReg && canEdit(user) ? <button className="pBtn" onClick={() => add('issued')}><Icon name="plus" size={18} />Add to it</button>

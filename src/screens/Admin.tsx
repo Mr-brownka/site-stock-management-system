@@ -318,6 +318,67 @@ function Overview({ d, day, user, go }: { d: Data; day: string; user: User; go: 
   );
 }
 
+/* ───────── 30 · Approving a new account: a checklist before Approve ─────────
+   Automatic checks (✓ or !) and things only the admin can confirm (tick boxes). Approve stays off until every box is ticked. */
+const ROLE_DOES: Record<Role, string> = {
+  admin: 'everything, on every site', store: 'enters deliveries, issues, returns and transfers for one store',
+  site_manager: 'views their site’s stock and records', procurement: 'views incoming and stock across sites (no site of their own)',
+  accounts: 'views records and reports', coo: 'views everything', ceo: 'views everything', project_manager: 'views stock, records and reports',
+};
+function ApproveChecklist({ p, d, c, setChoice, busy, onDecline, onApprove }: {
+  p: Profile; d: Data; c: { site: string; role: Role }; setChoice: (c: { site: string; role: Role }) => void; busy: string;
+  onDecline: () => void; onApprove: (access: Access) => void;
+}) {
+  const [tick, setTick] = useState<Record<string, boolean>>({});
+  const [access, setAccess] = useState<Access>(ROLE_DEFAULT[c.role]?.access ?? 'read');
+  useEffect(() => { setAccess(ROLE_DEFAULT[c.role]?.access ?? 'read'); }, [c.role]);
+  const noSite = c.role === 'procurement' || c.site === '__ho';
+  const siteName = c.site === '__ho' ? 'Head office' : d.sites.find((s) => s.id === c.site)?.name ?? '';
+  const norm = (x: string | null | undefined) => (x ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const twin = d.profiles.find((o) => o.id !== p.id && o.status === 'approved' && (norm(o.full_name) === norm(p.full_name) || (!!p.email && norm(o.email) === norm(p.email)) || (!!p.phone && norm(o.phone).replace(/\D/g, '') === norm(p.phone).replace(/\D/g, ''))));
+  const sameSite = !noSite ? d.profiles.filter((o) => o.status === 'approved' && o.site_id === c.site && o.role === c.role && o.id !== p.id).map((o) => o.full_name) : [];
+  const auto: { ok: boolean; t: string; s?: string }[] = [
+    { ok: p.full_name.trim().split(/\s+/).length >= 2, t: 'Full name', s: p.full_name.trim().split(/\s+/).length >= 2 ? p.full_name : `Only “${p.full_name}”: ask for their full name as on their ID` },
+    { ok: !!p.email, t: 'Email', s: p.email ?? 'None given' },
+    { ok: !!p.phone, t: 'Phone', s: p.phone ?? 'None given: needed for WhatsApp demo links and alerts' },
+    { ok: !twin, t: 'Not already in the system', s: twin ? `Looks like ${twin.full_name} (already approved). Check it isn’t the same person.` : 'No one approved with this name, email or phone' },
+  ];
+  const manual: { k: string; t: string }[] = [
+    { k: 'real', t: `I know ${p.full_name.split(' ')[0]} and they work for ${d.sites.length ? 'Comex Builders' : 'us'}` },
+    { k: 'site', t: noSite ? `${p.full_name.split(' ')[0]} doesn’t belong to one site (${c.role === 'procurement' ? 'procurement' : 'head office'})` : `${p.full_name.split(' ')[0]} works at ${siteName}` },
+    { k: 'role', t: `Role is right: ${ROLE_LABEL[c.role]}, who ${ROLE_DOES[c.role]}` },
+    ...(twin ? [{ k: 'twin', t: `I checked: not the same person as ${twin.full_name}` }] : []),
+  ];
+  const ready = manual.every((m) => tick[m.k]);
+  const left = manual.filter((m) => !tick[m.k]).length;
+  return (
+    <div className="apCheck">
+      <div className="adGrid2">
+        <label className="field"><span>Site</span><select className="select input" value={c.site} onChange={(e) => { setChoice({ ...c, site: e.target.value }); setTick((t) => ({ ...t, site: false })); }}>
+          {d.sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}<option value="__ho">Head office (all sites)</option></select></label>
+        <label className="field"><span>Role</span><select className="select input" value={c.role} onChange={(e) => { setChoice({ ...c, role: e.target.value as Role }); setTick((t) => ({ ...t, role: false, site: false })); }}>{(ROLE_OPTS as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select></label>
+      </div>
+      <div className="apList" role="list" aria-label="Checked by the system">
+        <span className="apH">Checked for you</span>
+        {auto.map((a) => <div key={a.t} role="listitem" className={`apAuto ${a.ok ? 'ok' : 'warn'}`}><span className="apIc" aria-hidden="true"><Icon name={a.ok ? 'check' : 'warn'} size={14} /></span><span><b>{a.t}</b><small>{a.ok ? '' : 'Check: '}{a.s}</small></span></div>)}
+        {sameSite.length > 0 && <div className="apAuto info"><span className="apIc" aria-hidden="true"><Icon name="user" size={14} /></span><span><b>Already {ROLE_LABEL[c.role]} at {siteName}</b><small>{sameSite.join(', ')}</small></span></div>}
+      </div>
+      <fieldset className="apList apMan">
+        <legend className="apH">You confirm</legend>
+        {manual.map((m) => <label key={m.k} className={`apTick ${tick[m.k] ? 'on' : ''}`}><input type="checkbox" checked={!!tick[m.k]} onChange={(e) => setTick({ ...tick, [m.k]: e.target.checked })} /><span>{m.t}</span></label>)}
+      </fieldset>
+      <label className="field apAccess"><span>What they can do</span>
+        <select className="select input" value={access} onChange={(e) => setAccess(e.target.value as Access)}>
+          <option value="edit">Can edit</option><option value="read">Read only</option><option value="demo">Demo mode (a safe copy to try)</option>
+        </select></label>
+      <div className="adActs">
+        <button className="adBtn" disabled={!!busy} onClick={onDecline}>Decline</button>
+        <button className="adBtn ok" disabled={!!busy || !ready} onClick={() => onApprove(access)} title={ready ? undefined : 'Tick every box first'}>{ready ? 'Approve' : `Approve · ${left} to tick`}</button>
+      </div>
+    </div>
+  );
+}
+
 /* ───────── Approvals: sign-ups and corrections in one inbox ───────── */
 
 function Approvals({ d, sel, setSel, busy, act }: { d: Data; sel: string | null; setSel: (s: string | null) => void; busy: string; act: Act }) {
@@ -363,14 +424,9 @@ function Approvals({ d, sel, setSel, busy, act }: { d: Data; sel: string | null;
                 <div className="adWho"><Av name={p.full_name} /><div><h2>{p.full_name}</h2><small>{p.email}{p.phone ? ` · ${p.phone}` : ''} · asked {ago(p.created_at)}</small></div></div>
                 {p.status === 'pending' ? (
                   <>
-                    <div className="adGrid2">
-                      <label className="field"><span>Site</span><select className="select input" value={c.site} onChange={(e) => setChoice({ ...c, site: e.target.value })}>{d.sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
-                      <label className="field"><span>Role</span><select className="select input" value={c.role} onChange={(e) => setChoice({ ...c, role: e.target.value as Role })}>{(ROLE_OPTS as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select></label>
-                    </div>
-                    <div className="adActs">
-                      <button className="adBtn" disabled={!!busy} onClick={() => act(p.id, () => api.admin.setProfile(p.id, { status: 'declined' })).then(() => setSel(null))}>Decline</button>
-                      <button className="adBtn ok" disabled={!!busy} onClick={() => act(p.id, () => api.admin.setProfile(p.id, { status: 'approved', site_id: c.site, role: c.role })).then(() => { toast(`${p.full_name} can sign in now`); setSel(null); })}>Approve</button>
-                    </div>
+                    <ApproveChecklist key={p.id} p={p} d={d} c={c} setChoice={setChoice} busy={busy}
+                      onDecline={() => act(p.id, () => api.admin.setProfile(p.id, { status: 'declined' })).then(() => setSel(null))}
+                      onApprove={(access) => act(p.id, () => api.admin.setProfile(p.id, { status: 'approved', site_id: c.site, role: c.role, access, head_office: c.site === '__ho', ...(c.site === '__ho' ? { site_id: d.sites[0]?.id ?? null } : {}) })).then(() => { toast(`${p.full_name} can sign in now`); setSel(null); })} />
                     <small className="muted">After approval, Stores get a short guide the first time they open the app.</small>
                   </>
                 ) : <span className={`stPill ${p.status === 'approved' ? 'ok' : 'out'}`}>{p.status === 'approved' ? 'Approved' : 'Declined'} {p.decided_at ? ago(p.decided_at) : ''}</span>}

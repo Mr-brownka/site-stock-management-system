@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { ROLE_DEFAULT } from './access';
-import type { Access, RolePermission, AdminApi, Backend, Balance, CorrectionRequest, Doc, DocInput, Draft, Field, Item, Line, LineInput, Profile, SiteDoc, SiteInfo, StockTake, Submission, User, ZohoConnection, ZohoItemMatch, ZohoLogRow, ZohoRun, Incoming, IncomingDismissed, ZohoPending, ZohoStatus, ZohoSyncResult } from './types';
+import type { Access, RolePermission, AdminApi, Backend, Balance, CorrectionRequest, Doc, DocInput, Draft, Field, Item, Line, LineInput, Profile, SiteDoc, SiteInfo, StockTake, Submission, User, ZohoConnection, ZohoItemMatch, ZohoLogRow, ZohoRun, Incoming, IncomingDismissed, ZohoPending, ZohoStatus, ZohoSyncResult, HistoryRow } from './types';
 
 const PAGE = 1000;
 
@@ -340,6 +340,11 @@ export function supabaseBackend(url: string, key: string): Backend {
       const { data, error } = await sb.functions.invoke('zoho-mail', { body: m });
       if (error) return { error: error.message };
       return data as { ok?: boolean; error?: string; reconnect?: boolean; from?: string };
+    },
+    async entryHistory(docId) {
+      const { data, error } = await sb.from('entry_history').select('at, by_name, action, detail').eq('document_id', docId).order('at').order('id');
+      if (error) { if (/entry_history/.test(error.message)) return []; fail(error); }
+      return (data ?? []) as HistoryRow[];
     },
     async dismissedIncoming() {
       const { data, error } = await sb.from('incoming_dismissed').select('po_id, po, vendor, reason, dismissed_at').eq('site_id', await mySite());

@@ -7,6 +7,7 @@ import { Icon } from '../components/fx';
 import { fmt } from '../components/ui';
 import { ask, toast } from '../components/feedback';
 import { canEdit } from '../lib/access';
+import { EntryHistory } from '../components/History';
 import { STEPS } from '../lib/store';
 
 export type RegRow = { doc: Doc; ref: string };
@@ -119,6 +120,7 @@ export function RegisterSheet({ row, all, onClose, onFix }: { row: RegRow; all: 
         ); })}
       </div>
       <div className="regFoot muted">Entered {saved}{d.authorised_by ? ` by ${d.authorised_by}` : ''}</div>
+      <EntryHistory docId={d.id} />
     </section>
   );
 }
