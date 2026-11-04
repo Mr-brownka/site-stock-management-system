@@ -40,12 +40,6 @@ export function PhoneHome() {
   const out = lowItems.filter((b) => b.balance <= 0).length;
   const first = user.name.split(' ')[0];
 
-  const tiles = [
-    { k: 'bal', icon: 'box', n: inStore as number | string, t: 'Balances', s: 'items', run: () => go('balances') },
-    { k: 'con', icon: 'bars', n: used as number | string, t: 'Consumption', s: `item${used === 1 ? '' : 's'} used`, run: () => go('consumption') },
-    { k: 'inc', icon: 'truck', n: inc ? inc.week : '–', t: 'Incoming deliveries', s: inc ? `order${inc.week === 1 ? '' : 's'}` : '', run: () => go('incoming') },
-    { k: 'st', icon: 'clip', n: lastTake == null ? '–' : lastTake, t: 'Last stock take', s: lastTake == null ? '' : `day${lastTake === 1 ? '' : 's'} ago`, run: () => go('stocktake') },
-  ];
   return (
     <div className="pPage pGrey pHome pHomeB">
       {/* Design B: a green header holds the greeting and the check-in (frosted glass, three steps). */}
@@ -62,25 +56,30 @@ export function PhoneHome() {
         )}
       </section>
       <GetStarted />
-      <div className="pTiles pRows">
-        {tiles.map((t) => (
-          <button key={t.k} className={`pTileB ${t.k}`} onClick={t.run}>
-            <span className="pTIc"><Icon name={t.icon} size={19} /></span>
-            <span className="pRowT"><b className="pTName">{t.t}</b>
-              <small className="pTNum">{typeof t.n === 'number' ? <FlipNum value={t.n} /> : t.n} {t.s}</small></span>
-            <Icon name="chevR" size={18} />
+      {/* Design B: three key numbers on one floating card, a warning only when something is low, then one clean list. */}
+      <section className="hbGlance" aria-label="Your store at a glance">
+        <button onClick={() => go('balances')}><b className="mono"><FlipNum value={inStore} /></b><small>In store</small></button>
+        <button onClick={() => go('consumption')}><b className="mono"><FlipNum value={used} /></b><small>Used this week</small></button>
+        <button onClick={() => go('incoming')}><b className="mono">{inc ? <FlipNum value={inc.week} /> : '–'}</b><small>Coming in</small></button>
+      </section>
+      {lowItems.length > 0 && (
+        <button className="hbAlert" onClick={() => go('low')}>
+          <Icon name="warn" size={19} /><b>{out === lowItems.length ? `${out} item${out === 1 ? '' : 's'} finished` : `${lowItems.length} item${lowItems.length === 1 ? '' : 's'} running low`}</b><Icon name="chevR" size={18} />
+        </button>
+      )}
+      <nav className="hbList" aria-label="Go to">
+        {[
+          { k: 'bal', icon: 'box', t: 'Balances', r: '', run: () => go('balances') },
+          { k: 'con', icon: 'bars', t: 'Consumption', r: '', run: () => go('consumption') },
+          { k: 'inc', icon: 'truck', t: 'Incoming deliveries', r: inc ? (inc.today ? `${inc.today} today` : inc.late ? `${inc.late} late` : '') : '', run: () => go('incoming') },
+          { k: 'st', icon: 'clip', t: 'Stock take', r: lastTake == null ? '' : lastTake === 0 ? 'Today' : `${lastTake} day${lastTake === 1 ? '' : 's'} ago`, run: () => go('stocktake') },
+          { k: 'sum', icon: 'calendar', t: 'Today’s summary', r: `${nIn} in · ${nOut} out`, run: () => go('submitted') },
+        ].map((r) => (
+          <button key={r.k} className={`hbRow ${r.k}`} onClick={r.run}>
+            <span className="hbIc"><Icon name={r.icon} size={18} /></span><b>{r.t}</b>{r.r && <small>{r.r}</small>}<Icon name="chevR" size={17} />
           </button>
         ))}
-      </div>
-      <button className={`pStrip ${lowItems.length ? 'low' : 'good'}`} onClick={() => go('low')}>
-        <span className="pSIc"><Icon name="warn" size={17} /></span>
-        <b>{lowItems.length ? (out === lowItems.length ? 'Finished' : 'Running low') : 'Nothing running low'}</b>
-        <small>{lowItems.length ? `${lowItems.length} item${lowItems.length === 1 ? '' : 's'}` : 'All good'}</small><Icon name="chevR" size={18} />
-      </button>
-      <button className="pStrip sum" onClick={() => go('submitted')}>
-        <span className="pSIc"><Icon name="calendar" size={17} /></span>
-        <b>Today’s summary</b><small>{nIn} in · {nOut} out</small><Icon name="chevR" size={18} />
-      </button>
+      </nav>
     </div>
   );
 }
