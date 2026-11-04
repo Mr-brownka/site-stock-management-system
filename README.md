@@ -1,4 +1,6 @@
-# Site Stock Management System
+# Ostock · Site Stock Management System
+
+> Live: https://site-stock-management-system.vercel.app · Database: Supabase project `lretzljlonpfhtrhdpjg` · Push to `main` = live on Vercel.
 
 Live stock balances and daily consumption for a construction site store.
 
@@ -97,6 +99,17 @@ src/screens/                        start, 4 steps, day submitted, opening count
 ```
 
 Built with React, TypeScript and Vite. Designs are in the "Site Stock Tracker" canvas.
+
+## Phone app, offline and sign-in (Nov 2026)
+
+- **Works with no signal** (`src/lib/offline.ts`, `public/sw.js`): entries made offline go to an outbox on the phone and are sent in order when the network returns ("No signal · n waiting to send" badge). Pages keep the last data they loaded; the app shell opens offline.
+- **Install as an app**: manifest + service worker; Me → "Ostock on this phone" shows Install (or the iPhone steps).
+- **Notifications** (`supabase/functions/notify`): reminder 5:30 pm if the day isn't submitted, Zoho delivery arrived, items low at 8:00 am. Scheduled with pg_cron; keys live in `public.app_secrets` (never in git).
+- **Fingerprint / Face ID** (`supabase/functions/passkey`): passkeys; the server returns a one-time sign-in token.
+- **History on every entry** (`entry_history`, migration 0040): written by database triggers; shown under each record.
+- **Admin approval checklist**: automatic checks plus tick boxes before Approve.
+
+Migrations live in `supabase/migrations` (applied to the live database in order). Edge functions in `supabase/functions`.
 
 ## Next
 
