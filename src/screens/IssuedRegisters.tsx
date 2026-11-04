@@ -42,7 +42,7 @@ export function IssuedTable({ rows, all, onOpen }: { rows: RegRow[]; all: Doc[] 
     const st = d.doc_date === realToday && !subs.has(d.doc_date) ? { t: 'Today · open', k: 'open' } : subs.has(d.doc_date) ? { t: 'Submitted', k: 'ok' } : { t: 'Not submitted', k: 'no' };
     return (
       <button key={d.id} className="regRow" onClick={() => onOpen(d.id)}>
-        <b className="recRef">{r.ref}</b>
+        <b className="recRef">{r.ref} {d.outbox && <span className={`obTag ${d.outbox === 'refused' ? 'bad' : ''}`}>{d.outbox === 'refused' ? 'Not sent' : 'Waiting'}</span>}</b>
         <span>{niceDate(d.doc_date)}</span>
         <b className="mono">{d.lines.length}</b>
         <span className="regOut">{top.map((l, i) => { const it = itemById.get(l.item_id); return <span key={l.id}>{i > 0 && ' · '}{it?.name ?? 'Item'} <b className="mono">{fmt(l.qty)}</b></span>; })}{d.lines.length > 3 && <em> +{d.lines.length - 3} more</em>}</span>

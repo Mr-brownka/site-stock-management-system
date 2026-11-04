@@ -10,6 +10,7 @@ import { enterMovesOn, keepFocusClear } from './components/ui';
 import { AppGuard } from './components/Recover';
 import { installErrorLog } from './lib/errorLog';
 import { NewVersion } from './components/NewVersion';
+import { installPwa } from './lib/pwa';
 
 bootStep('Checking your account…', 30, 55);
 installFx();
@@ -18,6 +19,7 @@ enterMovesOn();
 import { TrainingBar } from './components/Training';
 
 installBusyButtons();
+installPwa();
 installErrorLog();
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

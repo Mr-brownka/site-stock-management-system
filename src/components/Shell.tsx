@@ -20,6 +20,8 @@ import { noteVisit, Tour } from './Tour';
 import { StartTraining } from './Training';
 import { UnfinishedCard } from './Unfinished';
 import { PullRefresh } from '../phone/Pull';
+import { OutboxBadge } from './Outbox';
+import { DeviceSheet } from './DeviceSettings';
 
 const CHECKIN: Screen[] = ['home', 'submitted'];
 const NAV: { screen: Screen; label: string; icon: string; match: Screen[] }[] = [
@@ -70,6 +72,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
   const toFinish = unconfirmed.length + drafts.length;
   const newDel = useNewZohoDeliveries();
   const [pwOpen, setPwOpen] = useState(false);
+  const [devOpen, setDevOpen] = useState(false);
   useEffect(() => { if (screen === 'rec-deliveries' && newDel) markDeliveriesSeen(); }, [screen, newDel]);
   useEffect(() => { if (user.role === 'store') noteVisit(user, screen); }, [screen, user]);
   const [mini, setMini] = useState(readRail);
@@ -129,8 +132,10 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
     <div className={`shell ${TABBAR.includes(screen) ? 'hasTab' : ''} ${mini ? 'mini' : ''} ${PHONE_OWN.includes(screen) ? 'pOwn' : ''}`} style={mini ? undefined : ({ '--railW': `${railW}px` } as React.CSSProperties)}>
       <ZohoAutoSync />
       <PullRefresh />
+      <OutboxBadge />
       <Celebrate />
       {pwOpen && <ChangePassword onClose={() => setPwOpen(false)} />}
+      {devOpen && <DeviceSheet onClose={() => setDevOpen(false)} />}
       <aside className="rail r2" aria-label="Main menu">
         <div className="r2Top">
           <button type="button" className="railBrand comexBrand" title="Comex Builders Ltd · back to the dashboard" aria-label="Comex Builders · back to the dashboard" onClick={() => { if (catchUp) endCatchUp(); go('home'); }}>
@@ -176,6 +181,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
               {user.role === 'admin' && <button className="railLink" role="menuitem" onClick={() => { setUserMenu(false); openAdmin(); }}><Icon name="user" /><span className="rlText">Admin</span></button>}
               <ZohoStatusLine compact />
               {(user.role === 'admin' || user.role === 'store') && <StartTraining user={user} label="Training mode" />}
+              <button className="railLink" role="menuitem" onClick={() => { setUserMenu(false); setDevOpen(true); }}><Icon name="alert" /><span className="rlText">App, notifications & sign-in</span></button>
               <button className="railLink" role="menuitem" onClick={() => { setUserMenu(false); setPwOpen(true); }}><Icon name="lock" /><span className="rlText">Change password</span></button>
               <button className="railLink signOut" role="menuitem" onClick={signOut}><Icon name="out" /><span className="rlText">Sign out</span></button>
             </div>
@@ -279,6 +285,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
                   {user.role === 'admin' && <button className="railLink" onClick={() => { setSheet(null); openAdmin(); }}><Icon name="user" /><span className="rlText">Admin</span></button>}
                   <ZohoStatusLine compact />
                   {(user.role === 'admin' || user.role === 'store') && <StartTraining user={user} label="Training mode" />}
+                  <button className="railLink" onClick={() => { setSheet(null); setDevOpen(true); }}><Icon name="alert" /><span className="rlText">App, notifications & sign-in</span></button>
                   <button className="railLink" onClick={() => { setSheet(null); setPwOpen(true); }}><Icon name="lock" /><span className="rlText">Change password</span></button>
                   <button className="railLink signOut" onClick={signOut}><Icon name="out" /><span className="rlText">Sign out</span></button>
                 </div>

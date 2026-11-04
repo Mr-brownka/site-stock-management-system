@@ -1,8 +1,17 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { ROLE_DEFAULT } from './access';
-import type { Access, RolePermission, AdminApi, Backend, Balance, CorrectionRequest, Doc, DocInput, Draft, Field, Item, Line, LineInput, Profile, SiteDoc, SiteInfo, StockTake, Submission, User, ZohoConnection, ZohoItemMatch, ZohoLogRow, ZohoRun, Incoming, IncomingDismissed, ZohoPending, ZohoStatus, ZohoSyncResult, HistoryRow } from './types';
+import type { Access, RolePermission, AdminApi, Backend, Balance, CorrectionRequest, Doc, DocInput, Draft, Field, Item, Line, LineInput, Profile, SiteDoc, SiteInfo, StockTake, Submission, User, ZohoConnection, ZohoItemMatch, ZohoLogRow, ZohoRun, Incoming, IncomingDismissed, ZohoPending, ZohoStatus, ZohoSyncResult, HistoryRow, DeviceApi, PushPrefs, PasskeyRow } from './types';
 
 const PAGE = 1000;
+
+/** "Samsung phone", "iPhone", "Windows laptop": a name for a saved fingerprint / Face ID. */
+function deviceName() {
+  const u = navigator.userAgent;
+  if (/iPhone/.test(u)) return 'iPhone'; if (/iPad/.test(u)) return 'iPad';
+  if (/Android/.test(u)) { const m = /;\s*([^;)]+)\s+Build/.exec(u); return m ? m[1] : 'Android phone'; }
+  if (/Mac/.test(u)) return 'Mac'; if (/Windows/.test(u)) return 'Windows computer';
+  return 'This device';
+}
 
 /** Supabase returns at most 1,000 rows per request, so page through. */
 async function fetchAll<T>(query: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>): Promise<T[]> {
@@ -260,14 +269,75 @@ export function supabaseBackend(url: string, key: string): Backend {
     if (event === 'SIGNED_OUT' || (event === 'SIGNED_IN' && session?.user.id !== siteUser)) siteCache = null;
   });
 
+  const device: DeviceApi = {
+    async ready() {
+      const [p, k] = await Promise.all([
+        sb.from('push_subs').select('id', { head: true, count: 'exact' }).limit(1),
+        sb.functions.invoke('passkey', { body: { action: 'ping' } }).catch(() => ({ data: null, error: true })),
+      ]);
+      return { push: !p.error, passkey: !k.error && !!(k.data as { ok?: boolean } | null)?.ok };
+    },
+    async pushGet(endpoint) {
+      const { data, error } = await sb.from('push_subs').select('prefs').eq('endpoint', endpoint).maybeSingle();
+      if (error) fail(error);
+      return (data?.prefs as PushPrefs | undefined) ?? null;
+    },
+    async pushSave(sub, prefs) {
+      const { error } = await sb.from('push_subs').upsert({ endpoint: sub.endpoint, p256dh: sub.keys?.p256dh, auth: sub.keys?.auth, prefs, ua: navigator.userAgent.slice(0, 200) }, { onConflict: 'endpoint' });
+      if (error) fail(error);
+    },
+    async pushRemove(endpoint) {
+      const { error } = await sb.from('push_subs').delete().eq('endpoint', endpoint);
+      if (error) fail(error);
+    },
+    async pushTest() {
+      const { data, error } = await sb.functions.invoke('notify', { body: { kind: 'test' } });
+      if (error) throw new Error('Could not reach the server.');
+      return ((data as { sent?: number; error?: string }).error) ?? `Sent to ${(data as { sent?: number }).sent ?? 0} device(s)`;
+    },
+    async passkeys() {
+      const { data, error } = await sb.from('passkeys').select('id, device, created_at, last_used_at').order('created_at');
+      if (error) fail(error);
+      return (data ?? []) as PasskeyRow[];
+    },
+    async passkeyAdd() {
+      const { startRegistration } = await import('@simplewebauthn/browser');
+      const { data, error } = await sb.functions.invoke('passkey', { body: { action: 'reg-options' } });
+      if (error || (data as { error?: string }).error) throw new Error((data as { error?: string })?.error ?? 'Could not reach the server.');
+      const { options, cid } = data as { options: Parameters<typeof startRegistration>[0]; cid: string };
+      const response = await startRegistration(options);
+      const r = await sb.functions.invoke('passkey', { body: { action: 'reg-verify', cid, response, device: deviceName() } });
+      if (r.error || (r.data as { error?: string }).error) throw new Error((r.data as { error?: string })?.error ?? 'Could not save it. Try again.');
+    },
+    async passkeyRemove(id) {
+      const { error } = await sb.from('passkeys').delete().eq('id', id);
+      if (error) fail(error);
+    },
+    async passkeyLogin() {
+      const { startAuthentication } = await import('@simplewebauthn/browser');
+      const { data, error } = await sb.functions.invoke('passkey', { body: { action: 'login-options' } });
+      if (error || (data as { error?: string }).error) throw new Error('Could not reach the server. Check the internet and try again.');
+      const { options, cid } = data as { options: Parameters<typeof startAuthentication>[0]; cid: string };
+      const response = await startAuthentication(options);
+      const r = await sb.functions.invoke('passkey', { body: { action: 'login-verify', cid, response } });
+      const out = r.data as { token_hash?: string; error?: string } | null;
+      if (r.error || !out?.token_hash) throw new Error(out?.error ?? 'That fingerprint isn’t set up for Ostock on this phone yet. Sign in with your password, then turn it on in Me.');
+      const { error: e2 } = await sb.auth.verifyOtp({ token_hash: out.token_hash, type: 'magiclink' });
+      if (e2) fail(e2);
+    },
+  };
+
   return {
     mode: 'live',
+    device,
 
     async currentUser() {
       const { data } = await sb.auth.getSession();
       const u = data.session?.user;
       if (!u) return null;
-      const { data: p } = await sb.from('profiles').select('full_name, role, status, site_id, training_days, training_waived, access, pages, head_office, guest').eq('id', u.id).maybeSingle();
+      const { data: p, error: pe } = await sb.from('profiles').select('full_name, role, status, site_id, training_days, training_waived, access, pages, head_office, guest').eq('id', u.id).maybeSingle();
+      // No signal: say so (the app then uses the last known person) instead of treating them as not yet approved.
+      if (pe) fail(pe);
       // Pages and access come from the person's role (the admin sets them per role).
       const role = (p?.role ?? 'store') as User['role'];
       const { data: rp, error: rpe } = await sb.from('role_permissions').select('access, pages').eq('role', role).maybeSingle();

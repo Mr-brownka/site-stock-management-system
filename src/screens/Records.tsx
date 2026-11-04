@@ -146,7 +146,7 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
           {!shown.length && <div className="recEmpty">No {C.title.toLowerCase()} {period === 'all' ? 'yet' : `in ${periodLabel.toLowerCase()}`}{q ? ' matching your search' : ''}.</div>}
           {shown.map((r) => (
             <button key={r.doc.id} className="recRow" style={cols.style(src)} onClick={() => setOpenId(r.doc.id)}>
-              <b className="recRef">{r.ref}</b>
+              <b className="recRef">{r.ref} {r.doc.outbox && <span className={`obTag ${r.doc.outbox === 'refused' ? 'bad' : ''}`}>{r.doc.outbox === 'refused' ? 'Not sent' : 'Waiting'}</span>}</b>
               <span>{niceDate(r.doc.doc_date)}</span>
               <span className="mono">{r.paper || '—'}</span>
               <span className="recWho">{r.who || '—'}</span>
@@ -273,7 +273,7 @@ function ReturnsTable({ rows, all, onOpen, label }: { rows: Row[]; all: Doc[]; o
         const f = fromOf(r.doc);
         return (
           <button key={r.doc.id} className="recRow retRow" onClick={() => onOpen(r.doc.id)}>
-            <b className="recRef">{r.ref}</b>
+            <b className="recRef">{r.ref} {r.doc.outbox && <span className={`obTag ${r.doc.outbox === 'refused' ? 'bad' : ''}`}>{r.doc.outbox === 'refused' ? 'Not sent' : 'Waiting'}</span>}</b>
             <span>{niceDate(r.doc.doc_date)}</span>
             <span className="retChips">{r.doc.lines.map((l) => { const it = itemById.get(l.item_id); return <span key={l.id} className="retChip">{it?.name ?? 'Item'} +{fmt(Number(l.qty))} {it?.unit ?? ''}</span>; })}</span>
             <span><span className={`retFrom ${f.loose ? 'loose' : ''}`}>{f.text}</span></span>

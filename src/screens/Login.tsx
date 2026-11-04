@@ -1,5 +1,5 @@
 import { Wordmark } from '../components/Brand';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { api } from '../lib/api';
 
 export function Login({ onIn, onCreate, notice }: { onIn: () => void; onCreate: () => void; notice?: string }) {
@@ -10,6 +10,15 @@ export function Login({ onIn, onCreate, notice }: { onIn: () => void; onCreate: 
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const demo = api.mode === 'demo';
+  // 20 · Fingerprint / Face ID: shown when the server has it switched on and this browser can do it.
+  const [pk, setPk] = useState(false);
+  useEffect(() => { if (window.PublicKeyCredential && api.device) api.device.ready().then((r) => setPk(r.passkey)).catch(() => undefined); }, []);
+  const passkey = async () => {
+    setBusy(true); setErr('');
+    try { await api.device!.passkeyLogin(); onIn(); }
+    catch (x) { const m = (x as Error).message; if (!/abort|cancel|not allowed|timed out/i.test(m)) setErr(m); }
+    finally { setBusy(false); }
+  };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -51,6 +60,7 @@ export function Login({ onIn, onCreate, notice }: { onIn: () => void; onCreate: 
             </label>
             {err && <div className="note err" role="alert">{err}</div>}
             <button className="btn accent" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
+            {pk && <button type="button" className="btn ghost pkBtn" disabled={busy} onClick={passkey}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M12 11v3M8.5 8a5 5 0 0 1 8 4v1M7 12a5 5 0 0 0 1 3M12 18c-1.5 0-2.5-1-3-2M16 16c-.5 1.5-1.5 2.5-2.5 3" /></svg>Use fingerprint or Face ID</button>}
             <button type="button" className="btn link" style={{ alignSelf: 'center' }} disabled={busy} onClick={forgot}>Forgot password?</button>
             {sent && <div className="note ok" role="status">Check your email for a link to set a new password. It can take a minute; check spam too.</div>}
           </form>

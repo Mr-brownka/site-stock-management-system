@@ -134,7 +134,8 @@ export function DataProvider({ user, go, signOut, openAdmin, children }: { user:
     const t = setInterval(tick, 30_000);
     document.addEventListener('visibilitychange', tick);
     window.addEventListener('focus', tick);
-    return () => { clearInterval(t); document.removeEventListener('visibilitychange', tick); window.removeEventListener('focus', tick); };
+    window.addEventListener('ostock-sent', tick);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', tick); window.removeEventListener('focus', tick); window.removeEventListener('ostock-sent', tick); };
   }, []);
 
   // Last visit's data shows at once (live mode only) while fresh data loads behind it.

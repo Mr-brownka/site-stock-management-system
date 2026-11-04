@@ -10,6 +10,7 @@ import { canEdit, canSee, roleLabel } from '../lib/access';
 import { api } from '../lib/api';
 import { useData } from '../lib/store';
 import { PTop, Skel } from './PhoneUI';
+import { DeviceSettings } from '../components/DeviceSettings';
 
 function Row({ icon, label, right, onClick, tone }: { icon: string; label: string; right?: ReactNode; onClick: () => void; tone?: 'red' }) {
   return (
@@ -72,6 +73,8 @@ function ViewerMe() {
       </section>
       <p className="pLead pSitesNote">{canSwitch ? 'Tap a site to look at it. Every site Comex adds appears here.' : 'Every site Comex adds appears here. The admin decides which ones you can open.'}</p>
 
+      <DeviceSettings />
+
       <div className="pSetH">Account</div>
       <section className="pSetCard"><Row icon="lock" label="Change password" onClick={() => setPw(true)} /></section>
       <button className="pSetCard pSignOut" onClick={signOut}>Sign out</button>
@@ -109,6 +112,8 @@ function StoreMe() {
           {z.connected && <Row icon="mail" label="Zoho Mail" onClick={() => api.zohoConnect(true).catch((e) => toast((e as Error).message, 'warn'))} right={<small className="pSetMuted">For emailing stock takes</small>} />}
         </section>
       </>}
+
+      <DeviceSettings />
 
       <div className="pSetH">Account</div>
       <section className="pSetCard">

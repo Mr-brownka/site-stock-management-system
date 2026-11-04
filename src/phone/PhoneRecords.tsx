@@ -110,7 +110,7 @@ export function PhoneRecList({ recKey: key }: { recKey: RecKey }) {
       : key === 'issued' ? (d.doc_date === day ? 'Today’s register' : 'Issuance register')
         : `Returned${d.gemba ? ` from ${d.gemba}` : d.lines[0]?.subphase ? ` from ${d.lines[0].subphase}` : ''}`;
   const ref = (d: Doc, sys: string) => key === 'deliveries' ? d.zoho_grn || d.ref_no || sys : key === 'issued' ? `MIR · ${shortDay(d.doc_date).split(' ').slice(1).join(' ')}` : d.ref_no || sys;
-  const pill = (d: Doc) => key === 'deliveries' ? (d.source === 'zoho' ? <Pill tone="blue">Zoho</Pill> : <Pill tone="grey">Hand-entered</Pill>)
+  const pill = (d: Doc) => d.outbox ? <span className={`obTag ${d.outbox === 'refused' ? 'bad' : ''}`}>{d.outbox === 'refused' ? 'Not sent' : 'Waiting to send'}</span> : key === 'deliveries' ? (d.source === 'zoho' ? <Pill tone="blue">Zoho</Pill> : <Pill tone="grey">Hand-entered</Pill>)
     : key === 'transfers' ? (d.kind === 'transfer_out' ? <Pill tone="amb">Sent out</Pill> : <Pill tone="ok">Received</Pill>)
       : key === 'issued' ? (d.doc_date === day && !submission ? <Pill tone="amb">Not submitted</Pill> : <Pill tone="ok">{d.lines.length} item{d.lines.length === 1 ? '' : 's'}</Pill>)
         : d.ref_no && d.ref_no !== 'No card' ? <Pill tone="grey">Card {d.ref_no}</Pill> : null;

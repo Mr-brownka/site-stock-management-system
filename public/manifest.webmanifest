@@ -30,5 +30,27 @@
       "type": "image/svg+xml",
       "purpose": "any"
     }
+  ],
+  "id": "/",
+  "scope": "/",
+  "description": "Live stock balances for the site store",
+  "orientation": "portrait",
+  "categories": [
+    "business",
+    "productivity"
+  ],
+  "shortcuts": [
+    {
+      "name": "Today’s check-in",
+      "url": "/#/home"
+    },
+    {
+      "name": "Balances",
+      "url": "/#/balances"
+    },
+    {
+      "name": "Incoming deliveries",
+      "url": "/#/incoming"
+    }
   ]
 }

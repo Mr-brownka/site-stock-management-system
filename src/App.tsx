@@ -101,7 +101,7 @@ export function App() {
     if (api.mode === 'training') { exitTraining(); return; }
     if (api.mode === 'guest') { endGuest(); await live?.signOut().catch(() => undefined); forgetVisitor(); location.replace('/'); return; }
     await api.signOut();
-    try { Object.keys(localStorage).filter((k) => k.startsWith('ssms-cache:')).forEach((k) => localStorage.removeItem(k)); } catch { /* ignore */ }
+    try { Object.keys(localStorage).filter((k) => k.startsWith('ssms-cache:') || k.startsWith('ostock-last:')).forEach((k) => localStorage.removeItem(k)); } catch { /* ignore */ }
     forgetVisitor();
     setUser(null); history.replaceState(null, '', '/'); setAdminPath(false);
   }, []);

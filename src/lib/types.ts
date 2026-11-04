@@ -53,6 +53,8 @@ export interface Line {
 
 export interface Doc extends DocInput {
   id: string;
+  /** 16 · Made with no signal: still on this phone ('waiting'), or the database refused it when sent ('refused'). */
+  outbox?: 'waiting' | 'refused';
   created_at: string;
   /** Bohari's own number for the entry, per project and kind (DLV/ISS/RET/TRF). Set by the database. */
   sys_no?: number | null;
@@ -291,8 +293,26 @@ export interface AdminApi {
 
 export interface HistoryRow { at: string; by_name: string | null; action: string; detail: string | null }
 
+/** 19 · 20 · This phone's notifications and fingerprint / Face ID sign-in (live only). */
+export interface PushPrefs { reminder: boolean; low: boolean; delivery: boolean }
+export interface PasskeyRow { id: number; device: string | null; created_at: string; last_used_at: string | null }
+export interface DeviceApi {
+  /** Whether the server side is switched on yet. */
+  ready(): Promise<{ push: boolean; passkey: boolean }>;
+  pushGet(endpoint: string): Promise<PushPrefs | null>;
+  pushSave(sub: PushSubscriptionJSON, prefs: PushPrefs): Promise<void>;
+  pushRemove(endpoint: string): Promise<void>;
+  pushTest(): Promise<string>;
+  passkeys(): Promise<PasskeyRow[]>;
+  passkeyAdd(): Promise<void>;
+  passkeyRemove(id: number): Promise<void>;
+  /** Sign in with a passkey on this device. */
+  passkeyLogin(): Promise<void>;
+}
+
 export interface Backend {
   mode: 'live' | 'demo' | 'training' | 'guest';
+  device?: DeviceApi;
   currentUser(): Promise<User | null>;
   signIn(email: string, password: string): Promise<void>;
   signOut(): Promise<void>;

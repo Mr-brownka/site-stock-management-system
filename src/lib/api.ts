@@ -3,6 +3,7 @@ import { supabaseBackend } from './supabaseBackend';
 import { isTraining, TRAINING_KEY } from './training';
 import { GUEST_KEY, guestCopiedAt, isGuest } from './guest';
 import type { Backend } from './types';
+import { withOffline } from './offline';
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
@@ -13,6 +14,6 @@ export const live: Backend | null = url && key ? supabaseBackend(url, key) : nul
 /** Training mode → a practice copy in this browser; live when Supabase keys are set; otherwise the demo. */
 export const api: Backend = isGuest()
   ? demoBackend({ key: GUEST_KEY, mode: 'guest', zohoStatus: () => Promise.resolve({ connected: true, zoho_email: null, last_sync_at: guestCopiedAt(), last_error: null, imported: 0 }) })
-  : isTraining() ? demoBackend({ key: TRAINING_KEY, mode: 'training', zohoStatus: () => live?.zohoStatus() ?? Promise.resolve(null) }) : live ?? demoBackend();
+  : isTraining() ? demoBackend({ key: TRAINING_KEY, mode: 'training', zohoStatus: () => live?.zohoStatus() ?? Promise.resolve(null) }) : live ? withOffline(live) : demoBackend();
 /** The real store for recording training progress (in demo: the demo store, not the practice copy). */
 export const progressStore: Backend = live ?? (isTraining() ? demoBackend() : api);

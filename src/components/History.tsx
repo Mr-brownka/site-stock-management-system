@@ -27,7 +27,7 @@ export function EntryHistory({ docId, phone = false }: { docId: string; phone?: 
               <span className="histDot" aria-hidden="true"><Icon name={ICON[r.action] ?? 'fix'} size={12} /></span>
               <div>
                 <b>{WORD[r.action] ?? r.action}</b>{r.detail && <span className="histDet"> · {r.detail}</span>}
-                <small>{r.by_name || 'Someone'} · {when(r.at)}</small>
+                <small>{r.by_name || 'Store'} · {when(r.at)}</small>
               </div>
               {i === 0 && rows.length > 5 && !all && <button type="button" className="histMore" onClick={() => setAll(true)}>Show all {rows.length}</button>}
             </li>
