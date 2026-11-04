@@ -306,6 +306,8 @@ export interface DeviceApi {
   passkeys(): Promise<PasskeyRow[]>;
   passkeyAdd(): Promise<void>;
   passkeyRemove(id: number): Promise<void>;
+  /** 31 · My private calendar link for my site's incoming deliveries (made the first time). reset: a new link; the old stops working. */
+  calendarLink(reset?: boolean): Promise<string>;
   /** Sign in with a passkey on this device. */
   passkeyLogin(): Promise<void>;
 }

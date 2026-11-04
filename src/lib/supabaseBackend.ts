@@ -309,6 +309,13 @@ export function supabaseBackend(url: string, key: string): Backend {
       const r = await sb.functions.invoke('passkey', { body: { action: 'reg-verify', cid, response, device: deviceName() } });
       if (r.error || (r.data as { error?: string }).error) throw new Error((r.data as { error?: string })?.error ?? 'Could not save it. Try again.');
     },
+    async calendarLink(reset) {
+      if (reset) { const { error } = await sb.from('calendar_feeds').delete().neq('token', ''); if (error) fail(error); }
+      let { data, error } = await sb.from('calendar_feeds').select('token').maybeSingle();
+      if (error) fail(error);
+      if (!data) { const r = await sb.from('calendar_feeds').insert({}).select('token').single(); if (r.error) fail(r.error); data = r.data; }
+      return `${url}/functions/v1/calendar?t=${data!.token}`;
+    },
     async passkeyRemove(id) {
       const { error } = await sb.from('passkeys').delete().eq('id', id);
       if (error) fail(error);

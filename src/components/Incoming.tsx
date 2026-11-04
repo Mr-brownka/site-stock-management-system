@@ -11,6 +11,7 @@ import { useData } from '../lib/store';
 import { useIsPhone } from './Ring';
 import { BackPill } from './BackPill';
 import { canEdit } from '../lib/access';
+import { CalendarFeed } from './CalendarFeed';
 
 const KEY = 'ostock-incoming-2'; // bumped when the shape changes (subphase)
 const FRESH = 30 * 60_000; // checked at most every 30 minutes unless Refresh is pressed
@@ -306,15 +307,21 @@ export function useIncomingCounts() {
   return { week: wk.length, late: (m.part ?? []).filter((o) => o.late).length, today: wk.filter((o) => o.expected === today).length, part: (m.part ?? []).length };
 }
 
-type PTab = 'this' | 'next' | 'part' | 'all';
-/** Coming in: every order Zoho expects at this site, in one table. The order opens on the right (a sheet on phones). */
+type Filter = 'this' | 'next' | 'part' | 'late';
+type Status = 'late' | 'pend' | 'today' | 'this' | 'next';
+const ST_TXT: Record<Status, string> = { late: 'Late', pend: 'Pending', today: 'Today', this: 'This week', next: 'Next week' };
+const ST_ICON: Record<Status, string> = { late: 'warn', pend: 'download', today: 'clock', this: 'clock', next: 'calendar' };
+const ST_RANK: Record<Status, number> = { late: 0, today: 1, this: 2, pend: 3, next: 4 };
+
+/** Coming in (29 · design A): every order Zoho expects at this site in one list, each with its status (icon + word).
+ *  The four boxes on top are the filters: tap one to see only those, tap it again to see everything. */
 export function ComingInPage() {
   const { data, busy, refresh } = useIncoming();
   const { projectWeek, site, user } = useData();
   const editable = canEdit(user);
   const phone = useIsPhone();
   const wkName = (k: 0 | 1) => (projectWeek != null ? `Week ${projectWeek + k}` : k ? 'Next week' : 'This week');
-  const [tab, setTab] = useState<PTab>('this');
+  const [filter, setFilter] = useState<Filter | null>(null);
   const [q, setQ] = useState('');
   const [selId, setSelId] = useState<string | null>(null);
   const [removing, setRemoving] = useState<IncomingOrder | null>(null);
@@ -324,75 +331,90 @@ export function ComingInPage() {
   const today = data?.today ?? new Date().toISOString().slice(0, 10);
   const goneIds = new Set(gone.map((g) => g.po_id));
   const keepFrom = addDay(today, -13);
-  const lists: Record<Exclude<PTab, 'all'>, IncomingOrder[]> = {
+  const lists = {
     this: data?.thisWeek ?? [], next: data?.nextWeek ?? [],
     part: (data?.part ?? []).filter((o) => !goneIds.has(o.id) && (o.late || !o.firstIn || o.firstIn >= keepFrom)),
   };
-  const all: { o: IncomingOrder; k: Exclude<PTab, 'all'> }[] = [];
+  // Every order once, with its status. A part-delivered order counts as Pending (or Late), not twice.
+  const all: { o: IncomingOrder; st: Status }[] = [];
   const seen = new Set<string>();
-  (['this', 'next', 'part'] as const).forEach((k) => lists[k].forEach((o) => { if (!seen.has(o.id)) { seen.add(o.id); all.push({ o, k }); } }));
-  const rows = (tab === 'all' ? all : lists[tab].map((o) => ({ o, k: tab }))).filter(({ o }) => {
+  lists.part.forEach((o) => { seen.add(o.id); all.push({ o, st: o.late ? 'late' : 'pend' }); });
+  lists.this.forEach((o) => { if (!seen.has(o.id)) { seen.add(o.id); all.push({ o, st: o.expected === today ? 'today' : 'this' }); } });
+  lists.next.forEach((o) => { if (!seen.has(o.id)) { seen.add(o.id); all.push({ o, st: 'next' }); } });
+  const dateOf = (o: IncomingOrder) => o.expected ?? o.firstIn ?? '9999';
+  all.sort((a, b) => ST_RANK[a.st] - ST_RANK[b.st] || dateOf(a.o).localeCompare(dateOf(b.o)));
+  const inFilter = (st: Status) => !filter || (filter === 'this' ? st === 'this' || st === 'today' : filter === 'next' ? st === 'next' : filter === 'part' ? st === 'pend' || st === 'late' : st === 'late');
+  const rows = all.filter(({ o, st }) => {
+    if (!inFilter(st)) return false;
     const s = q.trim().toLowerCase();
     return !s || [o.vendor, o.po, ...o.lines.map((l) => l.name)].some((x) => (x ?? '').toLowerCase().includes(s));
   });
   const late = lists.part.filter((o) => o.late);
   const dueToday = lists.this.filter((o) => o.expected === today).length;
   const sel = all.find((x) => x.o.id === selId) ?? null;
+  const isPart = (st: Status) => st === 'late' || st === 'pend';
   const remove = async (o: IncomingOrder, reason: string) => {
     await api.dismissIncoming({ po_id: o.id, po: o.po, vendor: o.vendor, reason });
     setRemoving(null); setSelId(null); await loadGone();
     toast(`${o.po} removed from incoming`, 'ok', { label: 'Undo', run: () => { api.restoreIncoming(o.id).then(loadGone).catch(() => undefined); } });
   };
-  const kp = [
-    { l: 'Due this week', n: lists.this.length, s: `${late.length ? `${late.length} pending from past weeks` : 'Nothing pending'}${dueToday ? ` · ${dueToday} today` : ''}`, t: '' },
-    { l: wkName(1), n: lists.next.length, s: data?.next ? `${short(data.next.from)} – ${short(data.next.to)}` : 'Next week', t: '' },
-    { l: 'Pending deliveries', n: lists.part.length, s: 'late or rest still owed', t: 'blue' },
-    { l: 'Late', n: late.length, s: late.slice(0, 2).map((o) => (o.vendor ?? '').split(' ')[0]).join(' · ') || 'Nothing late', t: late.length ? 'red' : '' },
+  const kp: { k: Filter; l: string; n: number; s: string; t: string }[] = [
+    { k: 'this', l: 'Due this week', n: lists.this.length, s: dueToday ? `${dueToday} today` : data?.week ? `${short(data.week.from)} – ${short(data.week.to)}` : 'This week', t: '' },
+    { k: 'next', l: wkName(1), n: lists.next.length, s: data?.next ? `${short(data.next.from)} – ${short(data.next.to)}` : 'Next week', t: '' },
+    { k: 'part', l: 'Pending deliveries', n: lists.part.length, s: 'late or rest still owed', t: 'blue' },
+    { k: 'late', l: 'Late', n: late.length, s: late.slice(0, 2).map((o) => (o.vendor ?? '').split(' ')[0]).join(' · ') || 'Nothing late', t: late.length ? 'red' : '' },
   ];
-  const tabs: { k: PTab; t: string; n: number }[] = [
-    { k: 'this', t: wkName(0), n: lists.this.length }, { k: 'next', t: wkName(1), n: lists.next.length },
-    { k: 'part', t: 'Pending deliveries', n: lists.part.length }, { k: 'all', t: 'All', n: all.length },
-  ];
+  const fName = filter ? kp.find((k) => k.k === filter)!.l : '';
   if (data && !data.connected) return <div className="page cinPage"><BackPill /><h1>Coming in</h1><div className="panel pad muted">Zoho Books isn’t connected for this site yet.</div></div>;
   return (
     <div className="page cinPage">
       <BackPill />
       <header className="cinHead">
-        <div><h1>Coming in</h1><p className="muted">Every order Zoho expects at {site || 'this site'}. Fully received items drop off by themselves.</p></div>
+        <div><h1>Coming in</h1><p className="muted">Every order Zoho expects at {site || 'this site'}. Tap a box to filter; tap it again to see everything.</p></div>
         <button className={`btn ghost sm cinRef ${busy ? 'busy' : ''}`} onClick={refresh} disabled={busy}><Icon name="refresh" size={15} />{busy ? 'Checking Zoho…' : data?.checked_at ? `Checked ${ago(data.checked_at)}` : 'Check Zoho'}</button>
       </header>
       {data?.error && <div className="note" role="status">Zoho didn’t answer just now. Showing the last check.</div>}
-      <div className="cinKpis">{kp.map((k) => <div key={k.l} className={k.t}><small>{k.l}</small><b className="mono">{k.n}<span>{k.n === 1 ? ' order' : ' orders'}</span></b><small className="muted">{k.s}</small></div>)}</div>
+      <div className="cinKpis cinBoxes" role="group" aria-label="Filter the orders">
+        {kp.map((k) => (
+          <button key={k.k} type="button" className={`${k.t} ${filter === k.k ? 'on' : ''}`} aria-pressed={filter === k.k} onClick={() => { setFilter(filter === k.k ? null : k.k); setSelId(null); }}>
+            {filter === k.k && <span className="cinTick" aria-hidden="true"><Icon name="check" size={12} /></span>}
+            <small>{k.l}</small><b className="mono">{k.n}<span>{k.n === 1 ? ' order' : ' orders'}</span></b><small className="muted">{k.s}</small>
+          </button>
+        ))}
+      </div>
+      <CalendarFeed />
       <div className={`cinGrid ${sel && !phone ? 'open' : ''}`}>
         <section className="panel cinList">
           <div className="cinBar">
-            <div className="cinTabs" role="tablist">{tabs.map((t) => <button key={t.k} role="tab" aria-selected={tab === t.k} onClick={() => setTab(t.k)}>{t.t}<span className="mono">{t.n}</span></button>)}</div>
+            <b className="cinCount">{filter ? <button type="button" className="cinShowing" onClick={() => setFilter(null)} aria-label={`Showing ${fName}. Show everything`}>Showing: {fName} <Icon name="close" size={12} /></button> : `All orders · ${all.length}`}</b>
+            <span className="small muted cinOrder">Late first, then by date</span>
             <label className="cinFind"><Icon name="search" size={15} /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Vendor, PO or item" aria-label="Find a vendor, PO or item" /></label>
           </div>
-          <div className={`cinTh ${tab === 'part' ? 'part' : ''}`} aria-hidden="true"><span>Vendor</span><span>PO</span><span>Items still to come</span>{tab === 'part' && <span>Subphase</span>}<span>Qty</span><span>{tab === 'part' ? 'Last in' : 'Expected'}</span>{tab === 'part' && <span />}</div>
+          <div className="cinTh cinThA" aria-hidden="true"><span>Vendor</span><span>PO</span><span>Items still to come</span><span>Qty</span><span>Expected</span><span>Status</span><span /></div>
           {!data && busy && <div className="incSkel" />}
-          {data && !rows.length && <div className="incEmpty2">{q ? `Nothing matches “${q}”.` : tab === 'part' ? 'No part deliveries waiting.' : 'Nothing expected here.'}</div>}
-          {rows.map(({ o, k }) => {
-            const dd = due(o, today); const first = o.lines[0]; const more = o.lines.length - 1;
+          {data && !rows.length && <div className="incEmpty2">{q ? `Nothing matches “${q}”.` : filter ? ({ this: 'Nothing due this week.', next: `Nothing expected in ${wkName(1)}.`, part: 'Nothing pending.', late: 'Nothing late.' } as Record<Filter, string>)[filter] : 'Nothing expected here.'}</div>}
+          {rows.map(({ o, st }) => {
+            const first = o.lines[0]; const more = o.lines.length - 1;
             const owed = first ? first.ordered - first.received : 0;
+            const when = isPart(st) ? (o.expected ? `Due ${short(o.expected)}` : o.lastIn ? `Last in ${short(o.lastIn)}` : '—') : due(o, today).t;
             return (
-              <div key={o.id + k} className={`cinRowWrap ${tab === 'part' ? 'part' : ''}`}>
-              <button type="button" className={`cinRow ${tab === 'part' ? 'part' : ''} ${selId === o.id ? 'on' : ''}`} onClick={() => setSelId(selId === o.id && !phone ? null : o.id)}>
-                <b className="cinV">{o.vendor ?? 'Vendor'}</b>
-                <span className="cinPo"><PoTag po={o.po} /></span>
-                <span className="cinIt">{first?.name}{more > 0 && <em> · +{more} more</em>}</span>
-                {tab === 'part' && <span className="cinSub">{o.subphase || '—'}</span>}
-                <b className="cinQ mono">{first ? <>{fmt(owed)}{k === 'part' && <small>/{fmt(first.ordered)}</small>} <small>{first.unit ?? ''}</small></> : ''}</b>
-                <span className="cinDue">{k === 'part' ? <span className={`incChip ${o.late ? 'late' : 'part'}`}>{o.late && o.expected ? `Late · due ${short(o.expected)}` : o.lastIn ? `Last in ${short(o.lastIn)}` : 'Part in'}</span> : <span className={`incChip ${dd.k}`}>{dd.t}</span>}</span>
-              </button>
-              {tab === 'part' && editable && <button type="button" className="incBin" onClick={() => setRemoving(o)} title="Remove: the rest won’t be delivered" aria-label={`Remove ${o.po} from part-delivered`}><Icon name="trash" size={15} /></button>}
+              <div key={o.id} className="cinRowWrap cinA">
+                <button type="button" className={`cinRow cinRowA ${selId === o.id ? 'on' : ''}`} onClick={() => setSelId(selId === o.id && !phone ? null : o.id)}>
+                  <b className="cinV">{o.vendor ?? 'Vendor'}</b>
+                  <span className="cinPo"><PoTag po={o.po} /></span>
+                  <span className="cinIt">{first?.name}{more > 0 && <em> · +{more} more</em>}</span>
+                  <b className="cinQ mono">{first ? <>{fmt(owed)}{isPart(st) && <small>/{fmt(first.ordered)}</small>} <small>{first.unit ?? ''}</small></> : ''}</b>
+                  <span className="cinWhen">{when}</span>
+                  <span className="cinSt"><span className={`stChip ${st}`}><Icon name={ST_ICON[st]} size={12} />{st === 'next' ? wkName(1) : ST_TXT[st]}</span></span>
+                </button>
+                {isPart(st) && editable ? <button type="button" className="incBin" onClick={() => setRemoving(o)} title="Remove: the rest won’t be delivered" aria-label={`Remove ${o.po} from pending`}><Icon name="trash" size={15} /></button> : <span className="incBinGap" aria-hidden="true" />}
               </div>
             );
           })}
         </section>
-        {sel && !phone && <aside className="panel cinSide" aria-label={`Order ${sel.o.po}`}><OrderView o={sel.o} onClose={() => setSelId(null)} onNot={sel.k === 'part' && editable ? () => setRemoving(sel.o) : undefined} /></aside>}
+        {sel && !phone && <aside className="panel cinSide" aria-label={`Order ${sel.o.po}`}><OrderView o={sel.o} onClose={() => setSelId(null)} onNot={isPart(sel.st) && editable ? () => setRemoving(sel.o) : undefined} /></aside>}
       </div>
-      {sel && phone && <OrderSheet o={sel.o} onClose={() => setSelId(null)} onNot={sel.k === 'part' && editable ? () => setRemoving(sel.o) : undefined} />}
+      {sel && phone && <OrderSheet o={sel.o} onClose={() => setSelId(null)} onNot={isPart(sel.st) && editable ? () => setRemoving(sel.o) : undefined} />}
       {removing && <RemoveSheet o={removing} onClose={() => setRemoving(null)} onDone={(r) => remove(removing, r)} />}
     </div>
   );

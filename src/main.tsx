@@ -11,6 +11,7 @@ import { AppGuard } from './components/Recover';
 import { installErrorLog } from './lib/errorLog';
 import { NewVersion } from './components/NewVersion';
 import { installPwa } from './lib/pwa';
+import { followTextSize } from './lib/textSize';
 
 bootStep('Checking your account…', 30, 55);
 installFx();
@@ -20,6 +21,7 @@ import { TrainingBar } from './components/Training';
 
 installBusyButtons();
 installPwa();
+followTextSize();
 installErrorLog();
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

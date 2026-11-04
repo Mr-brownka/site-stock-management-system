@@ -9,6 +9,7 @@ import { niceDate } from '../lib/dates';
 import { useData } from '../lib/store';
 import type { IncomingDismissed, IncomingOrder } from '../lib/types';
 import { Chips, PTop, Skel, useSub } from './PhoneUI';
+import { CalendarFeed } from '../components/CalendarFeed';
 
 const addDay = (d: string, n: number) => { const x = new Date(d + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
 
@@ -116,6 +117,7 @@ export function PhoneIncoming() {
           </div>
         </section>
       ))}
+      <div className="pCalWrap"><CalendarFeed compact /></div>
       <div className="pHint">{tab === 'this' ? 'Not delivered by Sunday → moves to Pending.' : 'Late, or part of it still owed.'}</div>
     </div>
   );
