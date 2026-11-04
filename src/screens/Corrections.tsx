@@ -222,7 +222,7 @@ export function Corrections() {
                   </label>
                 </div>
                 <div className="fxDayHead">{niceDate(pickDay).toUpperCase()} · {(byDay.get(pickDay) ?? []).length} PAPER{(byDay.get(pickDay) ?? []).length === 1 ? '' : 'S'}</div>
-                {docs === null && <div className="panel pad muted">Loading…</div>}
+                {docs === null && <div className="panel pad stack" aria-busy="true" aria-label="Loading">{[0, 1, 2, 3].map((i) => <i key={i} className="skel" style={{ width: `${55 + i * 10}%` }} />)}</div>}
                 {docs !== null && !(byDay.get(pickDay) ?? []).length && <div className="fxNone">Nothing was entered on {niceDate(pickDay)}.</div>}
                 <div className="fxPapers">
                   {(byDay.get(pickDay) ?? []).map((d) => (

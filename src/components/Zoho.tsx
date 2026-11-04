@@ -113,10 +113,10 @@ export function ZohoAutoSync() {
       else if (z === 'declined') toast('Zoho was not connected. You can try again any time.', 'warn');
       else toast(`Zoho: ${q.get('why') ?? 'something went wrong'}`, 'warn');
     }
-    // Check on the first opening of the day only (a page refresh doesn't call Zoho), then every 5 minutes while open.
+    // Check on the first opening of the day only (a page refresh doesn't call Zoho), then every 30 minutes while open.
     const first = firstOpenToday('sync');
     loadZoho().then((s) => { if (first && s?.connected && (!s.last_sync_at || Date.now() - new Date(s.last_sync_at).getTime() > 180_000)) sync(false); });
-    const t = setInterval(() => { if (shared?.connected && document.visibilityState === 'visible') sync(false); }, 300_000);
+    const t = setInterval(() => { if (shared?.connected && document.visibilityState === 'visible') sync(false); }, 1_800_000);
     return () => clearInterval(t);
   }, [sync]);
   useEffect(() => { zohoSyncNow = () => sync(true); }, [sync]);

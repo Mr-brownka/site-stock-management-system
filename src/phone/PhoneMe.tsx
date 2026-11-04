@@ -9,7 +9,7 @@ import { checkZohoNow, useZoho, useZohoConnect } from '../components/Zoho';
 import { canEdit, canSee, roleLabel } from '../lib/access';
 import { api } from '../lib/api';
 import { useData } from '../lib/store';
-import { PTop } from './PhoneUI';
+import { PTop, Skel } from './PhoneUI';
 
 function Row({ icon, label, right, onClick, tone }: { icon: string; label: string; right?: ReactNode; onClick: () => void; tone?: 'red' }) {
   return (
@@ -62,7 +62,7 @@ function ViewerMe() {
 
       <div className="pSetH">Sites</div>
       <section className="pSetCard">
-        {sites === null && <div className="pEmpty">Loading…</div>}
+        {sites === null && <Skel rows={3} />}
         {sites?.map((x) => (
           <button key={x.id} className={`pSetRow pSiteRow ${x.name === site ? 'on' : ''}`} onClick={() => open(x.id, x.name)} disabled={!!busy}>
             <span className="pSetIc">{x.name.slice(0, 1)}</span><b>{busy === x.id ? 'Opening…' : x.name}</b>

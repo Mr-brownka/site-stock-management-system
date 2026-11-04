@@ -19,6 +19,7 @@ import { CommandPalette } from './CommandPalette';
 import { noteVisit, Tour } from './Tour';
 import { StartTraining } from './Training';
 import { UnfinishedCard } from './Unfinished';
+import { PullRefresh } from '../phone/Pull';
 
 const CHECKIN: Screen[] = ['home', 'submitted'];
 const NAV: { screen: Screen; label: string; icon: string; match: Screen[] }[] = [
@@ -127,6 +128,7 @@ export function AppShell({ screen, children }: { screen: Screen; children: React
   return (
     <div className={`shell ${TABBAR.includes(screen) ? 'hasTab' : ''} ${mini ? 'mini' : ''} ${PHONE_OWN.includes(screen) ? 'pOwn' : ''}`} style={mini ? undefined : ({ '--railW': `${railW}px` } as React.CSSProperties)}>
       <ZohoAutoSync />
+      <PullRefresh />
       <Celebrate />
       {pwOpen && <ChangePassword onClose={() => setPwOpen(false)} />}
       <aside className="rail r2" aria-label="Main menu">

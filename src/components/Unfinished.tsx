@@ -7,7 +7,7 @@ import type { Doc, Draft, Item, StepKey } from '../lib/types';
 import { signal } from '../lib/signals';
 import { ask, toast } from './feedback';
 import { Icon } from './fx';
-import { fmt, newLine, Suggest, TimeBoxes, type LineDraft } from './ui';
+import { fmt, newLine, Suggest, TimeBoxes, type CardDraft, type LineDraft } from './ui';
 
 /** What each left-out detail is called, per kind of entry. */
 export const DETAIL_LABEL: Record<string, Record<string, string>> = {
@@ -184,10 +184,11 @@ function FinishSheet({ doc, onClose }: { doc: Doc; onClose: () => void }) {
   );
 }
 
-type PL = { itemId: number | null; qty: string; subphase: string };
-export const linesToPayload = (ls: LineDraft[]): PL[] => ls.filter((l) => l.item || l.qty).map((l) => ({ itemId: l.item?.id ?? null, qty: l.qty, subphase: l.subphase }));
+// The gemba split behind a register row (demo) is kept in the draft too.
+type PL = { itemId: number | null; qty: string; subphase: string; cards?: CardDraft[] };
+export const linesToPayload = (ls: LineDraft[]): PL[] => ls.filter((l) => l.item || l.qty).map((l) => ({ itemId: l.item?.id ?? null, qty: l.qty, subphase: l.subphase, ...(l.cards?.length ? { cards: l.cards } : {}) }));
 export function linesFromPayload(p: unknown, itemById: Map<number, Item>, min = 1): LineDraft[] {
-  const ls = ((p as PL[] | undefined) ?? []).map((x) => ({ ...newLine(x.subphase ?? ''), item: x.itemId ? itemById.get(x.itemId) ?? null : null, qty: x.qty ?? '' }));
+  const ls = ((p as PL[] | undefined) ?? []).map((x) => ({ ...newLine(x.subphase ?? ''), item: x.itemId ? itemById.get(x.itemId) ?? null : null, qty: x.qty ?? '', ...(x.cards?.length ? { cards: x.cards } : {}) }));
   while (ls.length < min) ls.push(newLine());
   return ls;
 }

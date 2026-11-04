@@ -4508,3 +4508,17 @@ select.adAccSel:hover { border-color: currentColor; }
 .rmLow:hover, .rmLow:focus-visible { background: #F8DCD8; color: #B42318; outline: none; }
 .pLowCard .rmLow { width: 32px; height: 32px; font-size: 20px; background: #F3F4F3; }
 .lcItem { align-items: center; } .lcItem > span:first-child { flex: 1; min-width: 0; }
+
+/* 21 · Phone entry pages: the save buttons sit in the thumb zone, pinned to the bottom, every button at least 48 px tall.
+   The main button (Save…) takes the whole bottom row; the others share the row above it. */
+@media (max-width: 767px) {
+  .actionBar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; margin: 0; display: flex; flex-wrap: wrap; gap: 8px;
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); border-width: 1px 0 0; border-radius: 20px 20px 0 0; box-shadow: 0 -10px 30px rgba(18,23,22,.10); }
+  .shell.hasTab .actionBar { bottom: calc(72px + env(safe-area-inset-bottom)); padding-bottom: 10px; }
+  .actionBar > .abGrow, .actionBar > .abHint, .actionBar > .small, .actionBar > span:not([class*="btn"]) { display: none; }
+  .actionBar .btn { flex: 1 1 0; min-width: 0; min-height: 48px; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .actionBar .btn.link { text-decoration: none; border: 1.5px solid var(--line-2, #D5DBD8); border-radius: 12px; background: #fff; }
+  .actionBar .btn.accent { flex: 1 1 100%; order: 9; min-height: 54px; font-size: 17px; border-radius: 14px; }
+  .entryPage, .page:has(> .actionBar), div:has(> .actionBar) { padding-bottom: calc(150px + env(safe-area-inset-bottom)); }
+  .stickyBar .btn, .sheet footer .btn, .dayAsk .btn { min-height: 48px; }
+}

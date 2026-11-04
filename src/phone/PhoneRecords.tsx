@@ -11,6 +11,7 @@ import { openFixFor } from '../lib/fixLink';
 import { weekStart } from '../lib/projectWeek';
 import { REPORTS } from '../lib/reports';
 import { useData, type Screen } from '../lib/store';
+import { useSignal } from '../lib/signals';
 import type { Doc } from '../lib/types';
 import type { RecKey } from '../screens/Records';
 import { Chips, FlipNum, Pill, PSearch, PTop, shortDay, Skel, timeOf, useSub } from './PhoneUI';
@@ -86,6 +87,7 @@ export function PhoneRecList({ recKey: key }: { recKey: RecKey }) {
   const { add, modal } = useAddEntry();
   const zohoOnly = useZohoDeliveries();
   useEffect(() => { api.documents('2000-01-01', day).then(setAll).catch(() => setAll([])); }, [day]);
+  useSignal('pull', () => { api.documents('2000-01-01', day).then(setAll).catch(() => undefined); });
   const name = (id: number) => itemById.get(id)?.name ?? 'Item';
   const unit = (id: number) => itemById.get(id)?.unit ?? '';
 

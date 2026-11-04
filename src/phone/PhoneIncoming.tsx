@@ -18,6 +18,8 @@ export function PhoneIncoming() {
   const { user, projectWeek } = useData();
   const editable = canEdit(user);
   const [tab, setTab] = useState<'this' | 'part'>('this');
+  // Day filter (as on the laptop): tap a day to see only what is due that day; tap it again for the whole week.
+  const [day, setDay] = useState<string | null>(null);
   const [openId, setOpen] = useSub();
   const [removing, setRemoving] = useState<IncomingOrder | null>(null);
   const [gone, setGone] = useState<IncomingDismissed[]>([]);
@@ -61,8 +63,10 @@ export function PhoneIncoming() {
 
   // This week, grouped by the day each is expected: Yesterday · Today · Tomorrow · Monday…
   const groups: { label: string; today: boolean; list: IncomingOrder[] }[] = [];
+  const dayOf = (o: IncomingOrder) => o.expected ?? o.firstIn ?? '';
+  const wkDays = data?.week ? Array.from({ length: 7 }, (_, i) => addDay(data.week!.from, i)) : [];
   if (tab === 'this') {
-    [...week].sort((a, b) => (a.expected ?? '9').localeCompare(b.expected ?? '9')).forEach((o) => {
+    [...week].filter((o) => !day || dayOf(o) === day).sort((a, b) => (a.expected ?? '9').localeCompare(b.expected ?? '9')).forEach((o) => {
       const l = due(o, today).t; const g = groups.find((x) => x.label === l);
       if (g) g.list.push(o); else groups.push({ label: l, today: o.expected === today, list: [o] });
     });
@@ -73,10 +77,28 @@ export function PhoneIncoming() {
         <span style={{ transform: busy ? undefined : `rotate(${pull * 4}deg)` }}><ZohoBooksMark size={22} /></span><small>{busy ? 'Checking Zoho…' : pull >= 60 ? 'Let go to check Zoho' : 'Pull to check Zoho'}</small>
       </div>
       <PTop title="Incoming deliveries" back="home" right={zohoBtn} />
-      <Chips value={tab} onChange={setTab} items={[['this', `This week · ${week.length}`], ['part', `Pending · ${part.length}`]]} />
+      <Chips value={tab} onChange={(t) => { setTab(t); setDay(null); }} items={[['this', `This week · ${week.length}`], ['part', `Pending · ${part.length}`]]} />
+      {tab === 'this' && wkDays.length === 7 && (
+        <div className="pDays" role="tablist" aria-label="Filter by day" style={{ ['--i' as string]: day ? wkDays.indexOf(day) : 0 }}>
+          <span className={`pDaysGlass ${day ? 'on' : ''}`} aria-hidden="true" />
+          {wkDays.map((d) => {
+            const n = week.filter((o) => dayOf(o) === d).length;
+            const t = new Date(d + 'T00:00:00Z');
+            return (
+              <button key={d} type="button" role="tab" aria-selected={day === d} className={`pDay ${d === today ? 'today' : ''} ${n ? '' : 'none'}`}
+                onClick={() => setDay(day === d ? null : d)} aria-label={`${niceDate(d)}: ${n} due`}>
+                <small>{t.toLocaleDateString('en-GB', { weekday: 'narrow', timeZone: 'UTC' })}</small>
+                <b className="mono">{t.getUTCDate()}</b>
+                <i>{Array.from({ length: Math.min(n, 3) }, (_, k) => <em key={k} />)}</i>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {day && <button type="button" className="pDayClear" onClick={() => setDay(null)}>{niceDate(day).split(' ').slice(0, 3).join(' ')} only · Show the whole week</button>}
       {data?.error && <div className="pNote">Zoho didn’t answer just now. Showing the last check.</div>}
       {!data && busy && <Skel rows={4} />}
-      {data && !groups.some((g) => g.list.length) && <div className="pEmpty">{tab === 'this' ? 'Nothing expected this week.' : 'Nothing pending.'}</div>}
+      {data && !groups.some((g) => g.list.length) && <div className="pEmpty">{tab === 'this' ? (day ? 'Nothing due that day.' : 'Nothing expected this week.') : 'Nothing pending.'}</div>}
       {groups.map((g) => (
         <section key={g.label || 'p'}>
           {g.label && <div className={`pGh ${g.today ? 'now' : ''}`}>{g.label}</div>}

@@ -131,7 +131,7 @@ export function Records({ recKey: key }: { recKey: RecKey }) {
         </div>
       </header>
 
-      {all === null ? <div className="recEmpty">Loading…</div> : key === 'issued' && !open ? (
+      {all === null ? <div className="recEmpty stack" aria-busy="true" aria-label="Loading">{[0, 1, 2, 3, 4, 5].map((i) => <i key={i} className="skel" style={{ width: `${60 + ((i * 13) % 35)}%`, height: 18 }} />)}</div> : key === 'issued' && !open ? (
         <IssuedTable rows={shown} all={all} onOpen={setOpenId} />
       ) : key === 'returns' && !open ? (
         <ReturnsTable rows={shown} all={all} onOpen={setOpenId} label={periodLabel} />

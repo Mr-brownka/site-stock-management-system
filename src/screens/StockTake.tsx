@@ -403,7 +403,7 @@ export function StockTake() {
 
       <section className="panel stTakes" aria-label="Stock takes">
         <div className="stTakeRow th"><span>Ref</span><span>Date</span><span>Time</span><span>Counted by</span><span>Items</span><span>Status</span><span className="r">{editable ? 'Share' : 'Print'}</span></div>
-        {takes === null && <div className="pad muted">Loading…</div>}
+        {takes === null && <div className="pad stack" aria-busy="true" aria-label="Loading">{[0, 1, 2, 3].map((i) => <i key={i} className="skel" style={{ width: `${55 + i * 10}%` }} />)}</div>}
         {takes && !takes.length && <div className="pad muted">No stock takes yet. Press “New stock take” to count the store.</div>}
         {takes && [...takes].reverse().map((t) => (
           <div key={t.id} className={`stTakeRow ${t.count_date === realToday ? 'today' : ''}`} title={t.count_date === realToday ? 'Done and saved today' : undefined} role="button" tabIndex={0} onClick={() => setOpenTake(t)} onKeyDown={(e) => { if (e.key === 'Enter') setOpenTake(t); }}>

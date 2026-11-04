@@ -122,7 +122,7 @@ export function Consumption() {
         <aside className={`panel consDetail popA ${phoneOpen ? 'open' : ''}`} role={phoneOpen ? 'dialog' : undefined} aria-modal={phoneOpen || undefined} aria-label="Item detail">
           <button className="cdClose" onClick={() => setPhoneOpen(false)} aria-label="Close"><Icon name="close" size={18} /></button>
           {phoneOpen && <PopNav idx={idx} total={shown.length} step={stepItem} close={close} />}
-          {!cur ? <div className="pad muted">{lines === null ? 'Loading…' : 'Pick an item to see its days.'}</div> : <ItemDetail key={`${cur.id}-${floor}-${range.from}`} r={cur} before={before.get(cur.id)?.used ?? 0} days={eachDay(range.from, range.to).filter((d) => weekday(d) !== 'Sun' || (cur.u.byDay.get(d) ?? 0) > 0)} periodText={periodText} floor={floor} balance={balanceOf(cur.id)}
+          {!cur ? <div className="pad muted">{lines === null ? <span className="stack" aria-busy="true" aria-label="Loading">{[0, 1, 2, 3].map((i) => <i key={i} className="skel" style={{ width: `${55 + i * 9}%` }} />)}</span> : 'Pick an item to see its days.'}</div> : <ItemDetail key={`${cur.id}-${floor}-${range.from}`} r={cur} before={before.get(cur.id)?.used ?? 0} days={eachDay(range.from, range.to).filter((d) => weekday(d) !== 'Sun' || (cur.u.byDay.get(d) ?? 0) > 0)} periodText={periodText} floor={floor} balance={balanceOf(cur.id)}
             onBalances={() => { try { sessionStorage.setItem('ssms-bal-item', String(cur.id)); } catch { /* ignore */ } go('balances'); }} />}
         </aside>
       </div>
