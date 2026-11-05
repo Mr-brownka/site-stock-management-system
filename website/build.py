@@ -26,6 +26,8 @@ ICONS = {
  'menu': '<path d="M4 7h16M4 12h16M4 17h16"/>',
  'pin': '<path d="M12 21s7-6.2 7-12a7 7 0 00-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/>',
  'shield': '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
+ 'grid': '<rect x="3" y="3" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/><path d="M17.25 14v6.5M14 17.25h6.5"/>',
+ 'plan': '<path d="M4 5h9M4 10h14M4 15h7M4 20h11"/><circle cx="18" cy="5" r="1.6"/><circle cx="14" cy="15" r="1.6"/>',
  'zoho': '<path d="M4 7h16v10H4z"/><path d="M8 11h8M8 14h5"/>',
  'download': '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
 }
@@ -33,9 +35,9 @@ def ic(n, cls='i'): return f'<svg class="{cls}" viewBox="0 0 24 24" aria-hidden=
 
 LOGO = '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M5 10l11-5 11 5v12l-11 5-11-5z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/><path d="M5 10l11 5 11-5M16 15v12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/><circle cx="25" cy="24" r="5.2" fill="#3BA7F2" stroke="var(--bg)" stroke-width="1.6"/><path d="M25 26.5v-5M22.8 23.6l2.2-2.2 2.2 2.2" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 
-NAV = [('inventory.html', 'Inventory'), ('news.html', 'Announcements'), ('blog.html', 'Blog'), ('about.html', 'About')]
+NAV = [('products.html', 'Products'), ('news.html', 'Announcements'), ('blog.html', 'Blog'), ('about.html', 'About')]
 
-def page(fname, title, desc, body, event=True):
+def page(fname, title, desc, body, event=False):
     links = ''.join(f'<a href="{h}"{" aria-current=\"page\"" if h == fname else ""}>{t}</a>' for h, t in NAV)
     ev = f'''<div class="event"><div class="wrap"><span class="tag">New</span><span>The phone app now works with no signal.</span><a href="news.html#no-signal">Read more</a></div></div>''' if event else ''
     html = f'''<!doctype html>
@@ -68,7 +70,7 @@ def page(fname, title, desc, body, event=True):
 <footer><div class="wrap">
   <div class="fgrid">
     <div><a class="logo" href="index.html">{LOGO}Ostock</a><p>Run your projects on Ostock. Software for construction companies, built on real sites in Nairobi.</p></div>
-    <div><h4>Products</h4><a href="inventory.html">Inventory</a><a href="about.html#roadmap">Procurement · soon</a><a href="about.html#roadmap">Books · soon</a></div>
+    <div><h4>Products</h4><a href="products.html">Inventory</a><a href="products.html#projects">Projects · soon</a><a href="products.html#books">Books · soon</a><a href="products.html#all">All in one</a></div>
     <div><h4>Company</h4><a href="about.html">About</a><a href="news.html">Announcements</a><a href="blog.html">Blog</a></div>
     <div><h4>Get started</h4><a href="contact.html">Book a demo</a><a href="https://site-stock-management-system.vercel.app">Sign in</a></div>
   </div>
@@ -88,9 +90,12 @@ MOCK = '''<div class="mock" aria-hidden="true">
 
 SWASH = '<svg viewBox="0 0 300 30" preserveAspectRatio="none" aria-hidden="true"><path d="M4 20 C 70 8, 150 6, 296 14"/></svg>'
 
-APPS = [('truck', 'Deliveries', ''), ('clip', 'Issued', ''), ('back', 'Returns', ''), ('swap', 'Transfers', ''),
-        ('count', 'Stock take', 'mint'), ('chart', 'Reports', ''), ('cart', 'Procurement', 'soon'), ('book', 'Books', 'soon mint')]
-apps = ''.join(f'<a class="app {c}" href="{"about.html#roadmap" if "soon" in c else "inventory.html"}"><span class="tile">{ic(i)}</span>{t}</a>' for i, t, c in APPS)
+PRICE = 'KES 22,000'
+PRODS = [('box', 'Inventory', 'Track your purchases and stock', 'products.html#inventory', 'live', 'Live'),
+         ('plan', 'Projects', 'Track your project progress', 'products.html#projects', 'soon', 'Soon'),
+         ('book', 'Books', 'Manage your money', 'products.html#books', 'soon money', 'Soon'),
+         ('grid', 'All in one', 'Everything in one app, plus more', 'products.html#all', 'all', PRICE)]
+apps = ''.join(f'<a class="pb {c}" href="{h}"><span class="ico">{ic(i)}</span><span class="tx"><b>{t}</b><span>{d}</span></span><span class="st">{st}</span></a>' for i, t, d, h, c, st in PRODS)
 
 ANNS = [
  ('no-signal', '5 Nov 2026', 'The phone app works with no signal', 'Entries wait safely on the phone and send themselves when the network comes back. A small badge shows what is still waiting.', ['Inventory']),
@@ -115,34 +120,41 @@ def post(p):
     i, c, k, t = p
     return f'<div class="post"><span class="img {c}">{ic(i)}</span><span><small>{k}</small><b>{t}</b><span class="meta">Coming soon <span class="draft">Draft title</span></span></span></div>'
 
+SUITE = f'''<div class="suite rv">
+    <article class="pc feat" id="inventory"><span class="ico">{ic('box')}</span><span class="chip live">Live</span><h3>Ostock Inventory</h3>
+      <p>Track your purchases and stock. Live balances for every site store; the storekeeper enters the day and the numbers add up by themselves.</p>
+      {MOCK}
+      <a class="more" href="products.html#inventory-detail">See Inventory {ic('arrow')}</a></article>
+    <article class="pc" id="projects"><span class="ico">{ic('plan')}</span><span class="chip soon">Coming soon</span><h3>Ostock Projects</h3>
+      <p>Track your project progress, from the programme to what was done on site today.</p>
+      <ul><li>Progress per floor and activity</li><li>Materials used against the plan</li><li>One view for the whole team</li></ul>
+      <a class="more" href="contact.html?about=projects">Get notified {ic('arrow')}</a></article>
+    <article class="pc money" id="books"><span class="ico">{ic('book')}</span><span class="chip soon">Coming soon</span><h3>Ostock Books</h3>
+      <p>Manage your money. Accounts for construction companies, fed by the stock and purchases you already record.</p>
+      <ul><li>Costs per project and per activity</li><li>Built for how sites really spend</li><li>Works alongside Zoho Books</li></ul>
+      <a class="more" href="contact.html?about=books">Get notified {ic('arrow')}</a></article>
+  </div>
+  <div class="allin rv" id="all">
+    <span class="ico">{ic('grid')}</span>
+    <div><span class="kick">All in one</span><h3>Everything in one app, plus more.</h3><p>Inventory, Projects and Books together, with every new tool as it comes. One login, one price.</p></div>
+    <div class="pr"><b>{PRICE}</b><span>per site, per month</span><a class="btn pri" href="contact.html?about=all">Book a free demo</a></div>
+  </div>'''
+
 # ---------------- Home ----------------
 home = f'''
 <div class="wrap">
   <div class="hero">
-    <h1>Run your projects <span class="mark">on Ostock.{SWASH}</span></h1>
+    <h1>Run your projects <span class="mark">on Ostock.</span></h1>
     <p class="lede">Simple software for construction companies. Start with live stock for every site store, entered on the phone in minutes a day.</p>
-    <div class="ctas"><a class="btn pri" href="contact.html">Book a free demo {ic('arrow')}</a><a class="btn sec" href="inventory.html">See Inventory</a></div>
-    <div class="price"><span><b><span class="ph">[Price]</span></b> per site, per month</span><span class="note hand"><svg viewBox="0 0 40 24" aria-hidden="true"><path d="M38 4 C 26 4, 14 8, 6 18 M6 18 l1-7 M6 18 l7-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Inventory is live today</span></div>
+    <div class="ctas"><a class="btn pri" href="contact.html">Book a free demo {ic('arrow')}</a><a class="btn sec" href="products.html">See products</a></div>
+    <p class="price"><span>All in one: <b>{PRICE}</b> per site, per month</span></p>
     <div class="apps">{apps}</div>
   </div>
 </div>
 
 <section><div class="wrap">
-  <div class="head rv"><div><span class="kick">The suite</span><h2 class="h2">One home for the whole project.</h2><p class="sub">Start with Inventory today. Procurement and Books join the same login, the same items and the same sites.</p></div></div>
-  <div class="suite rv">
-    <article class="pc feat"><span class="ico">{ic('box')}</span><span class="chip live">Live</span><h3>Ostock Inventory</h3>
-      <p>Live stock balances for every site store. The storekeeper enters the day; balances and use add up by themselves.</p>
-      {MOCK}
-      <a class="more" href="inventory.html">See Inventory {ic('arrow')}</a></article>
-    <article class="pc"><span class="ico">{ic('cart')}</span><span class="chip soon">Coming soon</span><h3>Ostock Procurement</h3>
-      <p>Requests, orders and suppliers in one place, joined to what each store already has.</p>
-      <ul><li>Requests from site, straight to procurement</li><li>Orders matched to deliveries</li><li>Stock across all sites before you buy</li></ul>
-      <a class="more" href="contact.html?about=procurement">Get notified {ic('arrow')}</a></article>
-    <article class="pc money"><span class="ico">{ic('book')}</span><span class="chip soon">Coming soon</span><h3>Ostock Books</h3>
-      <p>Accounts for construction companies, fed by the stock and purchases you already record.</p>
-      <ul><li>Costs per project and per activity</li><li>Built for how sites really spend</li><li>Works alongside Zoho Books</li></ul>
-      <a class="more" href="contact.html?about=books">Get notified {ic('arrow')}</a></article>
-  </div>
+  <div class="head rv"><div><span class="kick">The suite</span><h2 class="h2">One home for the whole project.</h2><p class="sub">Start with Inventory today. Projects and Books join the same login, the same items and the same sites.</p></div></div>
+  {SUITE}
 </div></section>
 
 <section style="padding-top:0"><div class="wrap">
@@ -168,7 +180,7 @@ home = f'''
     <div class="posts">{''.join(post(p) for p in POSTS[:2])}</div></div>
 </div></section>
 '''
-page('index.html', 'Ostock · Run your projects on Ostock', 'Simple software for construction companies. Live site stock today; procurement and books next.', home)
+page('index.html', 'Ostock · Run your projects on Ostock', 'Simple software for construction companies. Inventory today; Projects and Books next.', home)
 
 # ---------------- Inventory ----------------
 FEATS = [
@@ -194,9 +206,15 @@ faq = ''.join(f'<details><summary>{q}</summary><p>{a}</p></details>' for q, a in
 inv = f'''
 <div class="wrap phead">
   <a class="crumb" href="index.html">{ic('arrow')}Home</a>
+  <span class="kick">Products</span>
+  <h1 style="margin-top:12px">Built for <span class="mark">construction.</span></h1>
+  <p class="lede">Pick the tool you need today, or take all of them in one app.</p>
+</div>
+<section style="padding-top:0"><div class="wrap">{SUITE}</div></section>
+<div class="wrap phead" id="inventory-detail" style="padding-top:0">
   <div><span class="chip live">Live</span></div>
-  <h1 style="margin-top:14px">Every site store, <span class="mark">live.{SWASH}</span></h1>
-  <p class="lede">Ostock Inventory gives you true stock balances for every site, entered by the storekeeper on the phone and joined to Zoho Books.</p>
+  <h2 class="h2" style="margin-top:14px">Ostock Inventory: every site store, live.</h2>
+  <p class="lede">True stock balances for every site, entered by the storekeeper on the phone and joined to Zoho Books.</p>
   <div class="ctas" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:26px"><a class="btn pri" href="contact.html">Book a free demo {ic('arrow')}</a><a class="btn sec" href="https://site-stock-management-system.vercel.app">Sign in</a></div>
 </div>
 <section style="padding-top:12px"><div class="wrap shots rv">
@@ -220,11 +238,11 @@ inv = f'''
   <div class="faq rv">{faq}</div>
 </div></section>
 <section style="padding-top:0"><div class="wrap"><div class="band rv">
-  <div><span class="kick">Pricing</span><h2><span class="ph" style="background:rgba(255,255,255,.15);color:#fff">[Price]</span> per site, per month</h2><p>Includes the phone app, Zoho Books connection, reports and support. Try it on one site first.</p></div>
+  <div><span class="kick">Pricing</span><h2>All in one: {PRICE} per site, per month</h2><p>Inventory today, Projects and Books as they arrive, plus the phone app, Zoho Books connection, reports and support. Try it on one site first.</p></div>
   <div class="ctas"><a class="btn pri" href="contact.html">Book a free demo</a></div>
 </div></div></section>
 '''
-page('inventory.html', 'Ostock Inventory · Live site stock', 'Live stock balances for every construction site store, entered on the phone and joined to Zoho Books.', inv)
+page('products.html', 'Products · Ostock', 'Ostock Inventory, Projects, Books, and All in one: software built for construction companies.', inv)
 
 # ---------------- News ----------------
 news = f'''
@@ -242,7 +260,7 @@ page('blog.html', 'Blog · Ostock', 'Guides and field notes on running construct
 
 # ---------------- About ----------------
 about = f'''
-<div class="wrap phead"><span class="kick">About</span><h1 style="margin-top:12px">Software for the people who <span class="mark">build.{SWASH}</span></h1>
+<div class="wrap phead"><span class="kick">About</span><h1 style="margin-top:12px">Software for the people who <span class="mark">build.</span></h1>
 <p class="lede">Ostock started on a construction site in Nairobi, with one problem: nobody knew what was really in the store. We built the answer with the storekeepers who live with it every day, and we are growing it into a full suite for construction companies.</p></div>
 <section style="padding-top:12px"><div class="wrap feats rv">
   <div class="ft">{ic('phone')}<b>Simple first</b><span>If a storekeeper can't use it at 6pm after a long day, it isn't done.</span></div>
@@ -253,8 +271,9 @@ about = f'''
   <div class="head rv"><div><span class="kick">Roadmap</span><h2 class="h2">Where we're going</h2></div></div>
   <div class="road rv">
     <div class="rm done"><span class="dot"></span><div><small>Live</small><b>Ostock Inventory</b><span>Live site stock, the phone app, Zoho Books, reports.</span></div></div>
-    <div class="rm now"><span class="dot"></span><div><small>Building now</small><b>Ostock Procurement</b><span>Requests, orders and suppliers, joined to every store.</span></div></div>
-    <div class="rm"><span class="dot"></span><div><small>Next</small><b>Ostock Books</b><span>Accounts and project costs for construction companies.</span></div></div>
+    <div class="rm now"><span class="dot"></span><div><small>Coming soon</small><b>Ostock Projects</b><span>Track your project progress.</span></div></div>
+    <div class="rm now"><span class="dot"></span><div><small>Coming soon</small><b>Ostock Books</b><span>Manage your money.</span></div></div>
+    <div class="rm"><span class="dot"></span><div><small>{PRICE} per site, per month</small><b>All in one</b><span>Everything in one app, plus more.</span></div></div>
   </div>
 </div></section>
 '''
@@ -272,7 +291,7 @@ contact = f'''
   <form class="card" id="demoForm">
     <div class="two"><label>Your name<input name="name" required autocomplete="name"></label><label>Company<input name="company" required autocomplete="organization"></label></div>
     <div class="two"><label>Phone<input name="phone" type="tel" autocomplete="tel"></label><label>Email<input name="email" type="email" autocomplete="email"></label></div>
-    <div class="two"><label>Interested in<select name="about"><option value="inventory">Inventory</option><option value="procurement">Procurement (coming soon)</option><option value="books">Books (coming soon)</option></select></label>
+    <div class="two"><label>Interested in<select name="about"><option value="inventory">Inventory</option><option value="projects">Projects (coming soon)</option><option value="books">Books (coming soon)</option><option value="all">All in one</option></select></label>
     <label>Number of sites<select name="sites"><option>1</option><option>2–5</option><option>6–10</option><option>More than 10</option></select></label></div>
     <label>Anything else<textarea name="note" rows="3"></textarea></label>
     <button class="btn pri" type="submit">Send {ic('arrow')}</button>

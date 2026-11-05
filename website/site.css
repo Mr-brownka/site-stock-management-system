@@ -61,28 +61,37 @@ p { margin: 0 }
 /* Hero */
 .hero { text-align: center; padding-block: clamp(48px, 8vw, 104px) clamp(28px, 4vw, 48px); position: relative }
 .hero h1 { font-size: clamp(42px, 7vw, 86px); font-weight: 800; max-width: 14ch; margin-inline: auto; letter-spacing: -.035em; line-height: 1.02 }
-.mark { position: relative; white-space: nowrap; color: var(--navyT); z-index: 0 }
-.mark svg { position: absolute; left: -4%; right: -4%; width: 108%; bottom: -.08em; height: .42em; z-index: -1; overflow: visible }
-.mark path { fill: none; stroke: var(--sky); stroke-width: 9; stroke-linecap: round; opacity: .55; stroke-dasharray: 420; stroke-dashoffset: 420; animation: draw 1s .35s cubic-bezier(.6, 0, .3, 1) forwards }
-@keyframes draw { to { stroke-dashoffset: 0 } }
-.hand { font-family: 'Caveat', 'Segoe Print', cursive; font-weight: 700; color: var(--navyT) }
+.mark { color: var(--navyT) }
 .hero .lede { color: var(--mut); font-size: clamp(17px, 1.8vw, 20px); max-width: 54ch; margin: 22px auto 0 }
 .hero .ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 30px; align-items: center }
 .price { display: flex; align-items: center; gap: 10px; justify-content: center; margin-top: 18px; color: var(--mut); font-size: 15px; flex-wrap: wrap }
 .price b { color: var(--ink) }
-.price .note { font-size: 22px; transform: rotate(-3deg); display: inline-flex; align-items: center; gap: 6px }
-.price .note svg { width: 34px; height: 22px; color: var(--sky) }
 
-/* App icons row */
-.apps { display: grid; grid-template-columns: repeat(8, 1fr); gap: 14px; max-width: 900px; margin: clamp(40px, 5vw, 64px) auto 0 }
-.app { display: flex; flex-direction: column; align-items: center; gap: 9px; font-size: 13.5px; font-weight: 600; color: var(--mut) }
-.app .tile { position: relative; width: 68px; height: 68px; border-radius: 20px; background: var(--card); display: grid; place-items: center; box-shadow: 0 1px 0 var(--line), 0 12px 24px -16px rgba(11, 61, 145, .45); transition: transform .2s }
-.app:hover .tile { transform: translateY(-3px) }
-.app .tile .i { width: 30px; height: 30px; color: var(--navyT); stroke-width: 1.7 }
-.app .tile::after { content: ''; position: absolute; right: 12px; bottom: 12px; width: 13px; height: 13px; border-radius: 50%; background: var(--dot, var(--sky)); border: 2.5px solid var(--card) }
-.app.mint .tile { --dot: var(--mint) }
-.app.soon { opacity: .55 }
-.app.soon .tile::after { background: var(--grey) }
+/* Product buttons */
+.apps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; max-width: 1040px; margin: clamp(40px, 5vw, 64px) auto 0; text-align: left }
+.pb { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; align-items: start; background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 18px; transition: transform .2s, box-shadow .2s, border-color .2s; position: relative }
+.pb:hover { transform: translateY(-3px); box-shadow: var(--shadow); border-color: color-mix(in srgb, var(--sky) 45%, var(--line)) }
+.pb .ico { width: 46px; height: 46px; border-radius: 14px; background: var(--ice); color: var(--navyT); display: grid; place-items: center; position: relative; grid-row: span 2 }
+.pb .ico .i { width: 24px; height: 24px }
+.pb .ico::after { content: ''; position: absolute; right: -3px; bottom: -3px; width: 12px; height: 12px; border-radius: 50%; background: var(--dot, var(--sky)); border: 2.5px solid var(--card) }
+.pb.money .ico { --dot: var(--mint) }
+.pb .tx b { display: block; font-size: 17px }
+.pb .tx span { display: block; color: var(--mut); font-size: 14px; line-height: 1.4; margin-top: 2px }
+.pb .st { grid-column: 2; justify-self: start; font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 99px; background: var(--ice); color: var(--navyT) }
+.pb.live .st { background: var(--mint); color: var(--navy) }
+.pb.all { background: var(--navy); border-color: var(--navy); color: #fff }
+.pb.all .ico { background: rgba(255,255,255,.12); color: #fff } .pb.all .ico::after { border-color: var(--navy) }
+.pb.all .tx span { color: #CFE0FF }
+.pb.all .st { background: #fff; color: var(--navy); font-size: 13px }
+
+/* All in one strip */
+.allin { margin-top: 18px; display: grid; grid-template-columns: auto 1fr auto; gap: 24px; align-items: center; background: var(--ice); border-radius: var(--r); padding: 28px 32px }
+.allin > .ico { width: 60px; height: 60px; border-radius: 18px; background: var(--navy); color: #fff; display: grid; place-items: center }
+.allin > .ico .i { width: 30px; height: 30px }
+.allin h3 { font-size: 26px; font-weight: 800; margin-top: 6px } .allin p { color: var(--mut); margin-top: 6px }
+.allin .pr { display: grid; justify-items: end; gap: 4px; text-align: right }
+.allin .pr b { font-size: 32px; font-weight: 800; color: var(--navyT); letter-spacing: -.02em; line-height: 1.1 }
+.allin .pr span { color: var(--mut); font-size: 14px; margin-bottom: 8px }
 
 /* Sections */
 section { padding-block: clamp(48px, 7vw, 96px) }
@@ -235,13 +244,14 @@ footer { border-top: 1px solid var(--line); margin-top: clamp(40px, 6vw, 80px); 
 /* Reveal on scroll */
 .rv { opacity: 0; transform: translateY(14px); transition: opacity .6s, transform .6s }
 .rv.in { opacity: 1; transform: none }
-@media (prefers-reduced-motion: reduce) { .rv { opacity: 1; transform: none; transition: none } .mark path { animation: none; stroke-dashoffset: 0 } html { scroll-behavior: auto } }
+@media (prefers-reduced-motion: reduce) { .rv { opacity: 1; transform: none; transition: none } html { scroll-behavior: auto } }
 
 /* Responsive */
 @media (max-width: 980px) {
   .suite, .feed, .band, .shots, .contact { grid-template-columns: 1fr }
   .band .ctas { justify-content: flex-start }
-  .apps { grid-template-columns: repeat(4, 1fr); max-width: 420px; row-gap: 22px }
+  .apps { grid-template-columns: 1fr 1fr }
+  .allin { grid-template-columns: auto 1fr } .allin .pr { grid-column: 1 / -1; justify-items: start; text-align: left }
   .feats, .how { grid-template-columns: 1fr 1fr }
   .fgrid { grid-template-columns: 1fr 1fr }
 }
@@ -254,7 +264,8 @@ footer { border-top: 1px solid var(--line); margin-top: clamp(40px, 6vw, 80px); 
   .feats, .how, .two { grid-template-columns: 1fr }
   .ann { grid-template-columns: 1fr; gap: 4px }
   .post { grid-template-columns: 84px 1fr } .post .img { height: 84px }
-  .app .tile { width: 60px; height: 60px; border-radius: 18px }
+  .apps { grid-template-columns: 1fr }
+  .allin { grid-template-columns: 1fr; padding: 24px }
   .fgrid { grid-template-columns: 1fr }
 }
 .fgrid a.logo { display: inline-flex; padding: 0 }
