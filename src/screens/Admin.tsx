@@ -14,6 +14,7 @@ import { PAGES, ROLE_DEFAULT, ROLE_NAME, ROLES } from '../lib/access';
 import { demoUrl } from '../lib/guest';
 import { MOVE_WORD, showRef } from '../lib/types';
 import { describeStructure, subphasesFor } from '../lib/structure';
+import { OpeningUpload } from './OpeningUpload';
 
 type Sec = 'overview' | 'approvals' | 'sites' | 'people' | 'items' | 'zoho' | 'activity';
 type SiteTab = 'overview' | 'list' | 'reorder' | 'building' | 'manager' | 'zoho';
@@ -595,7 +596,7 @@ function SitePage({ d, day, id, tab, setTab, back, busy, act }: { d: Data; day: 
   const withLevel = bal.filter((b) => b.reorder_level != null).length;
   const conn = d.conns.filter((c) => c.site_id === id);
   const ct = d.contacts[id];
-  const TABS: [SiteTab, string][] = [['overview', 'Overview'], ['list', 'Stock take list'], ['reorder', 'Reorder levels'], ['building', 'Building & week'], ['manager', 'Site manager'], ['zoho', 'Zoho']];
+  const TABS: [SiteTab, string][] = [['overview', 'Overview'], ['list', bal.length ? 'Stock take list' : 'First count'], ['reorder', 'Reorder levels'], ['building', 'Building & week'], ['manager', 'Site manager'], ['zoho', 'Zoho']];
   const Row = ({ label, value, action, onClick }: { label: string; value: ReactNode; action: string; onClick: () => void }) => (
     <div className="adSetRow"><span>{label}</span><span>{value}</span><button className="adLinkBtn" onClick={onClick}>{action}</button></div>
   );
@@ -622,13 +623,15 @@ function SitePage({ d, day, id, tab, setTab, back, busy, act }: { d: Data; day: 
             <Row label="Project week" value={s.week_anchor_no ? `Week ${s.week_anchor_no} set ${niceDate(s.week_anchor_date!)} · counts on by itself` : <span className="muted">Not set</span>} action="Set week" onClick={() => setTab('building')} />
             <Row label="Site manager (WhatsApp)" value={ct?.phone ? `${ct.name || 'Site manager'} · ${ct.phone}` : <span className="muted">Not set</span>} action={ct?.phone ? 'Change' : 'Add'} onClick={() => setTab('manager')} />
             <Row label="Zoho Project" value={d.projects[id] ? `${d.projects[id]}${conn.length ? ` · ${conn.map((c) => c.full_name).join(', ')} connected · checked ${ago(conn[0].last_sync_at)}` : ' · nobody connected yet'}` : <span className="muted">Not set</span>} action="Change" onClick={() => setTab('zoho')} />
-            <Row label="Stock take list" value={list ? `${list.length} items` : '…'} action="Edit list" onClick={() => setTab('list')} />
+            <Row label="Stock take list" value={!bal.length ? <span className="muted">No first count yet</span> : list ? `${list.length} items` : '…'} action={bal.length ? 'Edit list' : 'Upload first count'} onClick={() => setTab('list')} />
             <Row label="Reorder levels" value={`${withLevel} of ${bal.length} items set`} action="Set levels" onClick={() => setTab('reorder')} />
           </section>
         </>
       )}
 
-      {tab === 'list' && <section className="panel adPad">{list ? <ChecklistEditor d={d} siteId={id} ids={list} onSaved={setList} /> : <span className="muted">Loading…</span>}</section>}
+      {/* A new site (nothing in store yet): upload its first count, checked against Zoho, plus "+ Add items". */}
+      {tab === 'list' && !bal.length && <OpeningUpload siteId={id} siteName={s.name} onDone={() => { act(`o${id}`, async () => undefined); api.admin.checklist(id).then(setList).catch(() => undefined); }} />}
+      {tab === 'list' && bal.length > 0 && <section className="panel adPad">{list ? <ChecklistEditor d={d} siteId={id} ids={list} onSaved={setList} /> : <span className="muted">Loading…</span>}</section>}
       {tab === 'reorder' && <Reorder d={d} site={id} busy={busy} act={act} />}
       {tab === 'building' && (
         <section className="panel adPad">

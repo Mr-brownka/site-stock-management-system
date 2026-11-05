@@ -244,6 +244,9 @@ export interface SiteDoc extends Doc {
 }
 
 /** Admin-only reads and actions across all sites. */
+export interface ZohoItem { zoho_item_id: string; name: string; unit: string | null; status: string | null }
+export interface OpeningLine { zoho_item_id?: string | null; item_id?: number | null; name: string; unit: string | null; qty: number }
+
 export interface AdminApi {
   profiles(): Promise<Profile[]>;
   /** Add a person: they sign in with their first and last name and this password. */
@@ -262,6 +265,12 @@ export interface AdminApi {
   /** Item ids on a site's stock take list. */
   checklist(siteId: string): Promise<number[]>;
   setChecklist(siteId: string, itemIds: number[]): Promise<void>;
+  /** Zoho's full item list (the master list) and when it was last fetched. */
+  zohoList(): Promise<{ items: ZohoItem[]; fetchedAt: string | null; error: string | null }>;
+  /** Fetch Zoho's item list again (reads Zoho; a few seconds). */
+  refreshZohoItems(): Promise<number>;
+  /** Load a new site's first count: items found or added by their Zoho link, then the opening entry. */
+  openingCount(siteId: string, date: string, countedBy: string, lines: OpeningLine[]): Promise<number>;
   setProjectWeek(siteId: string, week: number): Promise<void>;
   sites(): Promise<SiteInfo[]>;
   addSite(name: string, structure?: Structure): Promise<void>;

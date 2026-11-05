@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { ROLE_DEFAULT } from './access';
-import type { Access, RolePermission, AdminApi, Backend, Balance, CorrectionRequest, Doc, DocInput, Draft, Field, Item, Line, LineInput, Profile, SiteDoc, SiteInfo, StockTake, Submission, User, ZohoConnection, ZohoItemMatch, ZohoLogRow, ZohoRun, Incoming, IncomingDismissed, ZohoPending, ZohoStatus, ZohoSyncResult, HistoryRow, DeviceApi, PushPrefs, PasskeyRow } from './types';
+import type { Access, RolePermission, AdminApi, Backend, Balance, CorrectionRequest, Doc, DocInput, Draft, Field, Item, Line, LineInput, Profile, SiteDoc, SiteInfo, StockTake, Submission, User, ZohoConnection, ZohoItemMatch, ZohoLogRow, ZohoRun, Incoming, IncomingDismissed, ZohoPending, ZohoStatus, ZohoSyncResult, HistoryRow, DeviceApi, PushPrefs, PasskeyRow, ZohoItem } from './types';
 
 const PAGE = 1000;
 
@@ -226,6 +226,24 @@ function adminApi(sb: SupabaseClient): AdminApi {
       if (!itemIds.length) return;
       const { error: e2 } = await sb.from('site_checklist').insert(itemIds.map((item_id, position) => ({ site_id: siteId, item_id, position })));
       if (e2) fail(e2);
+    },
+    async zohoList() {
+      const [items, f] = await Promise.all([
+        fetchAll<ZohoItem>((a, b) => sb.from('zoho_items').select('zoho_item_id, name, unit, status').order('name').range(a, b)),
+        sb.from('zoho_items_fetch').select('at, error').maybeSingle(),
+      ]);
+      return { items, fetchedAt: (f.data?.at as string) ?? null, error: (f.data?.error as string) ?? null };
+    },
+    async refreshZohoItems() {
+      const { data, error } = await sb.functions.invoke('zoho-items', { body: {} });
+      const r = data as { total?: number; error?: string } | null;
+      if (error || r?.error) throw new Error(r?.error ?? 'Could not reach Zoho just now.');
+      return r?.total ?? 0;
+    },
+    async openingCount(siteId, date, countedBy, lines) {
+      const { data, error } = await sb.rpc('admin_opening_count', { p_site: siteId, p_date: date, p_counted_by: countedBy, p_lines: lines });
+      if (error) fail(error);
+      return Number(data ?? 0);
     },
     async setProjectWeek(siteId, week) {
       const { error } = await sb.rpc('set_project_week', { p_site: siteId, p_week: week });

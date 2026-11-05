@@ -4652,3 +4652,54 @@ select.adAccSel:hover { border-color: currentColor; }
 .tag.low, .tag.out, .pPill.red, .pPill.amb, .pPill.ok { display: inline-flex; align-items: center; gap: 4px; }
 /* Icon-only buttons are big enough for a thumb on phones. */
 @media (max-width: 767px) { .iconBtn, .pIconBtn, .incBin, .cdClose { min-width: 44px; min-height: 44px; } }
+
+/* Admin → new site → First count (design C): numbers first, one card per kind of problem. */
+.fc { display: flex; flex-direction: column; gap: 14px; }
+.fcDrop { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 22px; border: 2px dashed #C9D1CD; background: #FAFBFA; }
+.fcDropIc { width: 48px; height: 48px; border-radius: 14px; background: #E3F3EA; color: #1F5A47; display: grid; place-items: center; flex: none; }
+.fcDropT { flex: 1 1 280px; display: flex; flex-direction: column; } .fcDropT b { font-size: 17px; } .fcDropT small { color: #5F6B66; font-size: 13.5px; }
+.fcZoho { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; color: #5F6B66; font-size: 13.5px; }
+.fcZoho b { color: #1B2120; }
+.fcCols { display: flex; flex-direction: column; gap: 10px; }
+.fcColGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.fcCol { text-align: left; border: 1.5px solid #D5DBD8; background: #fff; border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 3px; cursor: pointer; font: inherit; }
+.fcCol:hover { border-color: #1F5A47; background: #F7FBF9; }
+.fcCol b { font-size: 16px; } .fcCol small { color: #5F6B66; } .fcCol span { display: flex; flex-direction: column; margin-top: 6px; font-family: var(--mono, monospace); font-size: 12px; color: #3D4542; } .fcCol em { font-style: normal; }
+.fcBig { display: grid; grid-template-columns: 1.4fr repeat(4, 1fr); gap: 12px; }
+.fcBig > .panel { padding: 14px 16px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.fcBig > .panel > .stPill { align-self: flex-start; }
+.fcBig b { font-size: 30px; font-weight: 700; line-height: 1.1; }
+.fcBig small { color: #5F6B66; font-size: 12.5px; }
+.fcBig .hero { background: #0F2C25; color: #fff; border-color: #0F2C25; }
+.fcBig .hero small { color: #B9CCC5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fcHeroActs { display: flex; gap: 12px; margin-top: 4px; } .adLinkBtn.light { color: #FCA72D; }
+.fcDupPill { background: #EDE7FB; color: #5B3BB0; }
+.fcFix { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+.fcCard { padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.fcCard header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; } .fcCard header b { flex: 1; font-size: 15.5px; }
+.fcRow { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid #EEF0EE; min-height: 52px; }
+.fcRow.done { opacity: .92; }
+.fcT { flex: 1; min-width: 0; display: flex; flex-direction: column; } .fcT b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .fcT small { color: #5F6B66; font-size: 12.5px; }
+.fcOk { width: 24px; height: 24px; border-radius: 50%; background: #E3F2EA; color: #1A6B43; display: grid; place-items: center; flex: none; }
+.adLinkBtn.grey { color: #5F6B66; }
+.fcQty { width: 96px; text-align: right; }
+.fcPick { position: relative; flex: 0 1 280px; min-width: 0; }
+.fcPickBtn { width: 100%; display: flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 10px; border: 1px solid #D5DBD8; border-radius: 9px; background: #fff; font: inherit; font-size: 13.5px; text-align: left; cursor: pointer; }
+.fcPickBtn span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; } .fcPickBtn small { color: #5F6B66; }
+.fcPickBtn.empty { border-style: dashed; color: #8A5000; } .fcPickBtn.empty span { font-weight: 700; }
+.fcMenu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 40; width: min(380px, 80vw); max-height: 320px; overflow: auto; background: #fff; border: 1px solid #D5DBD8; border-radius: 12px; box-shadow: 0 18px 40px -16px rgba(0,0,0,.4); padding: 8px; display: flex; flex-direction: column; gap: 2px; }
+.fcMenu .input { margin-bottom: 4px; } .fcMenu small.muted { padding: 4px 6px; }
+.fcMenu button { display: flex; gap: 8px; align-items: center; justify-content: space-between; text-align: left; border: 0; background: none; padding: 8px; border-radius: 8px; font: inherit; font-size: 13.5px; cursor: pointer; min-height: 40px; }
+.fcMenu button:hover, .fcMenu button[aria-selected="true"] { background: #F1F3F2; } .fcMenu button small { color: #5F6B66; flex: none; }
+.fcAll { padding: 0; overflow-x: auto; max-height: 520px; overflow-y: auto; }
+.fcTbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.fcTbl th { position: sticky; top: 0; background: #FAFBFA; text-align: left; font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: #5F6B66; padding: 9px 12px; border-bottom: 1px solid #E4E7E5; }
+.fcTbl td { padding: 8px 12px; border-bottom: 1px solid #EEF0EE; } .fcTbl .r { text-align: right; } .fcTbl tr.skip td { color: #8A938F; text-decoration: line-through; }
+.fcFoot { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; padding: 14px 16px; position: sticky; bottom: 10px; z-index: 5; box-shadow: 0 16px 34px -20px rgba(0,0,0,.35); }
+.fcFoot .field { width: 180px; } .fcFootMid { flex: 1 1 220px; }
+.fcAdd { width: min(560px, calc(100vw - 24px)); margin: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; max-height: 80vh; }
+.fcAdd header, .fcAdd footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; } .fcAdd header b { font-size: 17px; }
+.fcAddList { overflow: auto; display: flex; flex-direction: column; gap: 2px; min-height: 120px; }
+.fcAddList button { display: flex; align-items: center; gap: 10px; border: 0; background: none; text-align: left; padding: 10px; border-radius: 9px; font: inherit; cursor: pointer; min-height: 44px; }
+.fcAddList button span { flex: 1; } .fcAddList button small { color: #5F6B66; } .fcAddList button:hover { background: #F1F3F2; }
+@media (max-width: 1000px) { .fcBig { grid-template-columns: 1fr 1fr; } .fcBig .hero { grid-column: span 2; } .fcFix { grid-template-columns: 1fr; } }
