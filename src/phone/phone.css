@@ -451,3 +451,13 @@
 .hbAlertS.new { color: #8A4A00; font-weight: 600; }
 .hbSend { position: relative; z-index: 1; pointer-events: auto; display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; padding: 0; color: #146C40 !important; font-size: 13px; font-weight: 700; }
 .hbSend::after { content: ''; position: absolute; inset: -12px -8px; }
+
+/* One back button on every phone page: the Deliveries bar (← and the page title, pinned at the top). */
+@media (max-width: 767px) {
+  .pBackBar { position: sticky; top: 0; z-index: 20; margin: 0 -14px 4px; background: #fff; }
+  .shell .page > .pBackBar:first-child, .entryPage .entryHead > .pBackBar:first-child { margin-top: -14px; }
+  .pDupTitle { display: none !important; }
+  .backWrap:empty { display: none; }
+  /* Admin's own "← All requests" buttons look the same: a 44 px chevron with the words beside it. */
+  .backPill { min-height: 44px; font-size: 15px; font-weight: 700; gap: 6px; }
+}

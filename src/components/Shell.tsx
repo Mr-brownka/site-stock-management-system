@@ -40,7 +40,7 @@ const RECORDS: { screen: Screen; label: string; tone: string; entry: Screen }[] 
 const readRecOpen = () => { try { return localStorage.getItem('ssms-records') !== 'closed'; } catch { return true; } };
 // Screens that show the phone tab bar (not the step-by-step forms).
 /** Phone pages with their own top bar (the shell's top bar hides there on phones). */
-const PHONE_OWN: Screen[] = ['home', 'records', 'rec-deliveries', 'rec-issued', 'rec-returns', 'rec-transfers', 'dashboard', 'incoming', 'me', 'tofinish', 'stocktake', 'consumption', 'balances', 'low'];
+const PHONE_OWN: Screen[] = ['deliveries', 'issued', 'returns', 'transfers', 'corrections', 'reports', 'submitted', 'home', 'records', 'rec-deliveries', 'rec-issued', 'rec-returns', 'rec-transfers', 'dashboard', 'incoming', 'me', 'tofinish', 'stocktake', 'consumption', 'balances', 'low'];
 const TABBAR: Screen[] = ['home', 'dashboard', 'corrections', 'submitted', 'reports', 'stocktake', 'rec-deliveries', 'rec-issued', 'rec-returns', 'rec-transfers', 'consumption', 'balances', 'records', 'incoming', 'me', 'tofinish', 'low'];
 
 export function closeLabel(min: number): string {
