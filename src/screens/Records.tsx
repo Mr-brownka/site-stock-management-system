@@ -231,7 +231,7 @@ function Detail({ row, cfg, onClose, onFix }: { row: Row; cfg: (typeof CFG)[RecK
   return (
     <section className="recDetail">
       <header>
-        <div><span className="recKicker">{d.source === 'zoho' && <ZohoTag />} {{ DLV: 'Delivery', ISS: 'Issuance register', RET: 'Return', TRF: 'Project transfer' }[cfg.prefix]} · {cfg.tag}</span><h2>{row.ref}</h2></div>
+        <div><span className="recKicker">{d.source === 'zoho' && <ZohoTag />} {{ DLV: 'Delivered', ISS: 'Issued', RET: 'Returned', TRF: 'Transferred' }[cfg.prefix]} · {cfg.tag}</span><h2>{row.ref}</h2></div>
         {(d.zoho_receive_id || d.zoho_po || d.zoho_grn) && <ZohoOpen className="btn ghost sm" label="Open in Zoho" zref={{ receive_id: d.zoho_receive_id, grn: d.zoho_grn, po: d.zoho_po }} />}
         {onFix && <button className="btn ghost sm" onClick={onFix}><Icon name="fix" size={16} />Fix an error</button>}
         <button className="btn ghost sm" onClick={() => window.print()}><Icon name="print" size={16} />Print</button>
@@ -259,9 +259,8 @@ function ReturnsTable({ rows, all, onOpen, label }: { rows: Row[]; all: Doc[]; o
   const fromOf = (d: Doc): { text: string; loose: boolean } => {
     const src = d.lines.map((l) => (l.return_of != null ? lineDoc.get(l.return_of) : undefined)).find(Boolean)
       ?? (d.ref_no && d.ref_no !== 'No card' ? cards.get(d.ref_no.trim()) : undefined);
-    if (src) return { text: src.ref_no ? `Card ${src.ref_no}` : `Register · ${niceDate(src.doc_date).split(' ').slice(1, 3).join(' ')}`, loose: false };
-    if (d.ref_no && d.ref_no !== 'No card') return { text: `Card ${d.ref_no}`, loose: false };
-    return { text: 'Not on the register', loose: true };
+    if (src) return { text: `Issued ${niceDate(src.doc_date).split(' ').slice(1, 3).join(' ')}`, loose: false };
+    return { text: 'Not issued here', loose: true };
   };
   const loose = rows.filter((r) => fromOf(r.doc).loose).length;
   const lines = rows.reduce((a, r) => a + r.doc.lines.length, 0);
@@ -281,7 +280,7 @@ function ReturnsTable({ rows, all, onOpen, label }: { rows: Row[]; all: Doc[]; o
           </button>
         );
       })}
-      {rows.length > 0 && <div className="recFoot">{rows.length} return{rows.length === 1 ? '' : 's'} · {lines} item{lines === 1 ? '' : 's'} back in store{loose ? ` · ${loose} not on any register` : ''} · {label.toLowerCase()}</div>}
+      {rows.length > 0 && <div className="recFoot">{rows.length} return{rows.length === 1 ? '' : 's'} · {lines} item{lines === 1 ? '' : 's'} back in store{loose ? ` · ${loose} not issued here` : ''} · {label.toLowerCase()}</div>}
     </section>
   );
 }

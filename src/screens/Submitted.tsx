@@ -8,7 +8,7 @@ import { toast } from '../components/feedback';
 import { api } from '../lib/api';
 import { longDate, niceDate, weekdayName } from '../lib/dates';
 import { STEPS, useData } from '../lib/store';
-import { delta, type AlertInfo, type Doc } from '../lib/types';
+import { delta, type AlertInfo, type Doc, MOVE_WORD } from '../lib/types';
 import { openItems } from './Dashboard';
 
 const time = (d: Doc) => d.doc_time?.slice(0, 5) ?? new Date(d.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' });
@@ -37,8 +37,8 @@ export function Submitted() {
   }, [docs, balances, isLow]);
 
   const lines = (d: Doc) => { const ls = d.lines.slice(0, 3).map((l) => `${name(l.item_id)} ${fmt(Number(l.qty))}`); return ls.join(' · ') + (d.lines.length > 3 ? ` +${d.lines.length - 3} more` : ''); };
-  const title = (d: Doc) => d.kind === 'issue' ? `Card ${d.ref_no ?? ''}` : d.kind === 'delivery' ? 'Delivery' : d.kind === 'return' ? 'Return' : d.kind === 'transfer_in' ? 'Transfer in' : d.kind === 'transfer_out' ? 'Transfer out' : 'Correction';
-  const sub = (d: Doc) => [lines(d), d.kind === 'issue' ? [d.activity, d.gemba].filter(Boolean).join(' · ') : d.kind === 'return' ? (d.ref_no ? `on card ${d.ref_no}` : '') : d.party].filter(Boolean).join(' · ');
+  const title = (d: Doc) => MOVE_WORD[d.kind] ?? 'Entry';
+  const sub = (d: Doc) => [lines(d), d.kind === 'issue' ? [d.activity, d.gemba].filter(Boolean).join(' · ') : d.kind === 'return' ? (d.gemba ?? '') : d.party].filter(Boolean).join(' · ');
 
   const at = submission ? new Date(submission.submitted_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' }) : null;
   const wd = weekdayName(day);
@@ -98,7 +98,7 @@ export function Submitted() {
         <section className="sumMain">
           <div className="sumTiles">
             <div className="t-in"><span>Came in</span><b>{count('deliveries') || '–'}<small>{count('deliveries') === 1 ? 'delivery' : 'deliveries'}</small></b></div>
-            <div className="t-out"><span>Went out</span><b>{count('issued') || '–'}<small>{count('issued') === 1 ? 'card' : 'cards'}</small></b></div>
+            <div className="t-out"><span>Went out</span><b>{count('issued') || '–'}<small>issued</small></b></div>
             <div className="t-back"><span>Came back</span><b>{count('returns') || '–'}<small>{count('returns') === 1 ? 'return' : 'returns'}</small></b></div>
             <div className="t-ink"><span>Items moved</span><b>{rows.length}<small>of {balances.length}</small></b></div>
           </div>

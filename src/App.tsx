@@ -72,17 +72,26 @@ export function App() {
   const [recovering, setRecovering] = useState(() => api.isRecovery());
   const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState('');
+  const loadUser = useCallback(() => api.currentUser().then(setUser).catch(() => setUser(null)), []);
   // A demo link (…/?demo=…) opens that person's demo straight away, no sign-in. Coming back later opens it again.
   const [linkOpening, setLinkOpening] = useState(() => !!new URLSearchParams(location.search).get('demo') || (!isGuest() && !!demoLinkToken()));
   useEffect(() => {
     if (!linkOpening) return;
     const token = new URLSearchParams(location.search).get('demo') || demoLinkToken();
     if (!token) { setLinkOpening(false); return; }
-    openDemoLink(token).catch((e) => { history.replaceState(null, '', '/'); setNotice((e as Error).message); setLinkOpening(false); });
-  }, [linkOpening]);
+    // A personal link: demo people open the safe copy of Reveal (as before); everyone else is signed in as themselves.
+    const fromUrl = !!new URLSearchParams(location.search).get('demo');
+    const open = async () => {
+      const mode = fromUrl && live?.openLink ? await live.openLink(token) : 'demo';
+      if (mode === 'demo') return openDemoLink(token);
+      history.replaceState(null, '', '/#/home');
+      setLinkOpening(false);
+      await loadUser();
+    };
+    open().catch((e) => { history.replaceState(null, '', '/'); setNotice((e as Error).message); setLinkOpening(false); });
+  }, [linkOpening, loadUser]);
   const [adminPath, setAdminPath] = useState(isAdminPath);
 
-  const loadUser = useCallback(() => api.currentUser().then(setUser).catch(() => setUser(null)), []);
   useEffect(() => { loadUser(); }, [loadUser]);
   useEffect(() => {
     const on = () => { setScreen(fromHash()); setAdminPath(isAdminPath()); window.scrollTo(0, 0); };

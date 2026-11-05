@@ -21,7 +21,7 @@ export function RecordsHub() {
   const last = (kinds: Doc['kind'][]) => [...recent, ...docsToday].filter((d) => kinds.includes(d.kind))
     .sort((a, b) => b.doc_date.localeCompare(a.doc_date) || b.created_at.localeCompare(a.created_at))[0];
   const what = (d: Doc) => {
-    const who = d.kind === 'issue' ? `Card ${d.ref_no ?? ''}` : d.kind === 'return' ? (d.ref_no ? `On card ${d.ref_no}` : 'Return') : d.party || d.ref_no || 'Entry';
+    const who = d.kind === 'issue' ? 'Issued' : d.kind === 'return' ? 'Returned' : d.party || d.ref_no || 'Entry';
     return `${who} · ${d.doc_date === day ? t(d) : niceDate(d.doc_date).split(' ').slice(0, 3).join(' ')}`;
   };
   return (

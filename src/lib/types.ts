@@ -314,6 +314,8 @@ export interface DeviceApi {
 
 export interface Backend {
   mode: 'live' | 'demo' | 'training' | 'guest';
+  /** A personal link (…/?demo=TOKEN): signs that person in (no password), or says it is a demo link. */
+  openLink?(token: string): Promise<'demo' | 'user'>;
   device?: DeviceApi;
   currentUser(): Promise<User | null>;
   signIn(email: string, password: string): Promise<void>;
@@ -413,3 +415,11 @@ export const SUBPHASES = [
 export function delta(kind: Kind, qty: number): number {
   return kind === 'issue' || kind === 'transfer_out' ? -qty : qty;
 }
+
+/** How a movement is named wherever movements are shown (pop-ups, lists, timelines): plain verbs, no paper names. */
+export const MOVE_WORD: Record<string, string> = {
+  opening: 'Stock take', delivery: 'Delivered', issue: 'Issued', return: 'Returned',
+  transfer_in: 'Transferred in', transfer_out: 'Transferred out', correction: 'Correction',
+};
+/** Whether to show the paper number (delivery note, transfer note) next to the movement: never for issued / returned. */
+export const showRef = (kind: string) => kind !== 'issue' && kind !== 'return';

@@ -23,6 +23,7 @@ import { continueEvening, startEvening, useFlow } from '../components/EveningFlo
 import { IncomingPanel, useIncomingCounts } from '../components/Incoming';
 import { Ring } from '../components/Ring';
 import { canEdit } from '../lib/access';
+import { MOVE_WORD, showRef } from '../lib/types';
 import { GetStarted } from '../components/Tour';
 
 
@@ -379,7 +380,7 @@ export function Home() {
   );
 }
 
-const KIND_LABEL: Record<string, string> = { delivery: 'Delivery', issue: 'Issuance register', return: 'Return', transfer_in: 'Transfer in', transfer_out: 'Transfer out', correction: 'Correction', opening: 'Stock take' };
+const KIND_LABEL = MOVE_WORD;
 
 /** One colour and icon per category, so each is told apart at a glance. */
 const CAT: Record<string, { tag: string; icon: string }> = {
@@ -419,7 +420,7 @@ function EntriesSheet({ onClose }: { onClose: () => void }) {
                 const late = !!submission && d.created_at > submission.submitted_at;
                 return (
                   <div key={d.id} className="entCard">
-                    <div className="between"><b>{KIND_LABEL[d.kind]}{d.ref_no ? ` · ${d.kind === 'issue' ? 'card ' : ''}${d.ref_no}` : ''}{late && <span className="pill late">Added</span>}</b><span className="mono small muted">{d.doc_time ?? new Date(d.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' })}</span></div>
+                    <div className="between"><b>{KIND_LABEL[d.kind]}{d.ref_no && showRef(d.kind) ? ` · ${d.ref_no}` : ''}{late && <span className="pill late">Added</span>}</b><span className="mono small muted">{d.doc_time ?? new Date(d.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' })}</span></div>
                     {(d.party || d.activity) && <div className="small muted">{[d.party, d.activity, d.gemba].filter(Boolean).join(' · ')}</div>}
                     {d.lines.map((l) => <div key={l.id} className="ln"><span>{itemById.get(l.item_id)?.name ?? 'Item'}</span><span className="mono">{fmt(l.qty)} {itemById.get(l.item_id)?.unit}</span></div>)}
                   </div>

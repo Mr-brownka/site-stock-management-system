@@ -337,6 +337,16 @@ export function supabaseBackend(url: string, key: string): Backend {
   return {
     mode: 'live',
     device,
+    async openLink(token) {
+      const { data, error } = await sb.functions.invoke('link-open', { body: { token } });
+      const r = data as { mode?: 'demo' | 'user'; token_hash?: string; error?: string } | null;
+      if (error || !r?.mode) throw new Error(r?.error ?? 'Could not open Ostock. Check the internet and try again.');
+      if (r.mode === 'user') {
+        const { error: e2 } = await sb.auth.verifyOtp({ token_hash: r.token_hash!, type: 'magiclink' });
+        if (e2) throw new Error('This link could not sign you in. Ask the admin for a new one.');
+      }
+      return r.mode;
+    },
 
     async currentUser() {
       const { data } = await sb.auth.getSession();

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { categoryOf } from '../lib/categories';
 import { addDays, niceDate } from '../lib/dates';
 import { useData } from '../lib/store';
-import { delta, type Balance } from '../lib/types';
+import { delta, type Balance, MOVE_WORD } from '../lib/types';
 import { Icon, Num, PulseDot } from './fx';
 import { fmt } from './ui';
 import { api } from '../lib/api';
@@ -11,7 +11,7 @@ import { toast } from './feedback';
 
 export interface Use { issued: number; returned: number; used: number; bySub: Map<string, number> }
 
-const KIND_LABEL: Record<string, string> = { opening: 'Opening count', delivery: 'Delivered', issue: 'Issued', return: 'Returned', transfer_in: 'Received', transfer_out: 'Sent', correction: 'Correction' };
+const KIND_LABEL = MOVE_WORD;
 
 /** Balance at the end of each of the last 28 days, oldest first. */
 function history(itemId: number, balance: number, day: string, docs: ReturnType<typeof useData>['recent']): number[] {
@@ -140,7 +140,7 @@ export function ItemSheet({ b, mode, use, rangeLabel, onClose, onSaveReorder }: 
                   return (
                     <li key={l.id} style={{ animationDelay: `${0.05 * i}s` }} className={v < 0 ? 'minus' : 'plus'}>
                       <span className="tlDot" />
-                      <span className="tlText"><span><b>{KIND_LABEL[d.kind] ?? d.kind}</b>{d.kind === 'issue' || d.kind === 'return' ? (d.ref_no ? ` · card ${d.ref_no}` : '') : d.party ? ` · ${d.party}` : ''}</span><span className="small muted">{niceDate(d.doc_date)}</span></span>
+                      <span className="tlText"><span><b>{KIND_LABEL[d.kind] ?? d.kind}</b>{d.kind === 'issue' || d.kind === 'return' ? (d.gemba ? ` · ${d.gemba}` : '') : d.party ? ` · ${d.party}` : ''}</span><span className="small muted">{niceDate(d.doc_date)}</span></span>
                       <span className="tlQty">{v < 0 ? '−' : '+'}{fmt(Math.abs(v))}</span>
                     </li>
                   );

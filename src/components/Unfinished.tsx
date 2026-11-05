@@ -7,6 +7,7 @@ import type { Doc, Draft, Item, StepKey } from '../lib/types';
 import { signal } from '../lib/signals';
 import { ask, toast } from './feedback';
 import { Icon } from './fx';
+import { MOVE_WORD, showRef } from '../lib/types';
 import { fmt, newLine, Suggest, TimeBoxes, type CardDraft, type LineDraft } from './ui';
 
 /** What each left-out detail is called, per kind of entry. */
@@ -16,7 +17,7 @@ export const DETAIL_LABEL: Record<string, Record<string, string>> = {
   transfer_in: { party: 'Project', ref_no: 'Transfer note no.', authorised_by: 'Authorised by' },
   transfer_out: { party: 'Project', ref_no: 'Transfer note no.', authorised_by: 'Authorised by' },
 };
-const KIND_NAME: Record<string, string> = { delivery: 'Delivery', issue: 'Card', return: 'Return', transfer_in: 'Transfer in', transfer_out: 'Transfer out' };
+const KIND_NAME = MOVE_WORD;
 const labelsFor = (kind: string, keys: string[]) => [...new Set(keys.map((k) => DETAIL_LABEL[kind]?.[k] ?? k))];
 export const shortDay = (d: string) => `${weekdayName(d).slice(0, 3)} ${niceDate(d).split(' ').slice(1).join(' ')}`;
 
@@ -88,7 +89,7 @@ export function UnfinishedCard({ chip }: { chip?: boolean } = {}) {
   const rows = [
     ...unconfirmed.map((d) => {
       const labels = labelsFor(d.kind, d.to_confirm ?? []);
-      const what = `${KIND_NAME[d.kind] ?? 'Entry'}${d.ref_no ? ` ${d.ref_no}` : ''} · ${d.lines.slice(0, 2).map((l) => { const it = itemById.get(l.item_id); return `${it?.name ?? 'Item'} ${fmt(l.qty)} ${it?.unit ?? ''}`.trim(); }).join(', ')}${d.lines.length > 2 ? '…' : ''} · ${shortDay(d.doc_date)}`;
+      const what = `${KIND_NAME[d.kind] ?? 'Entry'}${d.ref_no && showRef(d.kind) ? ` ${d.ref_no}` : ''} · ${d.lines.slice(0, 2).map((l) => { const it = itemById.get(l.item_id); return `${it?.name ?? 'Item'} ${fmt(l.qty)} ${it?.unit ?? ''}`.trim(); }).join(', ')}${d.lines.length > 2 ? '…' : ''} · ${shortDay(d.doc_date)}`;
       return (
         <div key={d.id} className="fbRow">
           <span className="fbIc" aria-hidden="true">!</span>
@@ -166,7 +167,7 @@ function FinishSheet({ doc, onClose }: { doc: Doc; onClose: () => void }) {
       <section className="dayAsk" role="dialog" aria-modal="true" aria-labelledby="finTitle">
         <span className="daKicker">Finish entry</span>
         <h2 id="finTitle">Fill in what was left out</h2>
-        <div className="finSummary">{KIND_NAME[doc.kind] ?? 'Entry'}{doc.ref_no ? <> <b>{doc.ref_no}</b></> : ''} · {shortDay(doc.doc_date)} · {doc.lines.map((l) => `${itemById.get(l.item_id)?.name ?? 'Item'} ${fmt(l.qty)}`).join(', ')}</div>
+        <div className="finSummary">{KIND_NAME[doc.kind] ?? 'Entry'}{doc.ref_no && showRef(doc.kind) ? <> <b>{doc.ref_no}</b></> : ''} · {shortDay(doc.doc_date)} · {doc.lines.map((l) => `${itemById.get(l.item_id)?.name ?? 'Item'} ${fmt(l.qty)}`).join(', ')}</div>
         {floorKeys.length > 0 && (
           <label className="field"><span>{doc.kind === 'issue' ? 'Gemba (floor)' : 'Sub-phase'}</span>
             <select className="select input" value={floor} onChange={(e) => setVals({ ...vals, floor: e.target.value })}><option value="">Choose…</option>{subphases.map((s) => <option key={s}>{s}</option>)}</select>

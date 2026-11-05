@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useData } from '../lib/store';
 import { addDays, niceDate, periodRange, weekday } from '../lib/dates';
-import { delta, type Balance } from '../lib/types';
+import { delta, type Balance, MOVE_WORD, showRef } from '../lib/types';
 import { api } from '../lib/api';
 import { Icon } from '../components/fx';
 import { fmt } from '../components/ui';
@@ -116,7 +116,7 @@ export function Balances() {
   );
 }
 
-const KIND_LABEL: Record<string, string> = { opening: 'Opening count', delivery: 'Delivery', issue: 'Card', return: 'Return', transfer_in: 'Transfer in', transfer_out: 'Transfer out' };
+const KIND_LABEL = MOVE_WORD;
 
 /** How full the item is: 1 = at its reorder level, >1 = above it. Items without a level sort by balance. */
 const level = (b: Balance) => (b.reorder_level ? b.balance / b.reorder_level : 1e6 + b.balance);
@@ -166,7 +166,7 @@ function Detail({ b, st, days, recent, day, onHistory, onConsumption }: { b: Bal
           {moves.map(({ d, l, x }) => (
             <div key={l.id} className={`pmRow ${x > 0 ? 'in' : 'out'} k-${d.kind}`}>
               <span className="pmIc" aria-hidden="true">{d.kind === 'delivery' || d.kind === 'transfer_in' ? '↓' : d.kind === 'return' ? '↺' : '↑'}</span>
-              <span className="pmT"><b>{KIND_LABEL[d.kind] ?? 'Entry'}{d.ref_no ? ` ${d.ref_no}` : ''}{d.party ? ` · ${d.party}` : ''}</b><small>{niceDate(d.doc_date)}{l.subphase ? ` · ${l.subphase}` : ''}</small></span>
+              <span className="pmT"><b>{KIND_LABEL[d.kind] ?? 'Entry'}{d.ref_no && showRef(d.kind) ? ` · ${d.ref_no}` : ''}{d.party ? ` · ${d.party}` : ''}</b><small>{niceDate(d.doc_date)}{l.subphase ? ` · ${l.subphase}` : ''}</small></span>
               <b className="mono pmQ">{x > 0 ? '+' : '−'}{fmt(Math.abs(x))}</b>
             </div>
           ))}

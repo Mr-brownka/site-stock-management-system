@@ -41,7 +41,7 @@ export function PhoneRecordsHub() {
   const sub: Record<string, string> = {
     'rec-deliveries': `${week(['delivery'])} this week`,
     'rec-transfers': `${week(['transfer_in', 'transfer_out'])} this week`,
-    'rec-issued': docsToday.some((d) => d.kind === 'issue') ? 'Today’s register started' : 'None today yet',
+    'rec-issued': docsToday.some((d) => d.kind === 'issue') ? 'Issued today' : 'None today yet',
     'rec-returns': `${week(['return'])} this week`,
     dashboard: `${balances.filter((b) => b.balance > 0).length} in store`,
     reports: `${REPORTS.length} reports`,
@@ -107,9 +107,9 @@ export function PhoneRecList({ recKey: key }: { recKey: RecKey }) {
 
   const title = (d: Doc) => key === 'deliveries' ? d.party || 'Delivery'
     : key === 'transfers' ? `${d.kind === 'transfer_out' ? 'Sent to' : 'Received from'} ${d.party || '…'}`
-      : key === 'issued' ? (d.doc_date === day ? 'Today’s register' : 'Issuance register')
+      : key === 'issued' ? (d.doc_date === day ? 'Issued today' : 'Issued')
         : `Returned${d.gemba ? ` from ${d.gemba}` : d.lines[0]?.subphase ? ` from ${d.lines[0].subphase}` : ''}`;
-  const ref = (d: Doc, sys: string) => key === 'deliveries' ? d.zoho_grn || d.ref_no || sys : key === 'issued' ? `MIR · ${shortDay(d.doc_date).split(' ').slice(1).join(' ')}` : d.ref_no || sys;
+  const ref = (d: Doc, sys: string) => key === 'deliveries' ? d.zoho_grn || d.ref_no || sys : key === 'issued' ? `Issued · ${shortDay(d.doc_date).split(' ').slice(1).join(' ')}` : d.ref_no || sys;
   const pill = (d: Doc) => d.outbox ? <span className={`obTag ${d.outbox === 'refused' ? 'bad' : ''}`}>{d.outbox === 'refused' ? 'Not sent' : 'Waiting to send'}</span> : key === 'deliveries' ? (d.source === 'zoho' ? <Pill tone="blue">Zoho</Pill> : <Pill tone="grey">Hand-entered</Pill>)
     : key === 'transfers' ? (d.kind === 'transfer_out' ? <Pill tone="amb">Sent out</Pill> : <Pill tone="ok">Received</Pill>)
       : key === 'issued' ? (d.doc_date === day && !submission ? <Pill tone="amb">Not submitted</Pill> : <Pill tone="ok">{d.lines.length} item{d.lines.length === 1 ? '' : 's'}</Pill>)
@@ -126,7 +126,7 @@ export function PhoneRecList({ recKey: key }: { recKey: RecKey }) {
       ...(key === 'deliveries' ? [['Delivery note', d.ref_no], ['Purchase order', d.zoho_po], ['GRN', d.zoho_grn], ['Vehicle / driver', d.vehicle]] as [string, string | null | undefined][] : []),
       ...(key === 'transfers' ? [[d.kind === 'transfer_out' ? 'Sent to' : 'Received from', d.party], ['Transfer note', d.ref_no], ['Authorised by', d.authorised_by], ['Vehicle', d.vehicle]] as [string, string | null | undefined][] : []),
       ...(key === 'issued' ? [['Store keeper', d.authorised_by], ['Activity', d.activity], ['Gemba', d.gemba]] as [string, string | null | undefined][] : []),
-      ...(key === 'returns' ? [['Card', d.ref_no], ['Gemba', d.gemba], ['Returned by', d.party]] as [string, string | null | undefined][] : []),
+      ...(key === 'returns' ? [['Gemba', d.gemba], ['Returned by', d.party]] as [string, string | null | undefined][] : []),
       ['Ref', open.sys],
     ];
     const zoho = d.zoho_receive_id || d.zoho_po || d.zoho_grn;
@@ -136,7 +136,7 @@ export function PhoneRecList({ recKey: key }: { recKey: RecKey }) {
         {modal}
         <PTop title={ref(d, open.sys)} back={() => setOpen(null)} right={pill(d)} />
         <section className="pDHead">
-          <small className="pKick">{({ deliveries: 'Delivery', issued: 'Issuance register', returns: 'Return', transfers: 'Transfer' } as Record<RecKey, string>)[key]} · {shortDay(d.doc_date)}</small>
+          <small className="pKick">{({ deliveries: 'Delivered', issued: 'Issued', returns: 'Returned', transfers: 'Transferred' } as Record<RecKey, string>)[key]} · {shortDay(d.doc_date)}</small>
           <h2>{title(d)}</h2>
           <dl className="pKv">{kv.filter(([, v]) => v).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
         </section>

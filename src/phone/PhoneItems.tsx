@@ -4,11 +4,11 @@ import { fmt } from '../components/ui';
 import { canEdit } from '../lib/access';
 import { weekStart } from '../lib/projectWeek';
 import { useData } from '../lib/store';
-import { delta, type Doc } from '../lib/types';
+import { delta, type Doc, MOVE_WORD } from '../lib/types';
 import { Chips, FlipNum, Pill, PSearch, PTop, shortDay, timeOf, useSub } from './PhoneUI';
 
 type F = 'all' | 'low' | 'today';
-const KIND: Record<string, string> = { delivery: 'Delivery', issue: 'Register', return: 'Return', transfer_in: 'Transfer in', transfer_out: 'Transfer out', correction: 'Correction', opening: 'Stock take' };
+const KIND = MOVE_WORD;
 
 /** All items on the phone: cards with the balance big; tapping one opens the item with its moves. */
 export function PhoneItems() {

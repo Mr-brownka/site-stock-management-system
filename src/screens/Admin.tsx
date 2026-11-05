@@ -12,12 +12,13 @@ import { ask, toast } from '../components/feedback';
 import { StartTraining } from '../components/Training';
 import { PAGES, ROLE_DEFAULT, ROLE_NAME, ROLES } from '../lib/access';
 import { demoUrl } from '../lib/guest';
+import { MOVE_WORD, showRef } from '../lib/types';
 import { describeStructure, subphasesFor } from '../lib/structure';
 
 type Sec = 'overview' | 'approvals' | 'sites' | 'people' | 'items' | 'zoho' | 'activity';
 type SiteTab = 'overview' | 'list' | 'reorder' | 'building' | 'manager' | 'zoho';
 const ROLE_LABEL = ROLE_NAME;
-const KIND_LABEL: Record<string, string> = { opening: 'Opening count', delivery: 'Delivery', issue: 'Card', return: 'Return', transfer_in: 'Transfer in', transfer_out: 'Transfer out', correction: 'Correction' };
+const KIND_LABEL = MOVE_WORD;
 const KIND_DOT: Record<string, string> = { opening: '#1B2120', delivery: '#1F7A4D', issue: '#B54708', return: '#2E5AAC', transfer_in: '#6B46C1', transfer_out: '#6B46C1', correction: '#8A5000' };
 const PREFIX: Record<string, string> = { delivery: 'DLV', issue: 'ISS', return: 'RET', transfer_in: 'TRF', transfer_out: 'TRF' };
 const AV = ['#2C3533', '#2E5AAC', '#1F7A4D', '#B54708', '#6B46C1', '#8A5000'];
@@ -472,7 +473,7 @@ function Approvals({ d, sel, setSel, busy, act }: { d: Data; sel: string | null;
                 <div className="adDIn" key={cur.id}>
                   <button className="backPill adPhoneBack" onClick={() => setSel(null)}><Icon name="arrowL" size={16} />All requests</button>
                   <span className="adKick">Fix an entry · {name(c.site_id)}</span>
-                  <h2>{doc ? `${KIND_LABEL[doc.kind] ?? 'Entry'}${doc.ref_no ? ` ${doc.ref_no}` : ''} · ${niceDate(doc.doc_date)}` : 'Entry'}</h2>
+                  <h2>{doc ? `${KIND_LABEL[doc.kind] ?? 'Entry'}${doc.ref_no && showRef(doc.kind) ? ` ${doc.ref_no}` : ''} · ${niceDate(doc.doc_date)}` : 'Entry'}</h2>
                   <small className="muted">Asked by {person.get(c.created_by)?.full_name ?? 'the store'} · {ago(c.created_at)} · “{c.reason}”{c.note ? ` · ${c.note}` : ''}</small>
                   <div className="adEdits">
                     <div className="th"><span>As entered → as fixed</span></div>
@@ -506,7 +507,7 @@ function Approvals({ d, sel, setSel, busy, act }: { d: Data; sel: string | null;
               <div className="adDIn" key={cur.id}>
                 <button className="backPill adPhoneBack" onClick={() => setSel(null)}><Icon name="arrowL" size={16} />All requests</button>
                 <span className="adKick">{c.kind === 'fix' ? 'Fix an entry' : 'Recount'} · {name(c.site_id)}</span>
-                <h2>{doc ? `${KIND_LABEL[doc.kind] ?? 'Entry'}${doc.ref_no ? ` ${doc.ref_no}` : ''} · ${niceDate(doc.doc_date)}` : c.kind === 'recount' ? `${it?.name} · shelf count` : it?.name}</h2>
+                <h2>{doc ? `${KIND_LABEL[doc.kind] ?? 'Entry'}${doc.ref_no && showRef(doc.kind) ? ` ${doc.ref_no}` : ''} · ${niceDate(doc.doc_date)}` : c.kind === 'recount' ? `${it?.name} · shelf count` : it?.name}</h2>
                 <small className="muted">Asked by {person.get(c.created_by)?.full_name ?? 'the store'} · {ago(c.created_at)} · “{c.reason}”{c.note ? ` · ${c.note}` : ''}</small>
                 <div className="adChange">
                   <span>{it?.name}</span><s className="mono">{fmt(c.from_qty)}</s><span aria-hidden>→</span><b className="mono">{fmt(c.to_qty)} {it?.unit}</b>
@@ -923,19 +924,21 @@ function People({ d, me, busy, act }: { d: Data; me: User; busy: string; act: Ac
 </span>
                 <span>{f === 'off' ? <span className="stPill idle">{p.status === 'removed' ? 'Removed' : 'Declined'}</span> : <span className="muted">{ago(p.decided_at ?? p.created_at)}</span>}</span>
                 <span className="muted">{ago(lastSeen(p.id))}</span>
-                <span className="adRowActs">{f !== 'off' && p.email !== me.email && p.access === 'demo' && <button className="adSend demo" title={`Send ${p.full_name.split(' ')[0]} their own demo link on WhatsApp (no sign-in)`} aria-label={`Send ${p.full_name} their demo link`}
+                <span className="adRowActs">{f !== 'off' && p.email !== me.email && <button className={`adSend ${p.access === 'demo' ? 'demo' : ''}`} title={`Send ${p.full_name.split(' ')[0]} their own Ostock link on WhatsApp (no password)`} aria-label={`Send ${p.full_name} their link`}
                   onClick={() => { const w = window.open('about:blank', '_blank'); act(p.id, async () => {
-                    // Their own link: the token says who they are, so the demo greets them by the name saved here.
+                    // Their own link: it says who they are, so they go straight in (demo people open the safe copy).
                     let token = p.demo_token;
                     if (!token) { token = crypto.randomUUID(); await api.admin.setProfile(p.id, { demo_token: token }); }
                     const first = p.full_name.split(' ')[0];
-                    const text = `Hello ${first}, here is your own Ostock demo. Open it and you go straight in, no sign-in needed:\n${demoUrl(token)}`;
+                    const text = p.access === 'demo'
+                      ? `Hello ${first}, here is your own Ostock demo. Open it and you go straight in, no sign-in needed:\n${demoUrl(token)}`
+                      : `Hello ${first}, here is your own Ostock link. Open it and you go straight in, no password needed. Keep it to yourself: it opens Ostock as you.\n${demoUrl(token)}`;
                     const wa = p.phone ? `https://wa.me/${waNumber(p.phone)}?text=${encodeURIComponent(text)}` : `https://wa.me/?text=${encodeURIComponent(text)}`;
                     if (w) w.location.href = wa; else location.href = wa;
-                  }).catch(() => w?.close()); }}><Icon name="mail" size={15} />Send demo</button>}
-                {f !== 'off' && p.email !== me.email && p.access !== 'demo' && <button className="adSend" title={`Send ${p.full_name.split(' ')[0]} the login details on WhatsApp`} aria-label={`Send ${p.full_name} the login details`}
-                  onClick={() => { const cur = issued[p.id]; if (cur) { setPwFor(null); setShare({ name: p.full_name, password: cur.password, phone: p.phone }); window.scrollTo({ top: 0, behavior: 'smooth' }); } else { setPwFor({ id: p.id, value: newPassword(), show: true }); toast(`${p.full_name.split(' ')[0]}’s password isn’t known · save a new one and the message opens`, 'warn'); } }}><Icon name="mail" size={15} />Send</button>}
+                  }).catch(() => w?.close()); }}><Icon name="mail" size={15} />Send link</button>}
                 <Dots items={f === 'off' ? [{ label: 'Give access back', onClick: () => act(p.id, () => api.admin.setProfile(p.id, { status: 'approved' })) }] : [
+                  ...(p.demo_token ? [{ label: 'Copy their link', onClick: () => { navigator.clipboard.writeText(demoUrl(p.demo_token!)).then(() => toast('Link copied'), () => toast(demoUrl(p.demo_token!), 'warn')); } }] : []),
+                  ...(p.demo_token && p.email !== me.email ? [{ label: 'Switch off their link', danger: true, onClick: async () => { if (await ask({ title: `Switch off ${p.full_name.split(' ')[0]}’s link?`, body: <p>The link they have stops working at once. Use “Send link” to give them a new one.</p>, yes: 'Switch it off', tone: 'danger' })) act(p.id, () => api.admin.setProfile(p.id, { demo_token: null })).then(() => toast('Old link switched off')); } }] : []),
                   { label: 'Password…', onClick: () => { setPwFor({ id: p.id, value: issued[p.id]?.password ?? '', show: false }); } },
                   { label: 'Edit', onClick: () => setEdit({ id: p.id, full_name: p.full_name, phone: p.phone ?? '', site_id: p.head_office ? '__ho' : p.site_id ?? d.sites[0]?.id ?? '', role: p.role }) },
                   ...(p.email !== me.email ? [{ label: 'Delete account', danger: true, onClick: async () => { if (await ask({ title: `Delete ${p.full_name}’s account?`, body: <p>The account is gone for good and the name is free to use again. If they have entries on record, use “Remove access” instead so the entries keep their name.</p>, yes: 'Delete account', tone: 'danger' })) act(p.id, () => api.admin.deletePerson(p.id)).then(() => toast(`${p.full_name}’s account is deleted`)); } }] : []),
@@ -1229,7 +1232,7 @@ function events(d: Data): Event[] {
     const lines = doc.lines.slice(0, 2).map((l) => `${itemById.get(l.item_id)?.name ?? 'Item'} ${fmt(l.qty)} ${itemById.get(l.item_id)?.unit ?? ''}`.trim()).join(', ');
     const zoho = doc.source === 'zoho';
     ev.push({ at: doc.created_at, site: siteName.get(doc.site_id) ?? '', dot: KIND_DOT[doc.kind] ?? '#75807C',
-      text: `${KIND_LABEL[doc.kind] ?? doc.kind}${zoho ? ' from Zoho' : ''}${doc.ref_no ? ` · ${doc.ref_no}` : ''}${doc.party ? ` · ${doc.party}` : ''} · ${lines}${doc.lines.length > 2 ? ` +${doc.lines.length - 2} more` : ''}`,
+      text: `${KIND_LABEL[doc.kind] ?? doc.kind}${zoho ? ' from Zoho' : ''}${doc.ref_no && showRef(doc.kind) ? ` · ${doc.ref_no}` : ''}${doc.party ? ` · ${doc.party}` : ''} · ${lines}${doc.lines.length > 2 ? ` +${doc.lines.length - 2} more` : ''}`,
       who: zoho ? 'Zoho' : person.get(doc.created_by)?.full_name ?? '' });
   });
   d.subs.forEach((s) => ev.push({ at: s.submitted_at, site: siteName.get(s.site_id) ?? '', dot: '#145236', text: 'Submitted the day', who: '' }));
