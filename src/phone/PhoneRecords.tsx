@@ -11,7 +11,7 @@ import { openFixFor } from '../lib/fixLink';
 import { weekStart } from '../lib/projectWeek';
 import { REPORTS } from '../lib/reports';
 import { useData, type Screen } from '../lib/store';
-import { useSignal } from '../lib/signals';
+import { signal, useSignal } from '../lib/signals';
 import { EntryHistory } from '../components/History';
 import type { Doc } from '../lib/types';
 import type { RecKey } from '../screens/Records';
@@ -27,8 +27,7 @@ const SECTIONS: { screen: Screen; label: string; icon: string }[] = [
   { screen: 'reports', label: 'Reports', icon: 'bars' },
 ];
 
-/** Records on the phone (design C): a green "this week" card, then six coloured cards. The one last opened stays green. */
-const TONE: Record<string, string> = { 'rec-deliveries': 'green', 'rec-transfers': 'purple', 'rec-issued': 'orange', 'rec-returns': 'blue', dashboard: 'ink', reports: 'amber' };
+/** Records on the phone (design A, 5 Nov). */
 export function PhoneRecordsHub() {
   const { go, recent, docsToday, day, balances, site, user } = useData();
   const newDel = useNewZohoDeliveries();
@@ -47,26 +46,32 @@ export function PhoneRecordsHub() {
     reports: `${REPORTS.length} reports`,
   };
   const open = (s: Screen) => { try { sessionStorage.setItem(LAST, s); } catch { /* ignore */ } go(s); };
+  void last;
+  const nIn = lines(['delivery', 'transfer_in']), nOut = lines(['issue', 'transfer_out']), nBack = lines(['return']);
+  // Records (design A): search, this week as three numbers with one thin bar, then the sections in one clean list.
   return (
-    <div className="pPage pGrey pRecHub">
-      <header className="pHello"><span><small>{site || 'Store'} · {shortDay(day)}</small><b className="big">Records</b></span></header>
-      <section className="pWeekCard">
-        <small>This week at {site || 'the store'}</small>
-        <div>
-          <span className="in"><b className="mono"><FlipNum value={lines(['delivery', 'transfer_in'])} /></b><small>items came in</small></span>
-          <span className="out"><b className="mono"><FlipNum value={lines(['issue', 'transfer_out'])} /></b><small>went out</small></span>
-          <span className="back"><b className="mono"><FlipNum value={lines(['return'])} /></b><small>came back</small></span>
+    <div className="pPage bPage">
+      <header className="bHead"><small>{site || 'Store'} · {shortDay(day)}</small><h1>Records</h1></header>
+      <button type="button" className="bSearch" onClick={() => signal('palette')}><Icon name="search" size={18} />Search deliveries, items, notes</button>
+      <section className="bWeek" aria-label="This week">
+        <small>This week</small>
+        <div className="bWeekN">
+          <div><b><FlipNum value={nIn} /></b><span>came in</span></div>
+          <div><b><FlipNum value={nOut} /></b><span>went out</span></div>
+          <div><b><FlipNum value={nBack} /></b><span>came back</span></div>
         </div>
+        <div className="bWeekBar" aria-hidden="true">{nIn + nOut + nBack > 0 && <><i className="in" style={{ flex: nIn }} /><i className="out" style={{ flex: nOut }} /><i className="bk" style={{ flex: nBack }} /></>}</div>
       </section>
-      <div className="pHubGrid pHubC">
-        {SECTIONS.filter((s) => canSee(user, s.screen)).map((s, i) => (
-          <button key={s.screen} className={`pHubRow ${TONE[s.screen]} ${last === s.screen ? 'on' : ''}`} style={{ animationDelay: `${i * 45}ms` }} onClick={() => open(s.screen)}>
-            <span className="pHubIc"><Icon name={s.icon} size={20} /></span>
-            <span className="pHubT"><b>{s.label}</b><small>{sub[s.screen]}</small></span>
-            {s.screen === 'rec-deliveries' && newDel > 0 && <i className="pNewDot" aria-label={`${newDel} new from Zoho`} />}
+      <nav className="bList" aria-label="Records">
+        {SECTIONS.filter((x) => canSee(user, x.screen)).map((x) => (
+          <button key={x.screen} type="button" className="bRow" onClick={() => open(x.screen)}>
+            <span className="bIc"><Icon name={x.icon} size={18} /></span>
+            <span className="bT"><b>{x.label}</b><small>{sub[x.screen]}</small></span>
+            {x.screen === 'rec-deliveries' && newDel > 0 && <i className="bDot" aria-label={`${newDel} new from Zoho`} />}
+            <Icon name="chevR" size={17} />
           </button>
         ))}
-      </div>
+      </nav>
     </div>
   );
 }

@@ -195,26 +195,31 @@ export function StockTake() {
         </section>
       </div>
     );
+    // Stock take (design A, 5 Nov): one card with the last count and "Count now", two small tiles, then past counts.
     return (
-      <div className="pPage pGrey pStHome">
+      <div className="pPage bPage">
         {dialogs}
-        <PTop title={first ? 'First stock take' : 'Stock take'} back={false} />
-        <div className="pStLast"><small>Last count</small><b>{last ? (ago <= 0 ? 'Today' : ago === 1 ? 'Yesterday' : `${ago} days ago`) : 'No count yet'}{last && <small> · {dShort(last.count_date)}</small>}</b></div>
-        <div className="pTiles pStTiles">
-          {editable && <button className="pTileB pStGo" disabled={!sheet?.length} onClick={startTyping}><span className="pTIc"><Icon name="clip" size={20} /></span><b>{hasDraft ? 'Continue the count' : 'Count now'}</b><small>{sheet ? `${sheet.length} items` : 'Loading…'}</small></button>}
-          <button className={`pTileB pStLive ${editable ? '' : 'wide'}`} onClick={() => setSub('live')}><span className="pTIc"><Icon name={editable ? 'box' : 'download'} size={20} /></span><b>{editable ? 'Live balances' : 'Download live balances'}</b><small>{editable ? 'Download or email' : 'Excel or PDF, as of now'}</small></button>
+        <header className="bHead"><small>{site || 'Store'} · {dShort(realToday)}</small><h1>{first ? 'First stock take' : 'Stock take'}</h1></header>
+        <section className="bHero">
+          <small>Last count</small>
+          <b>{last ? (ago <= 0 ? 'Today' : ago === 1 ? 'Yesterday' : `${ago} days ago`) : 'No count yet'}</b>
+          <span>{last ? `${dShort(last.count_date)} · ${last.lines.length} items${last.counted_by ? ` · ${last.counted_by}` : ''}` : 'Count the store once to start.'}</span>
+          {editable && <button type="button" className="bHeroBtn" disabled={!sheet?.length} onClick={startTyping}><Icon name="clip" size={18} />{hasDraft ? 'Continue the count' : 'Count now'}<em>{sheet ? `${sheet.length} items` : 'Loading…'}</em></button>}
+        </section>
+        <div className="bTwo">
+          <button type="button" className={`bMini ${editable ? '' : 'wide'}`} onClick={() => setSub('live')}><Icon name="download" size={18} /><b>Live balances</b><small>Excel, PDF or email</small></button>
+          {editable && <button type="button" className="bMini" onClick={() => setView('upload')}><Icon name="upload" size={18} /><b>Upload a count</b><small>From Excel</small></button>}
         </div>
         {editable && list && !list.length && <div className="pNote">The admin lists this store’s items first. Then you can count here.</div>}
         {editable && hasDraft && <div className="pNote">An unfinished count is saved on this device. <button className="pLink" onClick={dropDraft}>Discard it</button></div>}
-        {editable && <button className="pUpload" onClick={() => setView('upload')}><Icon name="upload" size={16} />Have the count in Excel? Upload the file</button>}
-        <div className="pSetH">Past counts</div>
-        <section className="pSetCard">
+        <div className="bGh">Past counts</div>
+        <section className="bList">
           {takes === null && <Skel rows={3} />}
           {takes && !takes.length && <div className="pEmpty">No stock takes yet.</div>}
           {takes && [...takes].reverse().map((t) => (
-            <button key={t.id} className="pSetRow pTakeRow" onClick={() => setSub(t.id)}>
-              <span className="pRowT"><b>{t.count_date === realToday ? 'Today' : dShort(t.count_date)}{t.end_time ? `, ${t.end_time}` : ''}</b><small>{refOf(t)} · {t.lines.length} items{t.counted_by ? ` · ${t.counted_by}` : ''}</small></span>
-              {t.is_first ? <Pill tone="grey">Opening</Pill> : <Pill tone="ok">{t.status === 'confirmed' ? 'Confirmed' : 'Recorded'}</Pill>}<Icon name="chevR" size={17} />
+            <button key={t.id} type="button" className="bRow" onClick={() => setSub(t.id)}>
+              <span className="bT"><b>{t.count_date === realToday ? 'Today' : dShort(t.count_date)}{t.end_time ? `, ${t.end_time}` : ''}</b><small>{refOf(t)} · {t.lines.length} items{t.counted_by ? ` · ${t.counted_by}` : ''}</small></span>
+              {t.is_first ? <span className="bGrey">Opening</span> : <span className="bOkChip">{t.status === 'confirmed' ? 'Confirmed' : 'Recorded'}</span>}<Icon name="chevR" size={17} />
             </button>
           ))}
         </section>

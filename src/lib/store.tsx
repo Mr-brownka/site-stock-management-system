@@ -6,6 +6,7 @@ import { addDays, today, weekday } from './dates';
 import { holidayName } from './holidays';
 import type { Balance, Doc, Draft, Item, StepKey, StepState, Structure, Submission, User, WeekInfo } from './types';
 import { subphasesFor } from './structure';
+import { useBrand } from './brand';
 
 export const STEPS: { key: StepKey; n: number; label: string; desc: string; kinds: Doc['kind'][]; screen: Screen }[] = [
   { key: 'deliveries', n: 1, label: 'Deliveries', desc: 'Supplier, delivery note, items received', kinds: ['delivery'], screen: 'deliveries' },
@@ -91,6 +92,7 @@ export function DataProvider({ user, go, signOut, openAdmin, children }: { user:
   const catchUp = day !== realToday;
   const [site, setSite] = useState('');
   const [company, setCompany] = useState('');
+  useBrand(company);
   const [structure, setStructure] = useState<Structure | null>(null);
   const [items, setItems] = useState<Item[] | null>(null);
   const [balances, setBalances] = useState<Balance[]>([]);
